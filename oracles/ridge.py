@@ -27,13 +27,16 @@ class RidgeRegressionOracle(BaseOracle):
     """Class defining the oracles for the L^2 regularized least squares
     loss."""
 
-    def __init__(self, X, y, batch_size=1, reg=False):
-        self.n_samples = X.shape[0]
-        self.variable_shape = (X.shape[1],)
-        self.batch_size = batch_size
+    def __init__(self, X, y, reg=False):
+        super().__init__()
+
         self.X = X
         self.y = y
         self.reg = reg
+
+        # attributes
+        self.n_samples, n_features = X.shape
+        self.variables_shape = ((n_features,), (n_features,))
 
     def value(self, theta, lmbda, idx):
         tmp = ls_loss(self.X[idx], self.y[idx], theta)

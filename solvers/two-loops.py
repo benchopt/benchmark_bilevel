@@ -1,15 +1,21 @@
 
 from benchopt import BaseSolver
+from benchopt.stopping_criterion import SufficientProgressCriterion
 
 
 class Solver(BaseSolver):
     """Two loops solver."""
     name = 'two-loop'
 
-    stop_strategy = 'callback'
+    stopping_criterion = SufficientProgressCriterion(
+        patience=7, strategy='callback'
+    )
 
     # any parameter defined here is accessible as a class attribute
-    parameters = {'n_inner_step': [10, 100, 1000]}
+    parameters = {
+        'n_inner_step': [10, 100, 1000],
+        'batch_size': [64, 128, 'all']
+    }
 
     def set_objective(self, f_train, f_test, inner_var0, outer_var0):
         self.f_inner = f_train
@@ -20,7 +26,9 @@ class Solver(BaseSolver):
     def solver_inner(self, inner_var, outer_var):
         L = self.f_inner.lipschitz_inner(inner_var, outer_var)
         for _ in range(self.n_inner_step):
-            grad_inner = self.f_inner.get_grad_inner_var(inner_var, outer_var)
+            grad_inner = self.f_inner.get_batch_grad_inner_var(
+                inner_var, outer_var, batch_size=self.batch_size
+            )
             inner_var -= 1/L * grad_inner
 
         return inner_var
@@ -29,19 +37,18 @@ class Solver(BaseSolver):
         outer_step_size = 1
         outer_var = self.outer_var0.copy()
         inner_var = self.inner_var0.copy()
+        callback((inner_var, outer_var))
         inner_var = self.solver_inner(inner_var, outer_var)
         while callback((inner_var, outer_var)):
-            outer_grad_inner_var, outer_grad_outer_var = self.f_outer.get_grad(
-                inner_var, outer_var
+            grad_in, grad_out = self.f_outer.get_batch_grad(
+                inner_var, outer_var, batch_size=self.batch_size
             )
 
-            inverse_hessian = self.f_inner.get_inverse_hessian_vector_prod(
-                inner_var, outer_var, outer_grad_inner_var
+            *_, implicit_grad = self.f_inner.get_batch_oracles(
+                inner_var, outer_var, grad_in, batch_size=self.batch_size,
+                inverse='cg'
             )
-            cross_inverse_hessian = self.f_inner.get_cross(
-                inner_var, outer_var, inverse_hessian
-            )
-            grad_outer_var = outer_grad_outer_var - cross_inverse_hessian
+            grad_outer_var = grad_out - implicit_grad
 
             outer_var -= outer_step_size * grad_outer_var
             inner_var = self.solver_inner(inner_var, outer_var)
@@ -50,3 +57,6 @@ class Solver(BaseSolver):
 
     def get_result(self):
         return self.beta
+
+    def line_search(self, outer_var, grad):
+        pass

@@ -1,7 +1,10 @@
-import numpy as np
-from sklearn.model_selection import train_test_split
-
 from benchopt import BaseDataset
+from benchopt import safe_import_context
+
+
+with safe_import_context() as import_ctx:
+    import numpy as np
+    from sklearn.model_selection import train_test_split
 
 
 class Dataset(BaseDataset):
@@ -26,7 +29,7 @@ class Dataset(BaseDataset):
 
         rng = np.random.RandomState(self.random_state)
         X = rng.randn(self.n_samples, self.n_features)
-        y = rng.randn(self.n_samples)
+        y = rng.randn(self.n_samples) > 0
 
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, random_state=rng

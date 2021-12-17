@@ -5,15 +5,6 @@ from scipy.optimize import fmin_l_bfgs_b
 from sklearn.utils import check_random_state
 
 
-METHODS = [
-    'value', 'grad_inner_var', 'grad_outer_var', 'grad',
-    'cross', 'hvp', 'inverse_hessian_vector_prod', 'oracles',
-    'inner_var_star'
-]
-GET_METHODS = [f"get_{m}" for m in METHODS]
-GET_BATCH_METHODS = [f"get_batch_{m}" for m in METHODS]
-
-
 class BaseOracle(ABC):
     """A base class to compute all the oracles of a function needed in order
     to run stochastic first order bilevel optimization procedures.
@@ -42,7 +33,7 @@ class BaseOracle(ABC):
       the Hessian (with respect to the inner variable) at inner_var and
       outer_var estimated on the indices contained in idx and a vector v.
 
-    - `inverse_hessian_vector_prod(inner_var, outer_var, v, idx): should
+    - `inverse_hvp(inner_var, outer_var, v, idx): should
       return the product between the inverse Hessian (with respect to the inner
       variable) at inner_var and outer_var estimated on the indices contained
       in idx and a vector v.
@@ -50,7 +41,10 @@ class BaseOracle(ABC):
     Note that the batch size should be defined in __init__.
     """
     # Shape of the variable for the considered problem
-    variable_shape = None
+    variables_shape = None
+
+    def __init__(self):
+        self.memory = {}
 
     @abstractmethod
     def value(self, inner_var, outer_var, idx):
@@ -73,28 +67,34 @@ class BaseOracle(ABC):
         pass
 
     @abstractmethod
-    def inverse_hessian_vector_prod(self, inner_var, outer_var, v, idx):
+    def inverse_hvp(self, inner_var, outer_var, v, idx, approx='cg'):
         pass
 
     def grad(self, inner_var, outer_var, idx):
         return self.grad_inner_var(inner_var, outer_var, idx), \
             self.grad_outer_var(inner_var, outer_var, idx)
 
-    def oracles(self, inner_var, outer_var, v, idx):
-        return self.value(inner_var, outer_var, idx), \
-            self.grad_inner_var(inner_var, outer_var, idx), \
-            self.cross(inner_var, outer_var, v, idx), \
-            self.hvp(inner_var, outer_var, v, idx)
+    def oracles(self, inner_var, outer_var, v, idx, inverse='id'):
+        """Compute all the quantities together on the same batch."""
+        val = self.value(inner_var, outer_var, idx)
+        grad = self.grad_inner_var(inner_var, outer_var, idx)
+        hvp = self.hvp(inner_var, outer_var, v, idx)
+        inv_hvp = self.inverse_hvp(
+            inner_var, outer_var, v, idx, approx=inverse
+        )
+        implicit_grad = self.cross(inner_var, outer_var, inv_hvp, idx)
+        return val, grad, hvp, implicit_grad
 
     def inner_var_star(self, outer_var, idx):
-        var_shape_flat = np.prod(self.variable_shape)
+        inner_shape, outer_shape = self.variables_shape
+        var_shape_flat = np.prod(inner_shape)
 
         def func(inner_var):
-            inner_var = inner_var.reshape(*self.variable_shape)
+            inner_var = inner_var.reshape(*inner_shape)
             return self.value(inner_var, outer_var, idx)
 
         def fprime(inner_var):
-            inner_var = inner_var.reshape(*self.variable_shape)
+            inner_var = inner_var.reshape(*inner_shape)
             return self.grad_inner_var(inner_var, outer_var, idx)
 
         inner_var_star, _, _ = fmin_l_bfgs_b(
@@ -107,31 +107,80 @@ class BaseOracle(ABC):
         inner_var_star = self.inner_var_star(outer_var, idx=idx)
         return self.value(inner_var_star, outer_var, idx=idx)
 
-    def set_batch_size(self, batch_size):
-        if batch_size == 'all':
-            self.batch_size = self.n_samples
-        else:
-            self.batch_size = batch_size
-
-    def __getattribute__(self, name):
+    def __getattr__(self, name):
         # construct get_* and get_batch_* for all methods in this list:
-        if name in GET_METHODS:
-            method_name = name.replace('get_', '')
 
-            def get_m(self, *args, **kargs):
-                idx = np.arange(self.n_samples)
-                return getattr(self, method_name)(*args, idx)
-            return get_m.__get__(self, BaseOracle)
+        if name.startswith('get_batch_'):
+            name = name.replace('get_batch_', '')
+            method = getattr(self, name)
+            return _get_batch_method(method, name).__get__(self, BaseOracle)
 
-        if name in GET_BATCH_METHODS:
-            method_name = name.replace('get_batch', '')
+        if name.startswith('get_'):
+            method = getattr(self, name.replace('get_', ''))
 
-            def get_batch_m(self, *args, random_state=None, **kargs):
-                rng = check_random_state(random_state)
-                idx = rng.choice(
-                    range(self.n_samples), size=self.batch_size, replace=False
-                )
-                return getattr(self, method_name)(*args, idx)
-            return get_batch_m.__get__(self, BaseOracle)
+            return _get_full_batch_method(method).__get__(self, BaseOracle)
 
         return super().__getattribute__(name)
+
+
+def _get_full_batch_method(method):
+
+    def get_full_batch(self, *args, **kwargs):
+        idx = np.arange(self.n_samples)
+        return method(*args, idx=idx, **kwargs)
+    return get_full_batch
+
+
+def _get_batch_method(method, name):
+    def get_batch(self, *args, batch_size=1, vr='none', random_state=None,
+                  **kwargs):
+        rng = check_random_state(random_state)
+        if batch_size is None or batch_size == 'all':
+            batch_size = self.n_samples
+
+        assert vr in ['none', 'saga'], (
+            f"'vr' should be in ['none', 'saga']. Got '{vr}'."
+        )
+        use_vr = vr != 'none'
+        memory, vr_res = None, None
+
+        if use_vr:
+            assert batch_size == 1
+            vr_res, memory = self.memory.get(name, (None, None))
+            # Initialize the memory if it does not exists
+            if memory is None:
+                memory = [
+                    method(*args, idx=i, **kwargs)
+                    for i in range(self.n_samples)
+                ]
+                params = memory[0]
+                if isinstance(params, tuple):
+                    all_memory, vr_res = [], []
+                    for j in range(len(params)):
+                        all_memory.append(np.array([m[j] for m in memory]))
+                        vr_res.append(all_memory[j].mean(axis=0))
+                    vr_res = tuple(vr_res)
+                    memory = tuple(all_memory)
+                else:
+                    memory = np.array(memory)
+                    vr_res = memory.mean(axis=0)
+                self.memory[name] = (vr_res, memory)
+                return vr_res
+
+        idx = rng.choice(
+            range(self.n_samples), size=batch_size, replace=False
+        )
+        res = method(*args, idx=idx, **kwargs)
+
+        if vr == 'none':
+            return res
+
+        i = idx[0]
+        for j in range(len(res)):
+            old_mem = memory[j][i]
+            vr_res[j][:] += res[j] - old_mem
+            memory[j][i] = res[j]
+
+        return vr_res
+
+    return get_batch

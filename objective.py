@@ -16,11 +16,10 @@ class Objective(BaseObjective):
     name = "Bi-level Hyperparameter Optimization"
 
     parameters = {
-        'model': ['logreg', 'ridge'],
-        'random_state': [0, 1, 2]
+        'model': ['logreg', 'ridge']
     }
 
-    def __init__(self, model='ridge', random_state=None):
+    def __init__(self, model='ridge', random_state=29):
         if model == 'ridge':
             self.oracle = RidgeRegressionOracle
         elif model == 'logreg':
@@ -41,8 +40,10 @@ class Objective(BaseObjective):
         )
 
         rng = check_random_state(self.random_state)
-        self.inner_var0 = rng.randn(*self.f_train.variable_shape)
-        self.outer_var0 = rng.randn(*self.f_test.variable_shape)
+        inner_shape, outer_shape = self.f_train.variables_shape
+        self.inner_var0 = rng.randn(*inner_shape)
+        # self.outer_var0 = rng.randn(1)[0]  # *self.f_test.variable_shape)
+        self.outer_var0 = rng.randn(*outer_shape)
 
     def compute(self, beta):
         inner_var, outer_var = beta
