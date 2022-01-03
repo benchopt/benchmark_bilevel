@@ -6,10 +6,17 @@ from sklearn.preprocessing import OrdinalEncoder
 from sklearn.utils.extmath import safe_sparse_dot
 from scipy.sparse import linalg as splinalg
 
+from numba import njit
+from numba import float64, int64, types    # import the types
+from numba.experimental import jitclass
 
 from .base import BaseOracle
 
+import warnings
+warnings.filterwarnings('error', category=RuntimeWarning)
 
+
+@njit
 def logsig(x):
     """Computes the log-sigmoid function component-wise.
 
@@ -30,6 +37,7 @@ def logsig(x):
     return out
 
 
+@njit
 def expit(t):
     """Computes the sigmoid function component-wise.
 
@@ -46,37 +54,34 @@ def expit(t):
     return out
 
 
-def log_loss(x, y, theta):
-    """Returns the logistic loss."""
-    return - logsig(y * safe_sparse_dot(x, theta)).mean()
-
-
+@njit
 def grad_theta_log_loss(x, y, theta):
     """Returns the gradient of the logistic loss."""
     n_samples, n_features = x.shape
-    tmp = y * safe_sparse_dot(x, theta)
+    tmp = y * (x @ theta)
     tmp2 = expit(-tmp)
 
-    grad = -safe_sparse_dot(x.T, (y * tmp2)) / n_samples
+    grad = -(x.T @ (y * tmp2)) / n_samples
 
     return grad
 
 
+@njit
 def hvp_log_loss(x, y, theta, v):
     """Returns an hessian-vector product for the logistic loss and a vector v.
     """
     n_samples, n_features = x.shape
     tmp = np.zeros_like(y)
-    tmp2 = y * safe_sparse_dot(x, theta)
+    tmp2 = y * (x @ theta)
 
     idx1 = tmp2 < 0
     tmp[idx1] = np.exp(tmp2[idx1]) * expit(- tmp2[idx1])**2
     idx2 = tmp2 >= 0
     tmp[idx2] = np.exp(- tmp2[idx2]) * expit(tmp2[idx2])**2
 
-    xv = safe_sparse_dot(x, v)
+    xv = (x @ v)
 
-    hvp = safe_sparse_dot(x.T, (xv * tmp)) / n_samples
+    hvp = (x.T @ (xv * tmp)) / n_samples
     return hvp
 
 
@@ -99,6 +104,128 @@ def value_grad_hvp_log_loss(x, y, theta, v):
     return val, grad, hvp
 
 
+def _get_hvp_op(x, y, theta, reg, lmbda):
+    n_samples, n_features = x.shape
+    tmp = np.zeros_like(y)
+    tmp2 = y * safe_sparse_dot(x, theta)
+    assert tmp2.shape == y.shape
+
+    idx1 = tmp2 < 0
+    tmp[idx1] = np.exp(tmp2[idx1]) * expit(-tmp2[idx1])**2
+    idx2 = tmp2 >= 0
+    tmp[idx2] = np.exp(- tmp2[idx2]) * expit(tmp2[idx2])**2
+
+    # Precompute as much as possible
+    if sparse.issparse(x):
+        tmp = sparse.dia_matrix((tmp, 0), shape=(n_samples, n_samples))
+        dX = safe_sparse_dot(tmp, x)
+    else:
+        dX = tmp[:, np.newaxis] * x
+    alpha = np.exp(lmbda) / n_features
+
+    def hvp(v):
+        ret = np.empty_like(v)
+        ret = x.T.dot(dX.dot(v) / n_samples)
+        if reg:
+            ret += alpha * v
+        return ret
+
+    Hop = splinalg.LinearOperator(
+        shape=(n_features, n_features),
+        matvec=lambda z: hvp(z),
+        rmatvec=lambda z: hvp(z),
+    )
+
+    return Hop
+
+
+spec = [
+    ('X', float64[:, ::1]),          # an array field
+    ('y', float64[::1]),               # a simple scalar field
+    ('reg', types.unicode_type),
+    ('n_samples', int64),
+    ('n_features', int64),
+]
+
+
+@jitclass(spec)
+class LogisticRegressionOracleNumba():
+    """Class defining the oracles for the L^2 regularized logistic loss.
+
+    **NOTE:** This class is taylored for the binary logreg.
+
+    Parameters
+    ----------
+    X : ndarray, shape (n_samples, n_features)
+        Input data for the model.
+    y : ndarray, shape (n_samples,)
+        Targets for the logistic regression. Must be binary targets.
+    reg : bool
+        Whether or not to apply regularisation.
+    """
+    def __init__(self, X, y, reg=False):
+
+        self.X = X
+        self.y = y
+        self.reg = reg
+
+        # attributes
+        self.n_samples = X.shape[0]
+        self.n_features = X.shape[1]
+
+    def value(self, theta, lmbda, idx):
+        x = self.X[idx]
+        y = self.y[idx]
+        tmp = - logsig(y * (x @ theta)).mean()
+        if self.reg == 'exp':
+            tmp += .5 * theta.dot(np.exp(lmbda) * theta)
+        elif self.reg == 'lin':
+            tmp += .5 * theta.dot(lmbda * theta)
+        return tmp
+
+    def grad_inner_var(self, theta, lmbda, idx):
+        tmp = grad_theta_log_loss(self.X[idx], self.y[idx], theta)
+        if self.reg == 'exp':
+            tmp += np.exp(lmbda) * theta
+        elif self.reg == 'lin':
+            tmp += lmbda * theta
+        return tmp
+
+    def grad_outer_var(self, theta, lmbda, idx):
+        if self.reg == 'exp':
+            grad = .5 * np.exp(lmbda) * theta ** 2
+        elif self.reg == 'lin':
+            grad = .5 * theta ** 2
+        else:
+            grad = np.zeros_like(lmbda)
+        return grad
+
+    def cross(self, theta, lmbda, v, idx):
+        if self.reg == 'exp':
+            res = np.exp(lmbda) * theta * v
+        elif self.reg == 'lin':
+            res = theta * v
+        else:
+            res = np.zeros_like(lmbda)
+        return res
+
+    def hvp(self, theta, lmbda, v, idx):
+        tmp = hvp_log_loss(self.X[idx], self.y[idx], theta, v)
+        if self.reg == 'exp':
+            tmp += np.exp(lmbda) * v
+        elif self.reg == 'lin':
+            tmp += lmbda * v
+        return tmp
+
+    def prox(self, theta, lmbda):
+        if self.reg == 'exp':
+            lmbda[lmbda < -12] = -12
+            lmbda[lmbda > 12] = 12
+        elif self.reg == 'lin':
+            lmbda = np.maximum(lmbda, 0)
+        return theta, lmbda
+
+
 class LogisticRegressionOracle(BaseOracle):
     """Class defining the oracles for the L^2 regularized logistic loss.
 
@@ -118,57 +245,44 @@ class LogisticRegressionOracle(BaseOracle):
 
         # Make sure the targets are {1, -1}.
         target_type = type_of_target(y)
-        assert target_type == 'binary', (
-            f"Only work for binary targets, got '{target_type}'"
-        )
+        if target_type != 'binary':
+            y = y > np.median(y)
         self.encoder = OrdinalEncoder()
         y = self.encoder.fit_transform(y[:, None]).flatten()
         y = 2 * y - 1
+        assert set(y) == set([-1, 1])
 
-        self.X = X
-        self.y = y
-        self.reg = reg
+        self.numba_oracle = LogisticRegressionOracleNumba(X, y, reg)
 
         # attributes
-        self.n_samples, n_features = X.shape
-        self.variables_shape = ((n_features,), (n_features,))
+        self.n_samples, self.n_features = X.shape
+        self.variables_shape = np.array([
+            [self.n_features], [self.n_features]
+        ])
 
     def value(self, theta, lmbda, idx):
-        tmp = log_loss(self.X[idx], self.y[idx], theta)
-        if self.reg:
-            tmp += .5 * theta.dot(np.exp(lmbda) * theta)
-        return tmp
+        return self.numba_oracle.value(theta, lmbda, idx)
 
     def grad_inner_var(self, theta, lmbda, idx):
-        tmp = grad_theta_log_loss(self.X[idx], self.y[idx], theta)
-        if self.reg:
-            tmp += theta * np.exp(lmbda)
-        return tmp
+        return self.numba_oracle.grad_inner_var(theta, lmbda, idx)
 
     def grad_outer_var(self, theta, lmbda, idx):
-        if self.reg:
-            res = .5 * np.exp(lmbda) * theta ** 2
-        else:
-            res = np.zeros_like(lmbda)
-        return res
+        return self.numba_oracle.grad_outer_var(theta, lmbda, idx)
 
-    def cross(self, theta, lmbda, v, idx):
-        if self.reg:
-            res = np.exp(lmbda) * theta * v
-        else:
-            res = np.zeros_like(lmbda)
-        return res
+    def cross(self, theta, lmbda, idx):
+        return self.numba_oracle.cross(theta, lmbda, idx)
 
-    def hvp(self, theta, lmbda, v, idx):
-        tmp = hvp_log_loss(self.X[idx], self.y[idx], theta, v)
-        if self.reg:
-            tmp += np.exp(lmbda)*v
-        return tmp
+    def hvp(self, theta, lmbda, idx):
+        return self.numba_oracle.hvp(theta, lmbda, idx)
+
+    def prox(self, theta, lmbda):
+        return self.numba_oracle.prox(theta, lmbda)
 
     def inverse_hvp(self, theta, lmbda, v, idx, approx='cg'):
-        assert approx in ['cg', 'id', 'neumann']
         if approx == 'id':
             return v
+        if approx != 'cg':
+            raise NotImplementedError
         x_i = self.X[idx]
         y_i = self.y[idx]
         Hop = _get_hvp_op(x_i, y_i, theta, self.reg, lmbda)
@@ -188,50 +302,15 @@ class LogisticRegressionOracle(BaseOracle):
         val, grad, hvp = value_grad_hvp_log_loss(
             self.X[idx], self.y[idx], theta, v
         )
-        if self.reg:
-            val += .5 * np.exp(lmbda) * theta ** 2
-            grad += theta * np.exp(lmbda)
-            hvp += np.exp(lmbda)*v
-
         inv_hvp = self.inverse_hvp(theta, lmbda, v, idx, approx=inverse)
+        if self.reg:
+            reg = np.exp(lmbda) / self.n_features
+            val += .5 * (reg @ theta ** 2)
+            grad += reg * theta
+            hvp += reg * v
 
         return val, grad, hvp, self.cross(theta, lmbda, inv_hvp, idx)
 
     def lipschitz_inner(self, theta, lmbda):
         Hop = _get_hvp_op(self.X, self.y, theta, self.reg, lmbda)
         return svds(Hop, k=1, return_singular_vectors=False)
-
-
-def _get_hvp_op(x, y, theta, reg, lmbda):
-    n_samples, n_features = x.shape
-    tmp = np.zeros_like(y)
-    tmp2 = y * safe_sparse_dot(x, theta)
-    assert tmp2.shape == y.shape
-
-    idx1 = tmp2 < 0
-    tmp[idx1] = np.exp(tmp2[idx1]) * expit(- tmp2[idx1])**2
-    idx2 = tmp2 >= 0
-    tmp[idx2] = np.exp(- tmp2[idx2]) * expit(tmp2[idx2])**2
-
-    # Precompute as much as possible
-    if sparse.issparse(x):
-        tmp = sparse.dia_matrix((tmp, 0), shape=(n_samples, n_samples))
-        dX = safe_sparse_dot(tmp, x)
-    else:
-        dX = tmp[:, np.newaxis] * x
-    alpha = np.exp(lmbda)
-
-    def hvp(v):
-        ret = np.empty_like(v)
-        ret = x.T.dot(dX.dot(v))
-        if reg:
-            ret += alpha * v
-        return ret
-
-    Hop = splinalg.LinearOperator(
-        shape=(n_features, n_features),
-        matvec=lambda z: hvp(z),
-        rmatvec=lambda z: hvp(z),
-    )
-
-    return Hop

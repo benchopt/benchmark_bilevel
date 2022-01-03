@@ -33,25 +33,30 @@ class Objective(BaseObjective):
 
     def set_data(self, X_train, y_train, X_test, y_test):
         self.f_train = self.oracle(
-            X_train, y_train, reg=True
+            X_train, y_train, reg='lin'
         )
         self.f_test = self.oracle(
-            X_test, y_test, reg=False
+            X_test, y_test, reg='none'
         )
 
         rng = check_random_state(self.random_state)
         inner_shape, outer_shape = self.f_train.variables_shape
         self.inner_var0 = rng.randn(*inner_shape)
-        # self.outer_var0 = rng.randn(1)[0]  # *self.f_test.variable_shape)
-        self.outer_var0 = rng.randn(*outer_shape)
+        # self.outer_var0 = np.log(2 * rng.rand(*outer_shape))
+        self.outer_var0 = 10 * rng.rand(*outer_shape)
+        self.inner_var0, self.outer_var0 = self.f_train.prox(
+            self.inner_var0, self.outer_var0
+        )
 
     def compute(self, beta):
         inner_var, outer_var = beta
 
-        inner_star = self.f_train.get_inner_var_star(outer_var)
-        value_function = self.f_test.get_value(inner_star, outer_var)
-        inner_value = self.f_train.get_value(inner_var, outer_var)
-        outer_value = self.f_test.get_value(inner_var, outer_var)
+        id_inner = np.arange(self.f_train.n_samples)
+        id_outer = np.arange(self.f_test.n_samples)
+        inner_star = self.f_train.inner_var_star(outer_var, id_inner)
+        value_function = self.f_test.value(inner_star, outer_var, id_outer)
+        inner_value = self.f_train.value(inner_var, outer_var, id_inner)
+        outer_value = self.f_test.value(inner_var, outer_var, id_outer)
         d_inner = np.linalg.norm(inner_var - inner_star)
         d_value = outer_value - value_function
 

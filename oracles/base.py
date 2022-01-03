@@ -74,6 +74,10 @@ class BaseOracle(ABC):
         return self.grad_inner_var(inner_var, outer_var, idx), \
             self.grad_outer_var(inner_var, outer_var, idx)
 
+    def prox(self, inner_var, outer_var):
+        "Prox function for the inner and outer_var."
+        return inner_var, outer_var
+
     def oracles(self, inner_var, outer_var, v, idx, inverse='id'):
         """Compute all the quantities together on the same batch."""
         val = self.value(inner_var, outer_var, idx)
@@ -149,20 +153,18 @@ def _get_batch_method(method, name):
             vr_res, memory = self.memory.get(name, (None, None))
             # Initialize the memory if it does not exists
             if memory is None:
-                memory = [
-                    method(*args, idx=i, **kwargs)
+                all_results = [
+                    method(*args, idx=[i], **kwargs)
                     for i in range(self.n_samples)
                 ]
-                params = memory[0]
+                params = all_results[0]
                 if isinstance(params, tuple):
-                    all_memory, vr_res = [], []
+                    memory, vr_res = [], []
                     for j in range(len(params)):
-                        all_memory.append(np.array([m[j] for m in memory]))
-                        vr_res.append(all_memory[j].mean(axis=0))
-                    vr_res = tuple(vr_res)
-                    memory = tuple(all_memory)
+                        memory.append(np.array([m[j] for m in all_results]))
+                        vr_res.append(memory[j].mean(axis=0))
                 else:
-                    memory = np.array(memory)
+                    memory = np.array(all_results)
                     vr_res = memory.mean(axis=0)
                 self.memory[name] = (vr_res, memory)
                 return vr_res
@@ -176,11 +178,17 @@ def _get_batch_method(method, name):
             return res
 
         i = idx[0]
-        for j in range(len(res)):
-            old_mem = memory[j][i]
-            vr_res[j][:] += res[j] - old_mem
-            memory[j][i] = res[j]
+        if isinstance(res, tuple):
+            direction = []
+            for j in range(len(res)):
+                direction.append(res[j] - memory[j][i] + vr_res[j])
+                vr_res[j] += (res[j] - memory[j][i]) / self.n_samples
+                memory[j][i] = res[j]
+        else:
+            direction = res - memory[i] + vr_res
+            vr_res += (res - memory[i]) / self.n_samples
+            memory[i] = res
 
-        return vr_res
+        return direction
 
     return get_batch
