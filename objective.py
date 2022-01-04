@@ -51,12 +51,10 @@ class Objective(BaseObjective):
     def compute(self, beta):
         inner_var, outer_var = beta
 
-        id_inner = np.arange(self.f_train.n_samples)
-        id_outer = np.arange(self.f_test.n_samples)
-        inner_star = self.f_train.inner_var_star(outer_var, id_inner)
-        value_function = self.f_test.value(inner_star, outer_var, id_outer)
-        inner_value = self.f_train.value(inner_var, outer_var, id_inner)
-        outer_value = self.f_test.value(inner_var, outer_var, id_outer)
+        inner_star = self.f_train.get_inner_var_star(outer_var)
+        value_function = self.f_test.get_value(inner_star, outer_var)
+        inner_value = self.f_train.get_value(inner_var, outer_var)
+        outer_value = self.f_test.get_value(inner_var, outer_var)
         d_inner = np.linalg.norm(inner_var - inner_star)
         d_value = outer_value - value_function
 

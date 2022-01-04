@@ -101,9 +101,11 @@ class BaseOracle(ABC):
             inner_var = inner_var.reshape(*inner_shape)
             return self.grad_inner_var(inner_var, outer_var, idx)
 
-        inner_var_star, _, _ = fmin_l_bfgs_b(
+        inner_var_star, _, d = fmin_l_bfgs_b(
             func, np.zeros(var_shape_flat), fprime=fprime
         )
+        if d['warnflag'] != 0:
+            print('LBFGS did not converged!')
         return inner_var_star
 
     def get_value_function(self, outer_var):
