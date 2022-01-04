@@ -8,32 +8,12 @@ from numba.experimental import jitclass
 from .base import BaseOracle
 
 
-# @generated_jit
-# def ls_grad_theta(x, theta, y):
-#     print(x)
-#     if isinstance(x, types.Array) and x.ndim == 1:
-#         assert False
-#         return lambda x, theta, y: (x @ theta - y) * x
-#     if isinstance(x, types.Array) and x.ndim == 2:
-#         return lambda x, theta, y:
-
-
-# @generated_jit
-# def ls_hvp(x, v):
-#     if isinstance(x, types.Array) and x.ndim == 1:
-#         assert False
-#         return lambda x, v: (x @ v) * x
-#     if isinstance(x, types.Array) and x.ndim == 2:
-#         return lambda x, v: x.T @ (x @ v) / x.shape[0]
-
-
 spec = [
     ('X', float64[:, ::1]),          # an array field
     ('y', float64[::1]),               # a simple scalar field
     ('reg', types.unicode_type),
     ('n_samples', int64),
     ('n_features', int64),
-    # ('variables_shape', int64[:, :]),
 ]
 
 
@@ -51,9 +31,10 @@ class RidgeRegressionOracleNumba():
         # attributes
         self.n_samples = X.shape[0]
         self.n_features = X.shape[1]
-        # self.variables_shape = np.array([
-        #     [self.n_features], [self.n_features]
-        # ])
+
+    def set_order(self, idx):
+        self.X = self.X[idx]
+        self.y = self.y[idx]
 
     def value(self, theta, lmbda, idx):
         x = self.X[idx]
@@ -86,6 +67,20 @@ class RidgeRegressionOracleNumba():
             grad = np.zeros_like(lmbda)
         return grad
 
+    def grad(self, theta, lmbda, idx):
+        x = self.X[idx]
+        y = self.y[idx]
+        grad_theta = x.T @ (x @ theta - y) / x.shape[0]
+        if self.reg == 'exp':
+            grad_theta += np.exp(lmbda) * theta
+            grad_lmbda = .5 * np.exp(lmbda) * theta ** 2
+        elif self.reg == 'lin':
+            grad_theta += lmbda * theta
+            grad_lmbda = .5 * theta ** 2
+        else:
+            grad_lmbda = np.zeros_like(lmbda)
+        return grad_theta, grad_lmbda
+
     def cross(self, theta, lmbda, v, idx):
         if self.reg == 'exp':
             res = np.exp(lmbda) * theta * v
@@ -104,13 +99,13 @@ class RidgeRegressionOracleNumba():
             tmp += lmbda * v
         return tmp
 
-    def inverse_hvp(self, theta, lmbda, v, idx, approx='cg'):
+    def inverse_hvp(self, theta, lmbda, v, idx, approx):
         if approx == 'id':
             return v
         if approx != 'cg':
             raise NotImplementedError
-        assert idx.ndim == 1
         x = self.X[idx]
+        assert x.ndim == 2
         H = np.dot(x.T, x) / x.shape[0]
         if self.reg == 'exp':
             H += np.diag(np.exp(lmbda))
@@ -119,9 +114,9 @@ class RidgeRegressionOracleNumba():
         return np.linalg.solve(H, v)
 
     def inner_var_star(self, lmbda, idx):
-        assert idx.ndim == 1
         x = self.X[idx]
         y = self.y[idx]
+        assert x.ndim == 2
         n_samples = x.shape[0]
         b = x.T.dot(y) / n_samples
         H = x.T.dot(x) / n_samples
@@ -131,7 +126,7 @@ class RidgeRegressionOracleNumba():
             H += np.diag(lmbda)
         return np.linalg.solve(H, b)
 
-    def oracles(self, theta, lmbda, v, idx, inverse='id'):
+    def oracles(self, theta, lmbda, v, idx, inverse):
         """Returns the value, the gradient,
         """
         x = self.X[idx]
@@ -141,12 +136,13 @@ class RidgeRegressionOracleNumba():
         val = 0.5 / n_samples * (residual @ residual)
         grad = x.T @ (residual / n_samples)
         hvp = x.T @ (x @ v) / n_samples
-        inv_hvp = self.inverse_hvp(theta, lmbda, v, idx, approx=inverse)
-        if self.reg:
-            reg = np.exp(lmbda) / self.n_features
-            val += .5 * (reg @ theta ** 2)
-            grad += reg * theta
-            hvp += reg * v
+        if self.reg != 'none':
+            alpha = np.exp(lmbda) if self.reg == 'exp' else lmbda
+            val += .5 * (alpha @ (theta ** 2))
+            grad += alpha * theta
+            hvp += alpha * v
+
+        inv_hvp = self.inverse_hvp(theta, lmbda, v, idx, inverse)
 
         return val, grad, hvp, self.cross(theta, lmbda, inv_hvp, idx)
 
@@ -162,10 +158,18 @@ class RidgeRegressionOracleNumba():
 class RidgeRegressionOracle(BaseOracle):
     """Class defining the oracles for the L^2 regularized least squares loss.
     """
-    def __init__(self, X, y, reg=False):
+    def __init__(self, X, y, reg='none'):
         super().__init__()
 
+        # Make sure reg is valid
+        assert reg in ['exp', 'lin', 'none'], f"Unknown value for reg: '{reg}'"
+
         self.numba_oracle = RidgeRegressionOracleNumba(X, y, reg)
+
+        # Store info for other
+        self.X = X
+        self.y = y
+        self.reg = reg
 
         # attributes
         self.n_samples, self.n_features = X.shape
@@ -182,20 +186,25 @@ class RidgeRegressionOracle(BaseOracle):
     def grad_outer_var(self, theta, lmbda, idx):
         return self.numba_oracle.grad_outer_var(theta, lmbda, idx)
 
-    def cross(self, theta, lmbda, idx):
-        return self.numba_oracle.cross(theta, lmbda, idx)
+    def cross(self, theta, lmbda, v, idx):
+        return self.numba_oracle.cross(theta, lmbda, v, idx)
 
-    def hvp(self, theta, lmbda, idx):
-        return self.numba_oracle.hvp(theta, lmbda, idx)
+    def hvp(self, theta, lmbda, v, idx):
+        return self.numba_oracle.hvp(theta, lmbda, v, idx)
 
-    def inverse_hvp(self, theta, lmbda, idx):
-        return self.numba_oracle.inverse_hvp(theta, lmbda, idx)
+    def inverse_hvp(self, theta, lmbda, v, idx, approx='cg'):
+        return self.numba_oracle.inverse_hvp(
+            theta, lmbda, v, idx, approx
+        )
 
     def inner_var_star(self, lmbda, idx):
         return self.numba_oracle.inner_var_star(lmbda, idx)
 
     def prox(self, theta, lmbda):
         return self.numba_oracle.prox(theta, lmbda)
+
+    def oracles(self, theta, lmbda, v, idx, inverse='id'):
+        return self.numba_oracle.oracles(theta, lmbda, v, idx, inverse)
 
     def lipschitz_inner(self, inner_var, outer_var):
         H = np.dot(self.X.T, self.X) / self.X.shape[0]
