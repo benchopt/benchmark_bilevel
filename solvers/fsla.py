@@ -20,9 +20,9 @@ class Solver(BaseSolver):
 
     # any parameter defined here is accessible as a class attribute
     parameters = {
-        'step_size': [1e-2],
+        'step_size': [1e-1, 1e-2, 1e-3],
         'outer_ratio': [2, 5],
-        'batch_size': [1]
+        'batch_size': [1, 32]
     }
 
     @staticmethod
@@ -46,7 +46,6 @@ class Solver(BaseSolver):
         outer_sampler = MinibatchSampler(
             self.f_outer.numba_oracle, batch_size=self.batch_size
         )
-        v = np.zeros_like(inner_var)
         if self.step_size == 'auto':
             inner_step_size = 1 / self.f_inner.lipschitz_inner(
                 inner_var, outer_var
@@ -56,11 +55,13 @@ class Solver(BaseSolver):
         outer_step_size = inner_step_size / self.outer_ratio
         eta = inner_step_size
 
+        # Init auxillary variables
+        v = np.zeros_like(inner_var)
         d = np.zeros_like(outer_var)
 
         eval_freq = 1024
         while callback((inner_var, outer_var)):
-            inner_var, outer_var, v = fsla(
+            inner_var, outer_var, v, d = fsla(
                 self.f_inner.numba_oracle, self.f_outer.numba_oracle,
                 inner_var, outer_var, v, d, eval_freq,
                 inner_sampler, outer_sampler, inner_step_size, outer_step_size,
@@ -109,4 +110,4 @@ def fsla(inner_oracle, outer_oracle, inner_var, outer_var, v, d, max_iter,
 
         # Step.6 - project back to the constraint set
         inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)
-    return inner_var, outer_var, v
+    return inner_var, outer_var, v, d

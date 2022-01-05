@@ -9,7 +9,7 @@ class Solver(BaseSolver):
     stop_strategy = 'callback'
 
     # any parameter defined here is accessible as a class attribute
-    parameters = {'step_size': [10, 1, .1]}
+    parameters = {'step_size': [.1, 1e-2]}
 
     def set_objective(self, f_train, f_test, inner_var0, outer_var0):
         self.f_train = f_train

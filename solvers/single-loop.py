@@ -21,7 +21,7 @@ class Solver(BaseSolver):
     # any parameter defined here is accessible as a class attribute
     parameters = {
         'step_size': [1e-2],
-        'outer_ratio': [1, 2, 5],
+        'outer_ratio': [1.5, 2, 5],
         'batch_size, vr': [
             (1, 'saga'), (1, 'none'),  (32, 'none'), (64, 'none')
         ]
@@ -141,7 +141,7 @@ def saga(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
 
         slice_inner, id_inner = inner_sampler.get_batch(inner_oracle)
         _, grad_inner_var, hvp, cross_inv_hvp = inner_oracle.oracles(
-            inner_var, outer_var, v, slice_inner
+            inner_var, outer_var, v, slice_inner, inverse='id'
         )
 
         # here memory_*[-1] corresponds to the running average of

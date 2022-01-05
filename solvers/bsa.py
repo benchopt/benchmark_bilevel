@@ -106,7 +106,7 @@ def hia(inner_oracle, inner_var, outer_var, v, inner_sampler,
         inner_slice, _ = inner_sampler.get_batch(inner_oracle)
         hvp = inner_oracle.hvp(inner_var, outer_var, v, inner_slice)
         v -= step_size * hvp
-    return p * step_size * v
+    return n_step * step_size * v
 
 
 @njit
