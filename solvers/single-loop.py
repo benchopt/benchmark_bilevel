@@ -20,7 +20,7 @@ class Solver(BaseSolver):
 
     # any parameter defined here is accessible as a class attribute
     parameters = {
-        'step_size': [1e-2],
+        'step_size': [1e-1, 1e-2],
         'outer_ratio': [1.5, 2, 5],
         'batch_size, vr': [
             (1, 'saga'), (1, 'none'),  (32, 'none'), (64, 'none')
