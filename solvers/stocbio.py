@@ -67,7 +67,7 @@ class Solver(BaseSolver):
                 self.f_inner.numba_oracle, self.f_outer.numba_oracle,
                 inner_var, outer_var, n_eval_freq, outer_step_size,
                 self.n_inner_step, inner_step_size,
-                n_hia_step=self.n_inner_step, hia_step_size=inner_step_size,
+                n_shia_step=self.n_inner_step, shia_step_size=inner_step_size,
                 inner_sampler=inner_sampler, outer_sampler=outer_sampler,
             )
 
@@ -94,8 +94,9 @@ def sgd_inner(inner_oracle, inner_var, outer_var,
 
 
 @njit
-def hia(inner_oracle, inner_var, outer_var, v, inner_sampler,
-        n_step, step_size):
+def shia(
+    inner_oracle, inner_var, outer_var, v, inner_sampler, n_step, step_size
+):
     """Hessian Inverse Approximation subroutine from [Ji2021].
 
     This implement Algorithm.3
@@ -112,7 +113,7 @@ def hia(inner_oracle, inner_var, outer_var, v, inner_sampler,
 @njit
 def stocbio(inner_oracle, outer_oracle, inner_var, outer_var,
             max_iter, outer_step_size, n_inner_step, inner_step_size,
-            n_hia_step, hia_step_size, inner_sampler, outer_sampler):
+            n_shia_step, shia_step_size, inner_sampler, outer_sampler):
     """Numba compatible stocBiO algorithm.
 
     Parameters
@@ -130,10 +131,10 @@ def stocbio(inner_oracle, outer_oracle, inner_var, outer_var,
         Maximal number of iterations for the inner problem.
     inner_step_size: float
         Step size to update the inner variable.
-    n_hia_step: int
-        Maximal number of iterations for the HIA problem.
-    hia_step_size: float
-        Step size for the HIA sub-routine.
+    n_shia_step: int
+        Maximal number of iterations for the shia problem.
+    shia_step_size: float
+        Step size for the shia sub-routine.
     inner_sampler, outer_sampler: MinibatchSampler
         Sampler to get minibatch in a fast and efficient way for the inner and
         outer problems.
@@ -145,9 +146,9 @@ def stocbio(inner_oracle, outer_oracle, inner_var, outer_var,
             inner_var, outer_var, outer_slice
         )
 
-        implicit_grad = hia(
+        implicit_grad = shia(
             inner_oracle, inner_var, outer_var, grad_in,
-            inner_sampler, n_hia_step, hia_step_size
+            inner_sampler, n_shia_step, shia_step_size
         )
         inner_slice, _ = inner_sampler.get_batch(inner_oracle)
         implicit_grad = inner_oracle.cross(
