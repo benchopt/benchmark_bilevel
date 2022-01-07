@@ -106,6 +106,7 @@ class BaseOracle(ABC):
         )
         if d['warnflag'] != 0:
             print('LBFGS did not converged!')
+            raise RuntimeError()
         return inner_var_star
 
     def get_value_function(self, outer_var):

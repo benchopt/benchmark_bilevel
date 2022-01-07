@@ -49,7 +49,11 @@ class Objective(BaseObjective):
         )
 
     def compute(self, beta):
+
         inner_var, outer_var = beta
+
+        if np.isnan(outer_var).any():
+            raise ValueError
 
         inner_star = self.f_train.get_inner_var_star(outer_var)
         value_function = self.f_test.get_value(inner_star, outer_var)
@@ -57,13 +61,23 @@ class Objective(BaseObjective):
         outer_value = self.f_test.get_value(inner_var, outer_var)
         d_inner = np.linalg.norm(inner_var - inner_star)
         d_value = outer_value - value_function
+        grad_f_test_inner, grad_f_test_outer = self.f_test.get_grad(
+            inner_star, outer_var
+        )
+        grad_value = grad_f_test_outer
+        v = self.f_train.get_inverse_hvp(
+            inner_star, outer_var,
+            grad_f_test_inner
+        )
+        grad_value -= self.f_train.get_cross(inner_star, outer_var, v)
 
         return dict(
-            value=value_function,
+            value_func=value_function,
             inner_value=inner_value,
             outer_value=outer_value,
             d_inner=d_inner,
-            d_value=d_value
+            d_value=d_value,
+            value=np.linalg.norm(grad_value)**2
         )
 
     def to_dict(self):
