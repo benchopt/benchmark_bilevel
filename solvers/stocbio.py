@@ -6,11 +6,18 @@ from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
     from numba import njit
-    from oracles.minibatch_sampler import MinibatchSampler
+    MinibatchSampler = import_ctx.import_from(
+        'minibatch_sampler', 'MinibatchSampler'
+    )
+    shia = import_ctx.import_from('hessian_approximation', 'shia')
+    sgd_inner = import_ctx.import_from('sgd_inner', 'sgd_inner')
 
 
 class Solver(BaseSolver):
-    """Two loops solver."""
+    """StocBio solver from [Ji2021]
+
+    :cat:`two-loops`
+    """
     name = 'stocBiO'
 
     stopping_criterion = SufficientProgressCriterion(
@@ -78,36 +85,6 @@ class Solver(BaseSolver):
 
     def line_search(self, outer_var, grad):
         pass
-
-
-@njit
-def sgd_inner(inner_oracle, inner_var, outer_var,
-              step_size, inner_sampler, n_inner_step):
-    for _ in range(n_inner_step):
-        inner_slice, _ = inner_sampler.get_batch(inner_oracle)
-        grad_inner = inner_oracle.grad_inner_var(
-            inner_var, outer_var, inner_slice
-        )
-        inner_var -= step_size * grad_inner
-
-    return inner_var
-
-
-@njit
-def shia(
-    inner_oracle, inner_var, outer_var, v, inner_sampler, n_step, step_size
-):
-    """Hessian Inverse Approximation subroutine from [Ji2021].
-
-    This implement Algorithm.3
-    """
-    s = v
-    for i in range(n_step):
-        inner_slice, _ = inner_sampler.get_batch(inner_oracle)
-        hvp = inner_oracle.hvp(inner_var, outer_var, v, inner_slice)
-        v -= step_size * hvp
-        s += v
-    return step_size * s
 
 
 @njit

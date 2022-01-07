@@ -7,7 +7,9 @@ from benchopt import safe_import_context
 with safe_import_context() as import_ctx:
     import numpy as np
     from numba import njit, prange
-    from oracles.minibatch_sampler import MinibatchSampler
+    MinibatchSampler = import_ctx.import_from(
+        'minibatch_sampler', 'MinibatchSampler'
+    )
 
 
 class Solver(BaseSolver):

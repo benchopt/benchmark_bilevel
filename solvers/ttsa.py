@@ -5,9 +5,13 @@ from benchopt.stopping_criterion import SufficientProgressCriterion
 from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
-    import numpy as np
     from numba import njit
-    from oracles.minibatch_sampler import MinibatchSampler
+    MinibatchSampler = import_ctx.import_from(
+        'minibatch_sampler', 'MinibatchSampler'
+    )
+    hia = import_ctx.import_from(
+        'hessian_approximation', 'hia'
+    )
 
 
 class Solver(BaseSolver):
@@ -71,19 +75,19 @@ class Solver(BaseSolver):
         return self.beta
 
 
-@njit
-def hia(inner_oracle, inner_var, outer_var, v, inner_sampler,
-        n_step, step_size):
-    """Hessian Inverse Approximation subroutine from [Ghadimi2018].
+# @njit
+# def hia(inner_oracle, inner_var, outer_var, v, inner_sampler,
+#         n_step, step_size):
+#     """Hessian Inverse Approximation subroutine from [Ghadimi2018].
 
-    This implement Algorithm.3
-    """
-    p = np.random.randint(n_step)
-    for i in range(p):
-        inner_slice, _ = inner_sampler.get_batch(inner_oracle)
-        hvp = inner_oracle.hvp(inner_var, outer_var, v, inner_slice)
-        v -= step_size * hvp
-    return n_step * step_size * v
+#     This implement Algorithm.3
+#     """
+#     p = np.random.randint(n_step)
+#     for i in range(p):
+#         inner_slice, _ = inner_sampler.get_batch(inner_oracle)
+#         hvp = inner_oracle.hvp(inner_var, outer_var, v, inner_slice)
+#         v -= step_size * hvp
+#     return n_step * step_size * v
 
 
 @njit()

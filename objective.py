@@ -1,15 +1,10 @@
 from benchopt import BaseObjective
+from benchopt import safe_import_context
 
-import numpy as np
-from sklearn.utils import check_random_state
-
-import sys
-from pathlib import Path
-oracle_module = Path(__file__).parent
-sys.path += [str(oracle_module.resolve())]
-
-from oracles import RidgeRegressionOracle  # noqa: E402
-from oracles import LogisticRegressionOracle  # noqa: E402
+with safe_import_context() as import_ctx:
+    import numpy as np
+    from sklearn.utils import check_random_state
+    oracles = import_ctx.import_from('oracles')
 
 
 class Objective(BaseObjective):
@@ -21,9 +16,9 @@ class Objective(BaseObjective):
 
     def __init__(self, model='ridge', random_state=29):
         if model == 'ridge':
-            self.oracle = RidgeRegressionOracle
+            self.oracle = oracles.RidgeRegressionOracle
         elif model == 'logreg':
-            self.oracle = LogisticRegressionOracle
+            self.oracle = oracles.LogisticRegressionOracle
         else:
             raise ValueError(
                 f"model should be 'ridge' or 'logreg'. Got '{model}'."

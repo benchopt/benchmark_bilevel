@@ -7,7 +7,9 @@ from benchopt import safe_import_context
 with safe_import_context() as import_ctx:
     import numpy as np
     from numba import njit
-    from oracles.minibatch_sampler import MinibatchSampler
+    MinibatchSampler = import_ctx.import_from(
+        'minibatch_sampler', 'MinibatchSampler'
+    )
 
 
 class Solver(BaseSolver):
@@ -74,8 +76,9 @@ class Solver(BaseSolver):
 
 
 @njit()
-def fsla(inner_oracle, outer_oracle, inner_var, outer_var, v, d, max_iter,
-         inner_sampler, outer_sampler, inner_step_size, outer_step_size, eta):
+def fsla(inner_oracle, outer_oracle, inner_var, outer_var, v, memory_outer,
+         max_iter, inner_sampler, outer_sampler,
+         inner_step_size, outer_step_size, eta):
     for i in range(max_iter):
 
         # Step.1 - SGD step on the inner problem
@@ -103,11 +106,11 @@ def fsla(inner_oracle, outer_oracle, inner_var, outer_var, v, d, max_iter,
         impl_grad -= inner_oracle.cross(inner_var, outer_var, v, slice_inner3)
 
         # Step.4 - update direction with momentum
-        d += eta * (impl_grad - d)
+        memory_outer += eta * (impl_grad - memory_outer)
 
         # Step.5 - update the outer variable
-        outer_var -= outer_step_size * d
+        outer_var -= outer_step_size * memory_outer
 
         # Step.6 - project back to the constraint set
         inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)
-    return inner_var, outer_var, v, d
+    return inner_var, outer_var, v, memory_outer

@@ -9,22 +9,23 @@ with safe_import_context() as import_ctx:
     MinibatchSampler = import_ctx.import_from(
         'minibatch_sampler', 'MinibatchSampler'
     )
-    hia = import_ctx.import_from('hessian_approximation', 'hia')
+    sgd_inner = import_ctx.import_from('sgd_inner', 'sgd_inner')
+    sgd_v = import_ctx.import_from('hessian_approximation', 'sgd_v')
 
 
 class Solver(BaseSolver):
     """Two loops solver."""
-    name = 'BSA'
+    name = 'amigo'
 
     stopping_criterion = SufficientProgressCriterion(
-        patience=100, strategy='callback'
+        patience=15, strategy='callback'
     )
 
     # any parameter defined here is accessible as a class attribute
     parameters = {
+        'n_inner_step': [10, 100],
+        'batch_size': [32, 64],
         'step_size': [1e-2],
-        'n_inner_step': [10],
-        'batch_size': [32, 100],
         'outer_ratio': [5, 20],
     }
 
@@ -66,12 +67,10 @@ class Solver(BaseSolver):
             inner_sampler=inner_sampler, n_inner_step=self.n_inner_step
         )
         while callback((inner_var, outer_var)):
-            inner_var, outer_var = bsa(
+            inner_var, outer_var = amigo(
                 self.f_inner.numba_oracle, self.f_outer.numba_oracle,
-                inner_var, outer_var, n_eval_freq, outer_step_size,
-                self.n_inner_step, inner_step_size,
-                n_hia_step=self.n_inner_step, hia_step_size=inner_step_size,
-                inner_sampler=inner_sampler, outer_sampler=outer_sampler,
+                inner_var, outer_var, n_eval_freq, self.n_inner_step,
+                inner_sampler, outer_sampler, inner_step_size, outer_step_size
             )
 
         self.beta = (inner_var, outer_var)
@@ -84,48 +83,10 @@ class Solver(BaseSolver):
 
 
 @njit
-def sgd_inner(inner_oracle, inner_var, outer_var,
-              step_size, inner_sampler, n_inner_step):
-    for _ in range(n_inner_step):
-        inner_slice, _ = inner_sampler.get_batch(inner_oracle)
-        grad_inner = inner_oracle.grad_inner_var(
-            inner_var, outer_var, inner_slice
-        )
-        inner_var -= step_size * grad_inner
-
-    return inner_var
-
-
-@njit
-def bsa(inner_oracle, outer_oracle, inner_var, outer_var,
-        max_iter, outer_step_size, n_inner_step, inner_step_size,
-        n_hia_step, hia_step_size, inner_sampler, outer_sampler
-        ):
-    """Numba compatible BSA algorithm.
-
-    Parameters
-    ----------
-    inner_oracle, outer_oracle: NumbaOracle
-        Inner and outer problem oracles used to compute gradients, etc...
-    inner_var, outer_var: ndarray
-        Current estimates of the inner and outer variables of the bi-level
-        problem.
-    max_iter: int
-        Maximal number of iteration for the outer problem.
-    outer_step_size: float
-        Step size to update the outer variable.
-    n_inner_step: int
-        Maximal number of iteration for the inner problem.
-    inner_step_size: float
-        Step size to update the inner variable.
-    n_hia_step: int
-        Maximal number of iteration for the HIA problem.
-    hia_step_size: float
-        Step size for the HIA sub-routine.
-    inner_sampler, outer_sampler: MinibatchSampler
-        Sampler to get minibatch in a fast and efficient way for the inner and
-        outer problems.
-    """
+def amigo(inner_oracle, outer_oracle, inner_var, outer_var, v,
+          inner_sampler, outer_sampler,
+          max_iter, n_inner_step, n_v_step,
+          inner_step_size, outer_step_size, v_step_size):
 
     for i in range(max_iter):
         outer_slice, _ = outer_sampler.get_batch(outer_oracle)
@@ -133,17 +94,14 @@ def bsa(inner_oracle, outer_oracle, inner_var, outer_var,
             inner_var, outer_var, outer_slice
         )
 
-        implicit_grad = hia(
-            inner_oracle, inner_var, outer_var, grad_in,
-            inner_sampler, n_hia_step, hia_step_size
-        )
-        inner_slice, _ = inner_sampler.get_batch(inner_oracle)
-        implicit_grad = inner_oracle.cross(
-            inner_var, outer_var, implicit_grad, inner_slice
-        )
-        grad_outer_var = grad_out - implicit_grad
+        v = sgd_v(inner_oracle, inner_var, outer_var, v, grad_in,
+                  inner_sampler, n_v_step, v_step_size)
 
-        outer_var -= outer_step_size * grad_outer_var
+        inner_slice, _ = inner_sampler.get_batch(inner_oracle)
+        cross_hvp = inner_oracle.cross(inner_var, outer_var, v, inner_slice)
+        implicit_grad = grad_out - cross_hvp
+
+        outer_var -= outer_step_size * implicit_grad
         inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)
 
         inner_var = sgd_inner(

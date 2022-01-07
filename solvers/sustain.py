@@ -7,7 +7,9 @@ from benchopt import safe_import_context
 with safe_import_context() as import_ctx:
     import numpy as np
     from numba import njit
-    from oracles.minibatch_sampler import MinibatchSampler
+    MinibatchSampler = import_ctx.import_from(
+        'minibatch_sampler', 'MinibatchSampler'
+    )
 
 
 class Solver(BaseSolver):
@@ -81,7 +83,9 @@ def joint_hia(inner_oracle, inner_var, outer_var, v,
               inner_sampler, n_step, step_size):
     """Hessian Inverse Approximation subroutine from [Ghadimi2018].
 
-    This implement Algorithm.3
+    This is a modification that jointly compute the HIA with the same samples
+    for the current estimates and the one from the previous iteration, in
+    order to compute the momentum term.
     """
     p = np.random.randint(n_step)
     for i in range(p):
