@@ -93,9 +93,6 @@ class BaseOracle(ABC):
         inner_shape, outer_shape = self.variables_shape
         var_shape_flat = np.prod(inner_shape)
 
-        if outer_var.any() == np.nan:
-            raise ValueError
-
         def func(inner_var):
             inner_var = inner_var.reshape(*inner_shape)
             return self.value(inner_var, outer_var, idx)

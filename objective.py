@@ -49,7 +49,11 @@ class Objective(BaseObjective):
         )
 
     def compute(self, beta):
+
         inner_var, outer_var = beta
+
+        if np.isnan(outer_var).any():
+            raise ValueError
 
         inner_star = self.f_train.get_inner_var_star(outer_var)
         value_function = self.f_test.get_value(inner_star, outer_var)
@@ -68,12 +72,12 @@ class Objective(BaseObjective):
         grad_value -= self.f_train.get_cross(inner_star, outer_var, v)
 
         return dict(
-            value=value_function,
+            value_func=value_function,
             inner_value=inner_value,
             outer_value=outer_value,
             d_inner=d_inner,
             d_value=d_value,
-            grad_value=np.linalg.norm(grad_value)**2
+            value=np.linalg.norm(grad_value)**2
         )
 
     def to_dict(self):
