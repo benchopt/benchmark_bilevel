@@ -57,10 +57,13 @@ class Objective(BaseObjective):
         outer_value = self.f_test.get_value(inner_var, outer_var)
         d_inner = np.linalg.norm(inner_var - inner_star)
         d_value = outer_value - value_function
-        grad_value = self.f_test.get_grad_outer_var(inner_star, outer_var)
+        grad_f_test_inner, grad_f_test_outer = self.f_test.get_grad(
+            inner_star, outer_var
+        )
+        grad_value = grad_f_test_outer
         v = self.f_train.get_inverse_hvp(
             inner_star, outer_var,
-            self.f_test.get_grad_inner_var(inner_star, outer_var)
+            grad_f_test_inner
         )
         grad_value -= self.f_train.get_cross(inner_star, outer_var, v)
 
@@ -69,7 +72,8 @@ class Objective(BaseObjective):
             inner_value=inner_value,
             outer_value=outer_value,
             d_inner=d_inner,
-            d_value=d_value
+            d_value=d_value,
+            grad_value=np.linalg.norm(grad_value)**2
         )
 
     def to_dict(self):
