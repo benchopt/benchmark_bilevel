@@ -42,7 +42,8 @@ class Objective(BaseObjective):
         rng = check_random_state(self.random_state)
         inner_shape, outer_shape = self.f_train.variables_shape
         self.inner_var0 = rng.randn(*inner_shape)
-        self.outer_var0 = np.log(2 * rng.rand(*outer_shape))
+        self.outer_var0 = np.log(2 * rng.rand(1))
+        # self.outer_var0 = np.log(2 * rng.rand(*outer_shape))
         # self.outer_var0 = 10 * rng.rand(*outer_shape)
         self.inner_var0, self.outer_var0 = self.f_train.prox(
             self.inner_var0, self.outer_var0

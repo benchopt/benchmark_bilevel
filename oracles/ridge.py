@@ -83,9 +83,15 @@ class RidgeRegressionOracleNumba():
 
     def cross(self, theta, lmbda, v, idx):
         if self.reg == 'exp':
-            res = np.exp(lmbda) * theta * v
+            if lmbda.shape == (1,):
+                res = np.exp(lmbda) * theta.dot(v)
+            else:
+                res = np.exp(lmbda) * theta * v
         elif self.reg == 'lin':
-            res = theta * v
+            if lmbda.shape == (1,):
+                res = np.array([theta.dot(v)])  # array to avoid numba errors
+            else:
+                res = theta * v
         else:
             res = np.zeros_like(lmbda)
         return res
@@ -108,9 +114,15 @@ class RidgeRegressionOracleNumba():
         assert x.ndim == 2
         H = np.dot(x.T, x) / x.shape[0]
         if self.reg == 'exp':
-            H += np.diag(np.exp(lmbda))
+            if lmbda.shape == (1,):
+                H += np.exp(lmbda)*np.eye(theta.shape[0])
+            else:
+                H += np.diag(np.exp(lmbda))
         elif self.reg == 'lin':
-            H += np.diag(lmbda)
+            if lmbda.shape == (1,):
+                H += lmbda*np.eye(theta.shape[0])
+            else:
+                H += np.diag(lmbda)
         return np.linalg.solve(H, v)
 
     def inner_var_star(self, lmbda, idx):
@@ -121,9 +133,15 @@ class RidgeRegressionOracleNumba():
         b = x.T.dot(y) / n_samples
         H = x.T.dot(x) / n_samples
         if self.reg == 'exp':
-            H += np.diag(np.exp(lmbda))
+            if lmbda.shape == (1,):
+                H += np.exp(lmbda)*np.eye(x.shape[1])
+            else:
+                H += np.diag(np.exp(lmbda))
         elif self.reg == 'lin':
-            H += np.diag(lmbda)
+            if lmbda.shape == (1,):
+                H += lmbda*np.eye(x.shape[1])
+            else:
+                H += np.diag(lmbda)
         return np.linalg.solve(H, b)
 
     def oracles(self, theta, lmbda, v, idx, inverse):
@@ -138,7 +156,7 @@ class RidgeRegressionOracleNumba():
         hvp = x.T @ (x @ v) / n_samples
         if self.reg != 'none':
             alpha = np.exp(lmbda) if self.reg == 'exp' else lmbda
-            val += .5 * (alpha @ (theta ** 2))
+            val += .5 * theta.dot(np.exp(lmbda) * theta)
             grad += alpha * theta
             hvp += alpha * v
 
