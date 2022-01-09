@@ -33,7 +33,7 @@ class Objective(BaseObjective):
 
     def set_data(self, X_train, y_train, X_test, y_test):
         self.f_train = self.oracle(
-            X_train, y_train, reg='lin'
+            X_train, y_train, reg='exp'
         )
         self.f_test = self.oracle(
             X_test, y_test, reg='none'
@@ -42,8 +42,8 @@ class Objective(BaseObjective):
         rng = check_random_state(self.random_state)
         inner_shape, outer_shape = self.f_train.variables_shape
         self.inner_var0 = rng.randn(*inner_shape)
-        # self.outer_var0 = np.log(2 * rng.rand(*outer_shape))
-        self.outer_var0 = 10 * rng.rand(*outer_shape)
+        self.outer_var0 = np.log(2 * rng.rand(*outer_shape))
+        # self.outer_var0 = 10 * rng.rand(*outer_shape)
         self.inner_var0, self.outer_var0 = self.f_train.prox(
             self.inner_var0, self.outer_var0
         )
@@ -53,7 +53,10 @@ class Objective(BaseObjective):
         inner_var, outer_var = beta
 
         if np.isnan(outer_var).any():
-            raise ValueError
+            raise ValueError()
+            return dict(
+                value=np.nan
+            )
 
         inner_star = self.f_train.get_inner_var_star(outer_var)
         value_function = self.f_test.get_value(inner_star, outer_var)
@@ -77,7 +80,8 @@ class Objective(BaseObjective):
             outer_value=outer_value,
             d_inner=d_inner,
             d_value=d_value,
-            value=np.linalg.norm(grad_value)**2
+            value=np.linalg.norm(grad_value)**2,
+            min_var=outer_var.min()
         )
 
     def to_dict(self):
