@@ -67,6 +67,10 @@ class BaseOracle(ABC):
         pass
 
     @abstractmethod
+    def cross_matrix(self, inner_var, outer_var, idx):
+        pass
+
+    @abstractmethod
     def hvp(self, inner_var, outer_var, v, idx):
         pass
 

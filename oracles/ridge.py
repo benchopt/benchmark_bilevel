@@ -96,6 +96,21 @@ class RidgeRegressionOracleNumba():
             res = np.zeros_like(lmbda)
         return res
 
+    def cross_matrix(self, theta, lmbda, idx):
+        if self.reg == 'exp':
+            if lmbda.shape == (1,):
+                res = np.exp(lmbda) * theta.reshape(-1, 1)
+            else:
+                res = np.diag(np.exp(lmbda) * theta)
+        elif self.reg == 'lin':
+            if lmbda.shape == (1,):
+                res = theta.reshape(-1, 1)
+            else:
+                res = np.diag(theta)
+        else:
+            res = np.zeros_like(lmbda)
+        return res
+
     def hvp(self, theta, lmbda, v, idx):
         x = self.X[idx]
         tmp = x.T @ (x @ v) / x.shape[0]
@@ -222,6 +237,9 @@ class RidgeRegressionOracle(BaseOracle):
 
     def cross(self, theta, lmbda, v, idx):
         return self.numba_oracle.cross(theta, lmbda, v, idx)
+
+    def cross_matrix(self, theta, lmbda, idx):
+        return self.numba_oracle.cross_matrix(theta, lmbda, idx)
 
     def hvp(self, theta, lmbda, v, idx):
         return self.numba_oracle.hvp(theta, lmbda, v, idx)

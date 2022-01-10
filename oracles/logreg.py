@@ -221,6 +221,21 @@ class LogisticRegressionOracleNumba():
             grad_lmbda = np.zeros_like(lmbda)
         return grad_theta, grad_lmbda
 
+    def cross_matrix(self, theta, lmbda, idx):
+        if self.reg == 'exp':
+            if lmbda.shape == (1,):
+                res = np.exp(lmbda) * theta.reshape(-1, 1)
+            else:
+                res = np.diag(np.exp(lmbda) * theta)
+        elif self.reg == 'lin':
+            if lmbda.shape == (1,):
+                res = theta.reshape(-1, 1)
+            else:
+                res = np.diag(theta)
+        else:
+            res = np.zeros_like(lmbda)
+        return res
+
     def cross(self, theta, lmbda, v, idx):
         if self.reg == 'exp':
             if lmbda.shape == (1,):
@@ -390,6 +405,9 @@ class LogisticRegressionOracle(BaseOracle):
 
     def grad_outer_var(self, theta, lmbda, idx):
         return self.numba_oracle.grad_outer_var(theta, lmbda, idx)
+
+    def cross_matrix(self, theta, lmbda, idx):
+        return self.numba_oracle.cross_matrix(theta, lmbda, idx)
 
     def cross(self, theta, lmbda, v, idx):
         return self.numba_oracle.cross(theta, lmbda, v, idx)
