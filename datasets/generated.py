@@ -15,7 +15,7 @@ class Dataset(BaseDataset):
     # the cross product for each key in the dictionary.
     parameters = {
         'n_samples, n_features': [
-            (10_000, 50)
+            (1_000, 10)
         ]
     }
 

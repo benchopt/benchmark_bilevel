@@ -20,10 +20,11 @@ class Solver(BaseSolver):
 
     # any parameter defined here is accessible as a class attribute
     parameters = {
-        'step_size': [1e-2, 1e-3],
-        'outer_ratio': [2, 5],
+        'step_size': [1e-2],
+        'outer_ratio': [50],
         'batch_size, vr': [
-            (1, 'saga'), (1, 'none'),  (32, 'none'), (64, 'none')
+            (1, 'saga'), (1, 'none'),
+            # (32, 'none'), (64, 'none')
         ]
     }
 
@@ -77,6 +78,9 @@ class Solver(BaseSolver):
                 inner_sampler, outer_sampler, inner_step_size, outer_step_size,
                 *memories, saga_inner=use_saga, saga_v=use_saga
             )
+
+            if np.isnan(outer_var).any():
+                raise ValueError()
         self.beta = (inner_var, outer_var)
 
     def get_result(self):
