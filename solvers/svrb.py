@@ -20,8 +20,8 @@ class Solver(BaseSolver):
 
     # any parameter defined here is accessible as a class attribute
     parameters = {
-        'step_size': [1e-1, 1e-2],
-        'outer_ratio': [2, 5],
+        'step_size': [1e-2],
+        'outer_ratio': [50],
         'batch_size': [1, 32]
     }
 
@@ -146,7 +146,7 @@ def svrb(inner_oracle, outer_oracle, inner_var, outer_var,
 
         # Step.5 - update the variables with the directions
         inner_var -= inner_step_size * memory_inner[1]
-        outer_var -= outer_step_size * memory_outer[1]
+        outer_var -= outer_step_size * impl_grad
 
         # Step.6 - project back to the constraint set
         inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)
