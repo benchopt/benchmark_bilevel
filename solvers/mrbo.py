@@ -62,7 +62,7 @@ class Solver(BaseSolver):
 
         eval_freq = 1024
         while callback((inner_var, outer_var)):
-            inner_var, outer_var, memory_inner, memory_outer = sustain(
+            inner_var, outer_var, memory_inner, memory_outer = mrbo(
                 self.f_inner.numba_oracle, self.f_outer.numba_oracle,
                 inner_var, outer_var, memory_inner, memory_outer,
                 eval_freq, inner_sampler, outer_sampler,
@@ -100,9 +100,9 @@ def joint_shia(
 
 
 @njit()
-def sustain(inner_oracle, outer_oracle, inner_var, outer_var,
-            memory_inner, memory_outer, max_iter, inner_sampler, outer_sampler,
-            inner_step_size, outer_step_size, n_hia_step, hia_step, eta):
+def mrbo(inner_oracle, outer_oracle, inner_var, outer_var,
+         memory_inner, memory_outer, max_iter, inner_sampler, outer_sampler,
+         inner_step_size, outer_step_size, n_hia_step, hia_step, eta):
     for i in range(max_iter):
 
         # Step.1 - Update direction for z with momentum
