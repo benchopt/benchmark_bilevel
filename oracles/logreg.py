@@ -247,8 +247,6 @@ class LogisticRegressionOracleNumba():
                 res = np.array([theta.dot(v)])
             else:
                 res = theta * v
-        else:
-            res = np.zeros_like(lmbda)
         return res
 
     def hvp(self, theta, lmbda, v, idx):
