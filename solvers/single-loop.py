@@ -23,7 +23,9 @@ class Solver(BaseSolver):
         'step_size': [1e-2],
         'outer_ratio': [50],
         'batch_size, vr': [
-            (1, 'saga'), (1, 'none'),
+            (1, 'saga'),
+            (1, 'none'),
+            (1, 'saga_z')
             # (32, 'none'), (64, 'none')
         ]
     }
@@ -58,8 +60,11 @@ class Solver(BaseSolver):
             inner_step_size = self.step_size
         outer_step_size = inner_step_size / self.outer_ratio
 
-        use_saga = self.vr == 'saga'
-        if use_saga:
+        # use_saga = self.vr == 'saga'
+        saga_inner = self.vr != 'none'
+        saga_v = self.vr == 'saga'
+
+        if saga_inner:
             memories = init_memory(
                 self.f_inner.numba_oracle, self.f_outer.numba_oracle,
                 inner_var, outer_var, v
@@ -70,13 +75,13 @@ class Solver(BaseSolver):
             memories = (np.empty((1, 1)), np.empty((1, 1)), np.empty((1, 1)))
 
         # eval_freq = max(1024 // self.batch_size, 1)
-        eval_freq = 1024
+        eval_freq = 512
         while callback((inner_var, outer_var)):
             inner_var, outer_var, v = saga(
                 self.f_inner.numba_oracle, self.f_outer.numba_oracle,
                 inner_var, outer_var, v, eval_freq,
                 inner_sampler, outer_sampler, inner_step_size, outer_step_size,
-                *memories, saga_inner=use_saga, saga_v=use_saga
+                *memories, saga_inner=saga_inner, saga_v=saga_v
             )
 
             if np.isnan(outer_var).any():
