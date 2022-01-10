@@ -28,7 +28,7 @@ solver_legend = dict(
     saga="SAGA"
 )
 
-fig = plt.figure(figsize=(4, 4))
+fig = plt.figure(figsize=(4, 3))
 for s in solvers:
     to_plot = df.loc[
         df["solver_name"] == begining_solver+s+end_solver
