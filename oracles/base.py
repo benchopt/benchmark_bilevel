@@ -33,6 +33,10 @@ class BaseOracle(ABC):
       the Hessian (with respect to the inner variable) at inner_var and
       outer_var estimated on the indices contained in idx and a vector v.
 
+    - `hessian(inner_var, outer_var, idx): should return the Hessian (with
+      respect to the inner variable) at inner_var and outer_var estimated on
+      the indices contained in idx.
+
     - `inverse_hvp(inner_var, outer_var, v, idx): should
       return the product between the inverse Hessian (with respect to the inner
       variable) at inner_var and outer_var estimated on the indices contained
@@ -64,6 +68,10 @@ class BaseOracle(ABC):
 
     @abstractmethod
     def hvp(self, inner_var, outer_var, v, idx):
+        pass
+
+    @abstractmethod
+    def hessian(self, inner_var, outer_var, idx):
         pass
 
     @abstractmethod

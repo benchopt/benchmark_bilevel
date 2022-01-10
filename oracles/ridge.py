@@ -105,6 +105,22 @@ class RidgeRegressionOracleNumba():
             tmp += lmbda * v
         return tmp
 
+    def hessian(self, theta, lmbda, idx):
+        x = self.X[idx]
+        assert x.ndim == 2
+        H = np.dot(x.T, x) / x.shape[0]
+        if self.reg == 'exp':
+            if lmbda.shape == (1,):
+                H += np.exp(lmbda)*np.eye(theta.shape[0])
+            else:
+                H += np.diag(np.exp(lmbda))
+        elif self.reg == 'lin':
+            if lmbda.shape == (1,):
+                H += lmbda*np.eye(theta.shape[0])
+            else:
+                H += np.diag(lmbda)
+        return H
+
     def inverse_hvp(self, theta, lmbda, v, idx, approx):
         if approx == 'id':
             return v
@@ -209,6 +225,9 @@ class RidgeRegressionOracle(BaseOracle):
 
     def hvp(self, theta, lmbda, v, idx):
         return self.numba_oracle.hvp(theta, lmbda, v, idx)
+
+    def hessian(self, theta, lmbda, idx):
+        return self.numba_oracle.hessian(theta, lmbda, idx)
 
     def inverse_hvp(self, theta, lmbda, v, idx, approx='cg'):
         return self.numba_oracle.inverse_hvp(

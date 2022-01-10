@@ -223,9 +223,15 @@ class LogisticRegressionOracleNumba():
 
     def cross(self, theta, lmbda, v, idx):
         if self.reg == 'exp':
-            res = np.exp(lmbda) * theta * v
+            if lmbda.shape == (1,):
+                res = np.exp(lmbda) * theta.dot(v)
+            else:
+                res = np.exp(lmbda) * theta * v
         elif self.reg == 'lin':
-            res = theta * v
+            if lmbda.shape == (1,):
+                res = np.array([theta.dot(v)])
+            else:
+                res = theta * v
         else:
             res = np.zeros_like(lmbda)
         return res
@@ -245,6 +251,30 @@ class LogisticRegressionOracleNumba():
         elif self.reg == 'lin':
             lmbda = np.maximum(lmbda, 0)
         return theta, lmbda
+
+    def hessian(self, theta, lmbda, idx):
+        x = self.X[idx]
+        y = self.y[idx]
+        tmp = y * (x @ theta)
+
+        tmp2 = np.zeros_like(tmp)
+        idx1 = tmp < 0
+        tmp2[idx1] = np.exp(tmp[idx1]) * tmp2[idx1]**2
+        idx2 = ~idx1
+        tmp2[idx2] = np.exp(- tmp[idx2]) * expit(tmp[idx2])**2
+        H = x.T @ (tmp2.reshape(-1, 1) * x)
+
+        if self.reg == 'exp':
+            if lmbda.shape == (1,):
+                H += np.exp(lmbda)*np.eye(x.shape[1])
+            else:
+                H += np.diag(np.exp(lmbda))
+        elif self.reg == 'lin':
+            if lmbda.shape == (1,):
+                H += lmbda*np.eye(x.shape[1])
+            else:
+                H += np.diag(lmbda)
+        return H
 
     def inverse_hvp(self, theta, lmbda, v, idx, approx='cg'):
         if approx == 'id':
@@ -292,11 +322,17 @@ class LogisticRegressionOracleNumba():
         if inverse == 'id':
             inv_hvp = v
         elif inverse == 'cg':
-            H = x.T @ (tmp.reshape(-1, 1) * x)
+            H = x.T @ (tmp2.reshape(-1, 1) * x)
             if self.reg == 'exp':
-                H += np.diag(np.exp(lmbda))
+                if lmbda.shape == (1,):
+                    H += np.exp(lmbda)*np.eye(x.shape[1])
+                else:
+                    H += np.diag(np.exp(lmbda))
             elif self.reg == 'lin':
-                H += np.diag(lmbda)
+                if lmbda.shape == (1,):
+                    H += lmbda*np.eye(x.shape[1])
+                else:
+                    H += np.diag(lmbda)
             inv_hvp = np.linalg.solve(H, v)
         else:
             raise NotImplementedError('inverse unknown')
@@ -357,6 +393,9 @@ class LogisticRegressionOracle(BaseOracle):
 
     def cross(self, theta, lmbda, v, idx):
         return self.numba_oracle.cross(theta, lmbda, v, idx)
+
+    def hessian(self, theta, lmbda, idx):
+        return self.numba_oracle.hessian(theta, lmbda, idx)
 
     def hvp(self, theta, lmbda, v, idx):
         return self.numba_oracle.hvp(theta, lmbda, v, idx)
