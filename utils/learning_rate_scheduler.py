@@ -1,5 +1,3 @@
-import numpy as np
-
 from numba import int64, float64
 from numba.experimental import jitclass
 
@@ -44,7 +42,7 @@ class LearningRateScheduler():
         self.i_step = 1
 
     def get_lr(self):
-        lr = self.constants
+        lr = self.constants.copy()
         mask = self.exponents != 0
         lr[mask] /= self.i_step ** self.exponents[mask]
         self.i_step += 1

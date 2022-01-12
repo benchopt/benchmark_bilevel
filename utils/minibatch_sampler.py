@@ -1,6 +1,7 @@
 import numpy as np
 
-from numba import int64
+from numba import types, typed
+from numba import int64, float64
 from numba.experimental import jitclass
 
 
@@ -10,6 +11,7 @@ spec = [
     ('batch_size', int64),
     ('i_batch', int64),
     ('n_batches', int64),
+    ('memories', types.ListType(float64[:, :]))
 ]
 
 
@@ -37,7 +39,8 @@ class MinibatchSampler():
         An oracle implemented in numba, with attribute `n_samples` and method
         `set_order`.
     """
-    def __init__(self, oracle, batch_size=1):
+    def __init__(self, oracle, batch_size=1,
+                 memories=typed.List.empty_list(float64[:, :])):
         # underlying oracle information
         self.n_samples = oracle.n_samples
         self.sample_order = np.arange(self.n_samples)
@@ -49,6 +52,12 @@ class MinibatchSampler():
         self.i_batch = 0
         self.n_batches = (self.n_samples + batch_size - 1) // batch_size
 
+        # Initialize memories container
+        self.memories = memories
+
+    def register_memory(self, memory):
+        self.memories.append(memory)
+
     def get_batch(self, oracle):
         self.i_batch += 1
         if self.i_batch == self.n_batches:
@@ -57,12 +66,12 @@ class MinibatchSampler():
 
         selector = slice(self.i_batch * self.batch_size,
                          (self.i_batch + 1) * self.batch_size)
-        idx = self.sample_order[selector]
-        assert len(idx) > 0
-        return selector, idx
+        return selector
 
     def shuffle(self, oracle):
         idx = np.arange(self.n_samples)
         np.random.shuffle(idx)
         oracle.set_order(idx)
         self.sample_order = self.sample_order[idx]
+        for memory in self.memories:
+            memory[:-1] = memory[idx]
