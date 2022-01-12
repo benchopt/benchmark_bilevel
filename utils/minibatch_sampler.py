@@ -73,5 +73,6 @@ class MinibatchSampler():
         np.random.shuffle(idx)
         oracle.set_order(idx)
         self.sample_order = self.sample_order[idx]
+        idx_memory = np.concatenate((idx, np.array([self.n_samples])))
         for memory in self.memories:
-            memory[:-1] = memory[idx]
+            memory[:] = memory[idx_memory]
