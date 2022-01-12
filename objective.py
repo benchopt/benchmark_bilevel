@@ -11,10 +11,13 @@ class Objective(BaseObjective):
     name = "Bi-level Hyperparameter Optimization"
 
     parameters = {
-        'model': ['logreg', 'ridge']
+        'model': ['logreg', 'ridge'],
+        'n_reg': [1, 'full'],
+        'reg': ['exp', 'lin']
     }
 
-    def __init__(self, model='ridge', random_state=29):
+    def __init__(self, model='ridge', reg='exp',  n_reg='full',
+                 random_state=2442):
         if model == 'ridge':
             self.oracle = oracles.RidgeRegressionOracle
         elif model == 'logreg':
@@ -24,11 +27,13 @@ class Objective(BaseObjective):
                 f"model should be 'ridge' or 'logreg'. Got '{model}'."
             )
 
+        self.reg = reg
+        self.n_reg = n_reg
         self.random_state = random_state
 
     def set_data(self, X_train, y_train, X_test, y_test):
         self.f_train = self.oracle(
-            X_train, y_train, reg='lin'
+            X_train, y_train, reg=self.reg
         )
         self.f_test = self.oracle(
             X_test, y_test, reg='none'
@@ -37,8 +42,11 @@ class Objective(BaseObjective):
         rng = check_random_state(self.random_state)
         inner_shape, outer_shape = self.f_train.variables_shape
         self.inner_var0 = rng.randn(*inner_shape)
-        # self.outer_var0 = np.log(2 * rng.rand(*outer_shape))
-        self.outer_var0 = 10 * rng.rand(*outer_shape)
+        self.outer_var0 = 2 * rng.rand(*outer_shape)
+        if self.reg == 'exp':
+            self.outer_var0 = np.log(self.outer_var0)
+        if self.n_reg == 1:
+            self.outer_var0 = self.outer_var0[:1]
         self.inner_var0, self.outer_var0 = self.f_train.prox(
             self.inner_var0, self.outer_var0
         )

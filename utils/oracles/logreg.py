@@ -206,6 +206,8 @@ class LogisticRegressionOracleNumba():
             grad = .5 * theta ** 2
         else:
             grad = np.zeros_like(lmbda)
+        if lmbda.shape[0] == 1:
+            grad = grad.sum() * np.ones((1,))
         return grad
 
     def grad(self, theta, lmbda, idx):
@@ -219,6 +221,8 @@ class LogisticRegressionOracleNumba():
             grad_lmbda = .5 * theta ** 2
         else:
             grad_lmbda = np.zeros_like(lmbda)
+        if lmbda.shape[0] == 1:
+            grad_lmbda = grad_lmbda.sum() * np.ones((1,))
         return grad_theta, grad_lmbda
 
     def cross(self, theta, lmbda, v, idx):
@@ -228,6 +232,8 @@ class LogisticRegressionOracleNumba():
             res = theta * v
         else:
             res = np.zeros_like(lmbda)
+        if lmbda.shape[0] == 1:
+            res = res.sum() * np.ones((1,))
         return res
 
     def hvp(self, theta, lmbda, v, idx):
@@ -237,32 +243,6 @@ class LogisticRegressionOracleNumba():
         elif self.reg == 'lin':
             tmp += lmbda * v
         return tmp
-
-    def prox(self, theta, lmbda):
-        if self.reg == 'exp':
-            lmbda[lmbda < -12] = -12
-            lmbda[lmbda > 12] = 12
-        elif self.reg == 'lin':
-            lmbda = np.maximum(lmbda, 0)
-        return theta, lmbda
-
-    def inverse_hvp(self, theta, lmbda, v, idx, approx='cg'):
-        if approx == 'id':
-            return v
-        if approx != 'cg':
-            raise NotImplementedError
-        x_i = self.X[idx]
-        y_i = self.y[idx]
-        Hop = _get_hvp_op(x_i, y_i, theta, self.reg, lmbda)
-        Hv, success = splinalg.cg(
-            Hop, v,
-            x0=v.copy(),
-            tol=1e-8,
-            maxiter=5000,
-        )
-        if success != 0:
-            print('CG did not converge to the desired precision')
-        return Hv
 
     def oracles(self, theta, lmbda, v, idx, inverse='id'):
         """Returns the value, the gradient,
@@ -285,7 +265,7 @@ class LogisticRegressionOracleNumba():
 
         if self.reg != 'none':
             alpha = np.exp(lmbda) if self.reg == 'exp' else lmbda
-            val += .5 * (alpha @ theta ** 2)
+            val += .5 * (theta @ (alpha * theta))
             grad += alpha * theta
             hvp += alpha * v
 
@@ -293,15 +273,25 @@ class LogisticRegressionOracleNumba():
             inv_hvp = v
         elif inverse == 'cg':
             H = x.T @ (tmp.reshape(-1, 1) * x)
-            if self.reg == 'exp':
-                H += np.diag(np.exp(lmbda))
-            elif self.reg == 'lin':
-                H += np.diag(lmbda)
+            if self.reg != 'none':
+                alpha = np.exp(lmbda) if self.reg == 'exp' else lmbda
+                if lmbda.shape[0] == 1:
+                    H += alpha * np.eye(H.shape[0])
+                else:
+                    H += np.diag(alpha)
             inv_hvp = np.linalg.solve(H, v)
         else:
             raise NotImplementedError('inverse unknown')
 
         return val, grad, hvp, self.cross(theta, lmbda, inv_hvp, idx)
+
+    def prox(self, theta, lmbda):
+        if self.reg == 'exp':
+            lmbda[lmbda < -12] = -12
+            lmbda[lmbda > 12] = 12
+        elif self.reg == 'lin':
+            lmbda = np.maximum(lmbda, 0)
+        return theta, lmbda
 
 
 class LogisticRegressionOracle(BaseOracle):
@@ -333,12 +323,15 @@ class LogisticRegressionOracle(BaseOracle):
         # Make sure reg is valid
         assert reg in ['exp', 'lin', 'none'], f"Unknown value for reg: '{reg}'"
 
-        self.numba_oracle = LogisticRegressionOracleNumba(X, y, reg)
-
-        # Store info for other oracles
-        self.X = X
-        self.y = y
+        # Store info for other
+        self.X = np.ascontiguousarray(X)
+        self.y = y.astype(np.float64)
         self.reg = reg
+
+        # Create a numba oracle for the numba functions
+        self.numba_oracle = LogisticRegressionOracleNumba(
+            self.X, self.y, self.reg
+        )
 
         # attributes
         self.n_samples, self.n_features = X.shape

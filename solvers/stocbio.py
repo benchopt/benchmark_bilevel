@@ -5,12 +5,14 @@ from benchopt.stopping_criterion import SufficientProgressCriterion
 from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
+    import numpy as np
     from numba import njit
     MinibatchSampler = import_ctx.import_from(
         'minibatch_sampler', 'MinibatchSampler'
     )
     shia = import_ctx.import_from('hessian_approximation', 'shia')
     sgd_inner = import_ctx.import_from('sgd_inner', 'sgd_inner')
+    constants = import_ctx.import_from('constants')
 
 
 class Solver(BaseSolver):
@@ -26,15 +28,15 @@ class Solver(BaseSolver):
 
     # any parameter defined here is accessible as a class attribute
     parameters = {
-        'step_size': [1e-2],
-        'n_inner_step': [10],
-        'batch_size': [32, 100],
-        'outer_ratio': [5, 20],
+        'step_size': constants.STEP_SIZES,
+        'outer_ratio': constants.OUTER_RATIOS,
+        'n_inner_step': constants.N_INNER_STEPS,
+        'batch_size': [1],
     }
 
     @staticmethod
     def get_next(stop_val):
-        return max(1, min(stop_val * 2, stop_val + 50))
+        return stop_val + 1
 
     def set_objective(self, f_train, f_test, inner_var0, outer_var0):
         self.f_inner = f_train
@@ -50,11 +52,17 @@ class Solver(BaseSolver):
             self.outer_batch_size = self.batch_size
 
     def run(self, callback):
-        n_eval_freq = max(1, 1_024 // self.n_inner_step)
-        inner_step_size = self.step_size
-        outer_step_size = self.step_size / self.outer_ratio
+        eval_freq = constants.EVAL_FREQ
+        rng = np.random.RandomState(constants.RANDOM_STATE)
+
+        # Init variables
         outer_var = self.outer_var0.copy()
         inner_var = self.inner_var0.copy()
+
+        # Init sampler and lr
+        shia_step_size = 0.5
+        inner_step_size = self.step_size
+        outer_step_size = self.step_size / self.outer_ratio
         inner_sampler = MinibatchSampler(
             self.f_inner.numba_oracle, self.inner_batch_size
         )
@@ -62,6 +70,7 @@ class Solver(BaseSolver):
             self.f_outer.numba_oracle, self.outer_batch_size
         )
 
+        # Start algorithm
         callback((inner_var, outer_var))
         # L = self.f_inner.lipschitz_inner(inner_var, outer_var)
         inner_var = sgd_inner(
@@ -72,10 +81,11 @@ class Solver(BaseSolver):
         while callback((inner_var, outer_var)):
             inner_var, outer_var = stocbio(
                 self.f_inner.numba_oracle, self.f_outer.numba_oracle,
-                inner_var, outer_var, n_eval_freq, outer_step_size,
+                inner_var, outer_var, eval_freq, outer_step_size,
                 self.n_inner_step, inner_step_size,
-                n_shia_step=self.n_inner_step, shia_step_size=inner_step_size,
+                n_shia_step=self.n_inner_step, shia_step_size=shia_step_size,
                 inner_sampler=inner_sampler, outer_sampler=outer_sampler,
+                seed=rng.randint(constants.MAX_SEED)
             )
 
         self.beta = (inner_var, outer_var)
@@ -90,7 +100,8 @@ class Solver(BaseSolver):
 @njit
 def stocbio(inner_oracle, outer_oracle, inner_var, outer_var,
             max_iter, outer_step_size, n_inner_step, inner_step_size,
-            n_shia_step, shia_step_size, inner_sampler, outer_sampler):
+            n_shia_step, shia_step_size, inner_sampler, outer_sampler,
+            seed=None):
     """Numba compatible stocBiO algorithm.
 
     Parameters
@@ -116,6 +127,8 @@ def stocbio(inner_oracle, outer_oracle, inner_var, outer_var,
         Sampler to get minibatch in a fast and efficient way for the inner and
         outer problems.
     """
+
+    np.random.seed(seed)
 
     for i in range(max_iter):
         outer_slice, _ = outer_sampler.get_batch(outer_oracle)

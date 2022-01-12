@@ -10,6 +10,7 @@ with safe_import_context() as import_ctx:
     MinibatchSampler = import_ctx.import_from(
         'minibatch_sampler', 'MinibatchSampler'
     )
+    constants = import_ctx.import_from('constants')
 
 
 class Solver(BaseSolver):
@@ -22,24 +23,25 @@ class Solver(BaseSolver):
 
     # any parameter defined here is accessible as a class attribute
     parameters = {
-        'step_size': [1e-1, 1e-2, 1e-3],
-        'outer_ratio': [2, 5],
-        'batch_size': [1, 32]
+        'step_size': constants.STEP_SIZES,
+        'outer_ratio': constants.OUTER_RATIOS,
+        'batch_size': [1]
     }
 
     @staticmethod
     def get_next(stop_val):
-        return stop_val + 50
+        return stop_val + 1
 
     def set_objective(self, f_train, f_test, inner_var0, outer_var0):
         self.f_inner = f_train
         self.f_outer = f_test
         self.inner_var0 = inner_var0
         self.outer_var0 = outer_var0
-        self.random_state = 29
 
     def run(self, callback):
-        # rng = np.random.RandomState(self.random_state)
+        eval_freq = constants.EVAL_FREQ
+        rng = np.random.RandomState(constants.RANDOM_STATE)
+
         inner_var = self.inner_var0.copy()
         outer_var = self.outer_var0.copy()
         inner_sampler = MinibatchSampler(
@@ -61,13 +63,12 @@ class Solver(BaseSolver):
         v = np.zeros_like(inner_var)
         d = np.zeros_like(outer_var)
 
-        eval_freq = 1024
         while callback((inner_var, outer_var)):
             inner_var, outer_var, v, d = fsla(
                 self.f_inner.numba_oracle, self.f_outer.numba_oracle,
                 inner_var, outer_var, v, d, eval_freq,
                 inner_sampler, outer_sampler, inner_step_size, outer_step_size,
-                eta
+                eta, seed=rng.randint(constants.MAX_SEED)
             )
         self.beta = (inner_var, outer_var)
 
@@ -78,7 +79,9 @@ class Solver(BaseSolver):
 @njit()
 def fsla(inner_oracle, outer_oracle, inner_var, outer_var, v, memory_outer,
          max_iter, inner_sampler, outer_sampler,
-         inner_step_size, outer_step_size, eta):
+         inner_step_size, outer_step_size, eta, seed=None):
+    # Set seed for randomness
+    np.random.seed(seed)
     for i in range(max_iter):
 
         # Step.1 - SGD step on the inner problem

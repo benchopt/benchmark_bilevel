@@ -5,6 +5,7 @@ from benchopt.stopping_criterion import SufficientProgressCriterion
 from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
+    import numpy as np
     from numba import njit
     MinibatchSampler = import_ctx.import_from(
         'minibatch_sampler', 'MinibatchSampler'
@@ -12,6 +13,7 @@ with safe_import_context() as import_ctx:
     hia = import_ctx.import_from(
         'hessian_approximation', 'hia'
     )
+    constants = import_ctx.import_from('constants')
 
 
 class Solver(BaseSolver):
@@ -24,26 +26,31 @@ class Solver(BaseSolver):
 
     # any parameter defined here is accessible as a class attribute
     parameters = {
-        'step_size': [1e-1, 1e-2],
-        'outer_ratio': [2, 5],
-        'batch_size': [1, 32]
+        'step_size': constants.STEP_SIZES,
+        'outer_ratio': constants.OUTER_RATIOS,
+        'n_hia_step': constants.N_HIA_STEPS,
+        'batch_size': [1],
     }
 
     @staticmethod
     def get_next(stop_val):
-        return stop_val + 50
+        return stop_val + 1
 
     def set_objective(self, f_train, f_test, inner_var0, outer_var0):
         self.f_inner = f_train
         self.f_outer = f_test
         self.inner_var0 = inner_var0
         self.outer_var0 = outer_var0
-        self.random_state = 29
 
     def run(self, callback):
-        # rng = np.random.RandomState(self.random_state)
+        eval_freq = constants.EVAL_FREQ
+        rng = np.random.RandomState(constants.RANDOM_STATE)
+
+        # Init variables
         inner_var = self.inner_var0.copy()
         outer_var = self.outer_var0.copy()
+
+        # Init sampler and lr
         inner_sampler = MinibatchSampler(
             self.f_inner.numba_oracle, batch_size=self.batch_size
         )
@@ -56,18 +63,18 @@ class Solver(BaseSolver):
             )
         else:
             inner_step_size = self.step_size
-        outer_step_size = inner_step_size / self.outer_ratio
         hia_step = inner_step_size
-        n_hia_step = 10
+        outer_step_size = inner_step_size / self.outer_ratio
 
-        eval_freq = 1024
+        # Start algorithm
+        eval_freq = constants.EVAL_FREQ
         while callback((inner_var, outer_var)):
             inner_var, outer_var, = ttsa(
                 self.f_inner.numba_oracle, self.f_outer.numba_oracle,
                 inner_var, outer_var,
                 eval_freq, inner_sampler, outer_sampler,
                 inner_step_size, outer_step_size,
-                n_hia_step, hia_step
+                self.n_hia_step, hia_step, seed=rng.randint(constants.MAX_SEED)
             )
         self.beta = (inner_var, outer_var)
 
@@ -75,26 +82,11 @@ class Solver(BaseSolver):
         return self.beta
 
 
-# @njit
-# def hia(inner_oracle, inner_var, outer_var, v, inner_sampler,
-#         n_step, step_size):
-#     """Hessian Inverse Approximation subroutine from [Ghadimi2018].
-
-#     This implement Algorithm.3
-#     """
-#     p = np.random.randint(n_step)
-#     for i in range(p):
-#         inner_slice, _ = inner_sampler.get_batch(inner_oracle)
-#         hvp = inner_oracle.hvp(inner_var, outer_var, v, inner_slice)
-#         v -= step_size * hvp
-#     return n_step * step_size * v
-
-
 @njit()
 def ttsa(
     inner_oracle, outer_oracle, inner_var, outer_var, max_iter,
     inner_sampler, outer_sampler, inner_step_size, outer_step_size,
-    n_hia_step, hia_step
+    n_hia_step, hia_step, seed=None
 ):
     """Numba compatible TTSA algorithm.
 
@@ -119,6 +111,9 @@ def ttsa(
         Sampler to get minibatch in a fast and efficient way for the inner and
         outer problems.
     """
+
+    np.random.seed(seed)
+
     for i in range(max_iter):
 
         # Step.1 - Update direction for z with momentum

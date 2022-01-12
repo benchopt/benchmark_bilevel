@@ -65,6 +65,8 @@ class RidgeRegressionOracleNumba():
             grad = .5 * theta ** 2
         else:
             grad = np.zeros_like(lmbda)
+        if lmbda.shape[0] == 1:
+            grad = grad.sum() * np.ones((1,))
         return grad
 
     def grad(self, theta, lmbda, idx):
@@ -72,13 +74,16 @@ class RidgeRegressionOracleNumba():
         y = self.y[idx]
         grad_theta = x.T @ (x @ theta - y) / x.shape[0]
         if self.reg == 'exp':
-            grad_theta += np.exp(lmbda) * theta
-            grad_lmbda = .5 * np.exp(lmbda) * theta ** 2
+            alpha = np.exp(lmbda)
+            grad_theta += alpha * theta
+            grad_lmbda = .5 * alpha * theta ** 2
         elif self.reg == 'lin':
             grad_theta += lmbda * theta
             grad_lmbda = .5 * theta ** 2
         else:
             grad_lmbda = np.zeros_like(lmbda)
+        if lmbda.shape[0] == 1:
+            grad_lmbda = grad_lmbda.sum() * np.ones((1,))
         return grad_theta, grad_lmbda
 
     def cross(self, theta, lmbda, v, idx):
@@ -88,6 +93,8 @@ class RidgeRegressionOracleNumba():
             res = theta * v
         else:
             res = np.zeros_like(lmbda)
+        if lmbda.shape[0] == 1:
+            res = res.sum() * np.ones((1,))
         return res
 
     def hvp(self, theta, lmbda, v, idx):
@@ -107,10 +114,12 @@ class RidgeRegressionOracleNumba():
         x = self.X[idx]
         assert x.ndim == 2
         H = np.dot(x.T, x) / x.shape[0]
-        if self.reg == 'exp':
-            H += np.diag(np.exp(lmbda))
-        elif self.reg == 'lin':
-            H += np.diag(lmbda)
+        if self.reg != 'none':
+            alpha = np.exp(lmbda) if self.reg == 'exp' else lmbda
+            if lmbda.shape[0] == 1:
+                H += alpha * np.eye(H.shape[0])
+            else:
+                H += np.diag(alpha)
         return np.linalg.solve(H, v)
 
     def inner_var_star(self, lmbda, idx):
@@ -120,10 +129,12 @@ class RidgeRegressionOracleNumba():
         n_samples = x.shape[0]
         b = x.T.dot(y) / n_samples
         H = x.T.dot(x) / n_samples
-        if self.reg == 'exp':
-            H += np.diag(np.exp(lmbda))
-        elif self.reg == 'lin':
-            H += np.diag(lmbda)
+        if self.reg != 'none':
+            alpha = np.exp(lmbda) if self.reg == 'exp' else lmbda
+            if lmbda.shape[0] == 1:
+                H += alpha * np.eye(H.shape[0])
+            else:
+                H += np.diag(alpha)
         return np.linalg.solve(H, b)
 
     def oracles(self, theta, lmbda, v, idx, inverse):
@@ -138,7 +149,7 @@ class RidgeRegressionOracleNumba():
         hvp = x.T @ (x @ v) / n_samples
         if self.reg != 'none':
             alpha = np.exp(lmbda) if self.reg == 'exp' else lmbda
-            val += .5 * (alpha @ (theta ** 2))
+            val += .5 * (theta @ (alpha * theta))
             grad += alpha * theta
             hvp += alpha * v
 
@@ -164,12 +175,15 @@ class RidgeRegressionOracle(BaseOracle):
         # Make sure reg is valid
         assert reg in ['exp', 'lin', 'none'], f"Unknown value for reg: '{reg}'"
 
-        self.numba_oracle = RidgeRegressionOracleNumba(X, y, reg)
-
         # Store info for other
-        self.X = X
-        self.y = y
+        self.X = np.ascontiguousarray(X)
+        self.y = y.astype(np.float64)
         self.reg = reg
+
+        # Create a numba oracle for the numba functions
+        self.numba_oracle = RidgeRegressionOracleNumba(
+            self.X, self.y, self.reg
+        )
 
         # attributes
         self.n_samples, self.n_features = X.shape

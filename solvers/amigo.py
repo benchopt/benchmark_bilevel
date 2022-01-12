@@ -5,6 +5,7 @@ from benchopt.stopping_criterion import SufficientProgressCriterion
 from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
+    import numpy as np
     from numba import njit
     MinibatchSampler = import_ctx.import_from(
         'minibatch_sampler', 'MinibatchSampler'
@@ -52,6 +53,7 @@ class Solver(BaseSolver):
         outer_step_size = self.step_size / self.outer_ratio
         outer_var = self.outer_var0.copy()
         inner_var = self.inner_var0.copy()
+        v = self.f_outer.grad_inner_var(inner_var, outer_var, np.array([0]))
         inner_sampler = MinibatchSampler(
             self.f_inner.numba_oracle, self.inner_batch_size
         )
@@ -67,10 +69,11 @@ class Solver(BaseSolver):
             inner_sampler=inner_sampler, n_inner_step=self.n_inner_step
         )
         while callback((inner_var, outer_var)):
-            inner_var, outer_var = amigo(
+            inner_var, outer_var, v = amigo(
                 self.f_inner.numba_oracle, self.f_outer.numba_oracle,
-                inner_var, outer_var, n_eval_freq, self.n_inner_step,
-                inner_sampler, outer_sampler, inner_step_size, outer_step_size
+                inner_var, outer_var, v, inner_sampler, outer_sampler,
+                n_eval_freq, self.n_inner_step, 10,
+                inner_step_size, outer_step_size, inner_step_size
             )
 
         self.beta = (inner_var, outer_var)
@@ -108,4 +111,4 @@ def amigo(inner_oracle, outer_oracle, inner_var, outer_var, v,
             inner_oracle, inner_var, outer_var, step_size=inner_step_size,
             inner_sampler=inner_sampler, n_inner_step=n_inner_step
         )
-    return inner_var, outer_var
+    return inner_var, outer_var, v
