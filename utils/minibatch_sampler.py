@@ -68,4 +68,4 @@ class MinibatchSampler():
         if self.i_batch == self.n_batches:
             np.random.shuffle(self.batch_order)
             self.i_batch = 0
-        return selector, self.i_batch
+        return selector, idx
