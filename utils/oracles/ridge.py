@@ -33,8 +33,8 @@ class RidgeRegressionOracleNumba():
         self.n_features = X.shape[1]
 
     def set_order(self, idx):
-        self.X = self.X[idx]
-        self.y = self.y[idx]
+        self.X[:] = self.X[idx]
+        self.y[:] = self.y[idx]
 
     def value(self, theta, lmbda, idx):
         x = self.X[idx]

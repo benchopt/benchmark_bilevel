@@ -27,9 +27,8 @@ class Solver(BaseSolver):
     parameters = {
         'step_size': constants.STEP_SIZES,
         'outer_ratio': constants.OUTER_RATIOS,
-        'batch_size, vr': [
-            (1, 'saga')
-        ]
+        'batch_size': constants.BATCH_SIZES,
+        'vr': ['saga']
     }
 
     @staticmethod
@@ -43,7 +42,7 @@ class Solver(BaseSolver):
         self.outer_var0 = outer_var0
 
     def run(self, callback):
-        eval_freq = constants.EVAL_FREQ
+        eval_freq = constants.EVAL_FREQ // self.batch_size
         rng = np.random.RandomState(constants.RANDOM_STATE)
 
         # Init variables
@@ -53,12 +52,16 @@ class Solver(BaseSolver):
 
         # Init sampler and lr scheduler
         inner_sampler = MinibatchSampler(
-            self.f_inner.numba_oracle, batch_size=self.batch_size
+            self.f_inner.numba_oracle, batch_size=self.batch_size,
+            keep_batches=True
         )
         outer_sampler = MinibatchSampler(
-            self.f_outer.numba_oracle, batch_size=self.batch_size
+            self.f_outer.numba_oracle, batch_size=self.batch_size,
+            keep_batches=True
         )
-        step_sizes = [self.step_size, self.step_size / self.outer_ratio]
+        step_sizes = np.array(
+            [self.step_size, self.step_size / self.outer_ratio]
+        )
         exponents = np.zeros(2)
         lr_scheduler = LearningRateScheduler(
             np.array(step_sizes, dtype=float), exponents
@@ -69,7 +72,7 @@ class Solver(BaseSolver):
         if use_saga:
             memories = init_memory(
                 self.f_inner.numba_oracle, self.f_outer.numba_oracle,
-                inner_var, outer_var, v
+                inner_var, outer_var, v, inner_sampler, outer_sampler
             )
             for mem in memories[:3]:
                 inner_sampler.register_memory(mem)
@@ -103,33 +106,38 @@ class Solver(BaseSolver):
 
 @njit
 # @njit(parallel=True)
-def _init_memory(inner_oracle, outer_oracle, inner_var, outer_var, v):
-    n_outer = outer_oracle.n_samples
-    n_inner = inner_oracle.n_samples
+def _init_memory(inner_oracle, outer_oracle, inner_var, outer_var, v,
+                 inner_sampler, outer_sampler):
+    n_outer = outer_sampler.n_batches
+    n_inner = inner_sampler.n_batches
     n_features = inner_oracle.n_features
     memory_inner_grad = np.zeros((n_inner + 1, n_features))
     memory_hvp = np.zeros((n_inner + 1, n_features))
     memory_cross_v = np.zeros((n_inner + 1, n_features))
-    for id_inner in prange(n_inner):
+    for _ in prange(n_inner):
+        slice_inner, id_inner = inner_sampler.get_batch(inner_oracle)
         _, grad_inner_var, hvp, cross_v = inner_oracle.oracles(
-            inner_var, outer_var, v, np.array([id_inner]), inverse='id'
+            inner_var, outer_var, v, slice_inner, inverse='id'
         )
-        memory_inner_grad[id_inner] = grad_inner_var
-        memory_hvp[id_inner] = hvp
-        memory_cross_v[id_inner] = cross_v
+        memory_inner_grad[id_inner, :] = grad_inner_var
+        memory_hvp[id_inner, :] = hvp
+        memory_cross_v[id_inner, :] = cross_v
 
-    memory_outer_grad = np.zeros((n_outer + 1, n_features))
+    memory_grad_in_outer = np.zeros((n_outer + 1, n_features))
     for id_outer in prange(n_outer):
-        memory_outer_grad[id_outer] = outer_oracle.grad_outer_var(
-            inner_var, outer_var, np.array([id_outer])
+        slice_outer, id_outer = outer_sampler.get_batch(outer_oracle)
+        memory_grad_in_outer[id_outer, :] = outer_oracle.grad_inner_var(
+            inner_var, outer_var, slice_outer
         )
 
-    return memory_inner_grad, memory_hvp, memory_cross_v, memory_outer_grad
+    return memory_inner_grad, memory_hvp, memory_cross_v, memory_grad_in_outer
 
 
-def init_memory(inner_oracle, outer_oracle, inner_var, outer_var, v):
+def init_memory(inner_oracle, outer_oracle, inner_var, outer_var, v,
+                inner_sampler, outer_sampler):
     memories = _init_memory(
-        inner_oracle, outer_oracle, inner_var, outer_var, v
+        inner_oracle, outer_oracle, inner_var, outer_var, v,
+        inner_sampler, outer_sampler
     )
     for mem in memories:
         mem[-1] = mem[:-1].mean(axis=0)
@@ -139,30 +147,30 @@ def init_memory(inner_oracle, outer_oracle, inner_var, outer_var, v):
 @njit
 def variance_reduction(grad, memory, idx):
     n_samples = memory.shape[0] - 1
-    diff = grad - memory[idx][0]
+    diff = grad - memory[idx]
     direction = diff + memory[-1]
     memory[-1] += diff / n_samples
-    memory[idx][0, :] = grad
+    memory[idx, :] = grad
     return direction
 
 
 @njit
 def saba(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
          inner_sampler, outer_sampler, lr_scheduler,
-         memory_inner_grad, memory_hvp, memory_cross_v, memory_outer_grad,
+         memory_inner_grad, memory_hvp, memory_cross_v, memory_grad_in_outer,
          saga_inner=True, saga_v=True, saga_x=True, seed=None):
     np.random.seed(seed)
     for i in range(max_iter):
         inner_step_size, outer_step_size = lr_scheduler.get_lr()
 
-        id_outer = outer_sampler.get_batch(outer_oracle)
-        grad_outer, impl_grad = outer_oracle.grad(
-            inner_var, outer_var, id_outer
+        slice_outer, id_outer = outer_sampler.get_batch(outer_oracle)
+        grad_in_outer, impl_grad = outer_oracle.grad(
+            inner_var, outer_var, slice_outer
         )
 
-        id_inner = inner_sampler.get_batch(inner_oracle)
+        slice_inner, id_inner = inner_sampler.get_batch(inner_oracle)
         _, grad_inner_var, hvp, cross_v = inner_oracle.oracles(
-            inner_var, outer_var, v, id_inner, inverse='id'
+            inner_var, outer_var, v, slice_inner, inverse='id'
         )
 
         # here memory_*[-1] corresponds to the running average of
@@ -178,11 +186,11 @@ def saba(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
             hvp = variance_reduction(
                 hvp, memory_hvp, id_inner
             )
-            grad_outer = variance_reduction(
-                grad_outer, memory_outer_grad, id_outer
+            grad_in_outer = variance_reduction(
+                grad_in_outer, memory_grad_in_outer, id_outer
             )
 
-        v -= inner_step_size * (hvp - grad_outer)
+        v -= inner_step_size * (hvp - grad_in_outer)
 
         if saga_x:
             cross_v = variance_reduction(

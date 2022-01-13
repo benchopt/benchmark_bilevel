@@ -31,7 +31,7 @@ class Solver(BaseSolver):
         'step_size': constants.STEP_SIZES,
         'outer_ratio': constants.OUTER_RATIOS,
         'n_inner_step': constants.N_INNER_STEPS,
-        'batch_size': [1],
+        'batch_size': [1, 32],
     }
 
     @staticmethod
@@ -52,7 +52,7 @@ class Solver(BaseSolver):
             self.outer_batch_size = self.batch_size
 
     def run(self, callback):
-        eval_freq = constants.EVAL_FREQ
+        eval_freq = constants.EVAL_FREQ // self.batch_size
         rng = np.random.RandomState(constants.RANDOM_STATE)
 
         # Init variables

@@ -1,17 +1,17 @@
 import numpy as np
 
 from numba import types, typed
-from numba import int64, float64
 from numba.experimental import jitclass
+from numba import int64, float64, boolean
 
 
 spec = [
     ('n_samples', int64),
-    ('sample_order', int64[:]),
     ('batch_size', int64),
     ('i_batch', int64),
     ('n_batches', int64),
-    ('memories', types.ListType(float64[:, :]))
+    ('memories', types.ListType(float64[:, :])),
+    ('keep_batches', boolean)
 ]
 
 
@@ -39,21 +39,21 @@ class MinibatchSampler():
         An oracle implemented in numba, with attribute `n_samples` and method
         `set_order`.
     """
-    def __init__(self, oracle, batch_size=1,
+    def __init__(self, oracle, batch_size=1, keep_batches=False,
                  memories=typed.List.empty_list(float64[:, :])):
         # underlying oracle information
         self.n_samples = oracle.n_samples
-        self.sample_order = np.arange(self.n_samples)
 
         # Batch size
         self.batch_size = batch_size
+        self.keep_batches = keep_batches
 
         # Internal batch information
         self.i_batch = 0
-        self.n_batches = (self.n_samples + batch_size - 1) // batch_size
+        self.n_batches = self.n_samples // batch_size
 
         # Initialize memories container
-        self.memories = memories
+        self.memories = memories.copy()
 
     def register_memory(self, memory):
         self.memories.append(memory)
@@ -66,13 +66,26 @@ class MinibatchSampler():
 
         selector = slice(self.i_batch * self.batch_size,
                          (self.i_batch + 1) * self.batch_size)
-        return selector
+
+        return selector, self.i_batch
 
     def shuffle(self, oracle):
-        idx = np.arange(self.n_samples)
-        np.random.shuffle(idx)
+        if self.keep_batches:
+            idx_memory = np.arange(self.n_batches)
+            np.random.shuffle(idx_memory)
+            idx = (
+                idx_memory.reshape(-1, 1) * self.batch_size
+                + np.arange(self.batch_size)
+            ).flatten()
+            idx = np.concatenate(
+                (idx, -np.arange(self.n_samples % self.n_batches)[::-1])
+            )
+            idx_memory = np.concatenate((idx_memory, np.array([-1])))
+
+        else:
+            idx = np.arange(self.n_samples)
+            np.random.shuffle(idx)
+            idx_memory = np.concatenate((idx, np.array([-1])))
         oracle.set_order(idx)
-        self.sample_order = self.sample_order[idx]
-        idx_memory = np.concatenate((idx, np.array([self.n_samples])))
         for memory in self.memories:
             memory[:] = memory[idx_memory]

@@ -39,7 +39,7 @@ class Solver(BaseSolver):
         self.outer_var0 = outer_var0
 
     def run(self, callback):
-        eval_freq = constants.EVAL_FREQ
+        eval_freq = constants.EVAL_FREQ // self.batch_size
         rng = np.random.RandomState(constants.RANDOM_STATE)
 
         inner_var = self.inner_var0.copy()
