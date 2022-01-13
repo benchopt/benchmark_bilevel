@@ -10,6 +10,7 @@ spec = [
     ('batch_size', int64),
     ('i_batch', int64),
     ('n_batches', int64),
+    ('batch_order', int64[:]),
     ('memories', types.ListType(float64[:, :])),
     ('keep_batches', boolean)
 ]
@@ -51,6 +52,7 @@ class MinibatchSampler():
         # Internal batch information
         self.i_batch = 0
         self.n_batches = self.n_samples // batch_size
+        self.batch_order = np.arange(self.n_batches)
 
         # Initialize memories container
         self.memories = memories.copy()
@@ -59,33 +61,11 @@ class MinibatchSampler():
         self.memories.append(memory)
 
     def get_batch(self, oracle):
+        idx = self.batch_order[self.i_batch]
+        selector = slice(idx * self.batch_size,
+                         (idx + 1) * self.batch_size)
         self.i_batch += 1
         if self.i_batch == self.n_batches:
+            np.random.shuffle(self.batch_order)
             self.i_batch = 0
-            self.shuffle(oracle)
-
-        selector = slice(self.i_batch * self.batch_size,
-                         (self.i_batch + 1) * self.batch_size)
-
         return selector, self.i_batch
-
-    def shuffle(self, oracle):
-        if self.keep_batches:
-            idx_memory = np.arange(self.n_batches)
-            np.random.shuffle(idx_memory)
-            idx = (
-                idx_memory.reshape(-1, 1) * self.batch_size
-                + np.arange(self.batch_size)
-            ).flatten()
-            idx = np.concatenate(
-                (idx, -np.arange(self.n_samples % self.n_batches)[::-1])
-            )
-            idx_memory = np.concatenate((idx_memory, np.array([-1])))
-
-        else:
-            idx = np.arange(self.n_samples)
-            np.random.shuffle(idx)
-            idx_memory = np.concatenate((idx, np.array([-1])))
-        oracle.set_order(idx)
-        for memory in self.memories:
-            memory[:] = memory[idx_memory]
