@@ -73,6 +73,8 @@ class Objective(BaseObjective):
             grad_f_test_inner
         )
         grad_value -= self.f_train.get_cross(inner_star, outer_var, v)
+        grad_inner = self.f_train.get_grad_inner_var(inner_var, outer_var)
+        grad_star = self.f_train.get_grad_inner_var(inner_star, outer_var)
 
         return dict(
             value_func=value_function,
@@ -80,7 +82,9 @@ class Objective(BaseObjective):
             outer_value=outer_value,
             d_inner=d_inner,
             d_value=d_value,
-            value=np.linalg.norm(grad_value)**2
+            value=np.linalg.norm(grad_value)**2,
+            grad_inner=np.linalg.norm(grad_inner),
+            grad_star=np.linalg.norm(grad_star),
         )
 
     def to_dict(self):

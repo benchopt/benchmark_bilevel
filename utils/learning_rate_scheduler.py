@@ -42,8 +42,9 @@ class LearningRateScheduler():
         self.i_step = 1
 
     def get_lr(self):
-        lr = self.constants.copy()
-        mask = self.exponents != 0
-        lr[mask] /= self.i_step ** self.exponents[mask]
-        self.i_step += 1
-        return lr
+        # lr = self.constants.copy()
+        # mask = self.exponents != 0
+        # lr[mask] /= self.i_step ** self.exponents[mask]
+        # self.i_step += 1
+        # return lr
+        return self.constants

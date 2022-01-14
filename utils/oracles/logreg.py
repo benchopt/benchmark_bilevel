@@ -308,7 +308,7 @@ class LogisticRegressionOracle(BaseOracle):
     reg : bool
         Whether or not to apply regularisation.
     """
-    def __init__(self, X, y, reg=False):
+    def __init__(self, X, y, reg='none'):
         super().__init__()
 
         # Make sure the targets are {1, -1}.
@@ -347,6 +347,9 @@ class LogisticRegressionOracle(BaseOracle):
 
     def grad_outer_var(self, theta, lmbda, idx):
         return self.numba_oracle.grad_outer_var(theta, lmbda, idx)
+
+    def grad(self, theta, lmbda, idx):
+        return self.numba_oracle.grad(theta, lmbda, idx)
 
     def cross(self, theta, lmbda, v, idx):
         return self.numba_oracle.cross(theta, lmbda, v, idx)

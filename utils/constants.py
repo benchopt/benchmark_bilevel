@@ -2,7 +2,7 @@ import numpy as np
 
 EVAL_FREQ = 2 ** 15
 
-STEP_SIZES = [5e-2]
+STEP_SIZES = [1e-2]
 OUTER_RATIOS = [2]
 BATCH_SIZES = [32]
 

@@ -200,6 +200,9 @@ class RidgeRegressionOracle(BaseOracle):
     def grad_outer_var(self, theta, lmbda, idx):
         return self.numba_oracle.grad_outer_var(theta, lmbda, idx)
 
+    def grad(self, theta, lmbda, idx):
+        return self.numba_oracle.grad(theta, lmbda, idx)
+
     def cross(self, theta, lmbda, v, idx):
         return self.numba_oracle.cross(theta, lmbda, v, idx)
 
