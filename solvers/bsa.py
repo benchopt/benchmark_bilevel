@@ -27,7 +27,7 @@ class Solver(BaseSolver):
         'step_size': constants.STEP_SIZES,
         'outer_ratio': constants.OUTER_RATIOS,
         'n_inner_step': constants.N_INNER_STEPS,
-        'batch_size': [32, 100],
+        'batch_size': constants.BATCH_SIZES,
     }
 
     @staticmethod

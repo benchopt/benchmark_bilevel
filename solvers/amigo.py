@@ -12,6 +12,7 @@ with safe_import_context() as import_ctx:
     )
     sgd_inner = import_ctx.import_from('sgd_inner', 'sgd_inner')
     sgd_v = import_ctx.import_from('hessian_approximation', 'sgd_v')
+    constants = import_ctx.import_from('constants')
 
 
 class Solver(BaseSolver):
@@ -24,10 +25,10 @@ class Solver(BaseSolver):
 
     # any parameter defined here is accessible as a class attribute
     parameters = {
-        'n_inner_step': [10, 100],
-        'batch_size': [32, 64],
-        'step_size': [1e-2],
-        'outer_ratio': [5, 20],
+        'step_size': constants.STEP_SIZES,
+        'outer_ratio': constants.OUTER_RATIOS,
+        'n_inner_step': constants.N_INNER_STEPS,
+        'batch_size': constants.BATCH_SIZES,
     }
 
     @staticmethod
