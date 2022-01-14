@@ -59,10 +59,10 @@ class Solver(BaseSolver):
         inner_step_size = self.step_size
         outer_step_size = self.step_size / self.outer_ratio
         inner_sampler = MinibatchSampler(
-        self.f_inner.numba_oracle, self.inner_batch_size
+            self.f_inner.n_samples, self.inner_batch_size
         )
         outer_sampler = MinibatchSampler(
-            self.f_outer.numba_oracle, self.outer_batch_size
+            self.f_outer.n_samples, self.outer_batch_size
         )
 
         # Start algorithm
@@ -95,7 +95,7 @@ class Solver(BaseSolver):
 def sgd_inner(inner_oracle, inner_var, outer_var,
               step_size, inner_sampler, n_inner_step):
     for _ in range(n_inner_step):
-        inner_slice, _ = inner_sampler.get_batch(inner_oracle)
+        inner_slice, _ = inner_sampler.get_batch()
         grad_inner = inner_oracle.grad_inner_var(
             inner_var, outer_var, inner_slice
         )
@@ -138,7 +138,7 @@ def bsa(inner_oracle, outer_oracle, inner_var, outer_var,
     np.random.seed(seed)
 
     for i in range(max_iter):
-        outer_slice, _ = outer_sampler.get_batch(outer_oracle)
+        outer_slice, _ = outer_sampler.get_batch()
         grad_in, grad_out = outer_oracle.grad(
             inner_var, outer_var, outer_slice
         )
@@ -147,7 +147,7 @@ def bsa(inner_oracle, outer_oracle, inner_var, outer_var,
             inner_oracle, inner_var, outer_var, grad_in,
             inner_sampler, n_hia_step, hia_step_size
         )
-        inner_slice, _ = inner_sampler.get_batch(inner_oracle)
+        inner_slice, _ = inner_sampler.get_batch()
         implicit_grad = inner_oracle.cross(
             inner_var, outer_var, implicit_grad, inner_slice
         )

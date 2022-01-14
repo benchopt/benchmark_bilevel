@@ -48,10 +48,10 @@ class Solver(BaseSolver):
         v = np.zeros_like(inner_var)
 
         inner_sampler = MinibatchSampler(
-            self.f_inner.numba_oracle, batch_size=self.batch_size
+            self.f_inner.n_samples, batch_size=self.batch_size
         )
         outer_sampler = MinibatchSampler(
-            self.f_outer.numba_oracle, batch_size=self.batch_size
+            self.f_outer.n_samples, batch_size=self.batch_size
         )
         if self.step_size == 'auto':
             step_size = 1 / self.f_inner.lipschitz_inner(
@@ -155,12 +155,12 @@ def saga(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
     for i in range(max_iter):
         inner_step_size, outer_step_size = lr_scheduler.get_lr()
 
-        slice_outer, id_outer = outer_sampler.get_batch(outer_oracle)
+        slice_outer, id_outer = outer_sampler.get_batch()
         grad_outer, impl_grad = outer_oracle.grad(
             inner_var, outer_var, slice_outer
         )
 
-        slice_inner, id_inner = inner_sampler.get_batch(inner_oracle)
+        slice_inner, id_inner = inner_sampler.get_batch()
         _, grad_inner_var, hvp, cross_v = inner_oracle.oracles(
             inner_var, outer_var, v, slice_inner, inverse='id'
         )

@@ -1,5 +1,6 @@
 import pytest
 import numpy as np
+from numba import njit
 
 from benchopt.utils.safe_import import set_benchmark
 set_benchmark('.')
@@ -35,6 +36,7 @@ def test_init_memory(batch_size):
     sampler = MinibatchSampler(
         n_samples, batch_size=batch_size
     )
+    np.random.shuffle(sampler.batch_order)
 
     # Init memory
     (memory_inner_grad, memory_hvp, memory_cross_v,
@@ -67,8 +69,8 @@ def test_init_memory(batch_size):
 
 
 @pytest.mark.parametrize('batch_size', [1, 32, 64])
-def test_vr(batch_size):
-    n_samples = 1024
+@pytest.mark.parametrize('n_samples', [1000, 1024])
+def test_vr(n_samples, batch_size):
     n_features = 10
 
     oracle = _make_oracle(n_samples, n_features)
@@ -76,22 +78,30 @@ def test_vr(batch_size):
     theta = np.random.randn(n_features)
     lmbda = np.random.randn(n_features)
 
+    sampler = MinibatchSampler(
+        n_samples, batch_size=batch_size
+    )
+
     # check that variance reduction correctly stores the gradient
-    n_batches = n_samples // batch_size
-    memory = np.zeros((n_batches + 1, n_features))
-    for i in range(n_batches):
-        grad_inner = oracle.grad_inner_var(
-            theta, lmbda, slice(i*batch_size, (i+1) * batch_size),
-        )
-        variance_reduction(grad_inner, memory, i)
-        assert np.allclose(memory[i], grad_inner)
+    memory = np.zeros((sampler.n_batches + 1, n_features))
+
+    @njit
+    def check_mem(oracle, theta, lmbda, memory, sampler):
+        for i in range(sampler.n_batches):
+            slice_, vr_info = sampler.get_batch()
+            grad_inner = oracle.grad_inner_var(
+                theta, lmbda, slice_,
+            )
+            variance_reduction(grad_inner, memory, vr_info)
+
+    check_mem(oracle.numba_oracle, theta, lmbda, memory, sampler)
 
     # check that after one epoch without moving, gradient average is correct
     grad_inner_avg = oracle.get_grad_inner_var(theta, lmbda)
     assert np.allclose(memory[-1], grad_inner_avg)
 
     # check that no part of the memory were altered by the variance
-    for i in range(n_batches):
+    for i in range(sampler.n_batches):
         grad_inner = oracle.grad_inner_var(
             theta, lmbda, slice(i*batch_size, (i+1) * batch_size),
         )

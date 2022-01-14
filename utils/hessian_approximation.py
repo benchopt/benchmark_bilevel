@@ -11,7 +11,7 @@ def hia(inner_oracle, inner_var, outer_var, v, inner_sampler,
     """
     p = np.random.randint(n_step)
     for i in range(p):
-        inner_slice, _ = inner_sampler.get_batch(inner_oracle)
+        inner_slice, _ = inner_sampler.get_batch()
         hvp = inner_oracle.hvp(inner_var, outer_var, v, inner_slice)
         v -= step_size * hvp
     return n_step * step_size * v
@@ -27,7 +27,7 @@ def shia(
     """
     s = v
     for i in range(n_step):
-        inner_slice, _ = inner_sampler.get_batch(inner_oracle)
+        inner_slice, _ = inner_sampler.get_batch()
         hvp = inner_oracle.hvp(inner_var, outer_var, v, inner_slice)
         v -= step_size * hvp
         s += v
@@ -46,7 +46,7 @@ def sgd_v(inner_oracle, inner_var, outer_var, v, grad_out,
         \min_v v^\top H v - \nabla_{out}^\top v
     """
     for _ in range(n_step):
-        inner_slice, _ = inner_sampler.get_batch(inner_oracle)
+        inner_slice, _ = inner_sampler.get_batch()
         hvp = inner_oracle.hvp(inner_var, outer_var, v, inner_slice)
         v -= step_size * (hvp - grad_out)
 

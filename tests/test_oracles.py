@@ -130,5 +130,5 @@ def test_oracle_inner_var_star(model, reg):
 
     inner_var = f.get_inner_var_star(outer_var)
     g_inner_var_star = f.get_grad_inner_var(inner_var, outer_var)
-    # XXX: Investigate why the norm is not smaller
+    # XXX: Investigate why the norm is not small
     assert np.allclose(g_inner_var_star, 0)

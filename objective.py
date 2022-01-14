@@ -16,6 +16,8 @@ class Objective(BaseObjective):
         'reg': ['exp', 'lin']
     }
 
+    is_convex = False
+
     def __init__(self, model='ridge', reg='exp',  n_reg='full',
                  random_state=2442):
         if model == 'ridge':

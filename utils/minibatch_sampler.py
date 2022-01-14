@@ -28,7 +28,7 @@ class MinibatchSampler():
     -----
     >>> samples = MinibatchSampler(oracle, batch_size=1)
     >>> for _ in range(max_iter):
-    >>>     selector = sampler.get_batch(oracle)
+    >>>     selector = sampler.get_batch()
     >>>     grad = oracle.inner_gradient(inner_var, outer_var, selector)
 
     Parameters
@@ -40,11 +40,12 @@ class MinibatchSampler():
     def __init__(self, n_samples, batch_size=1):
 
         # Batch size
+        self.n_samples = n_samples
         self.batch_size = batch_size
 
         # Internal batch information
         self.i_batch = 0
-        self.n_batches = n_samples // batch_size
+        self.n_batches = (n_samples + batch_size - 1) // batch_size
         self.batch_order = np.arange(self.n_batches)
 
     def get_batch(self):
@@ -55,4 +56,9 @@ class MinibatchSampler():
         if self.i_batch == self.n_batches:
             np.random.shuffle(self.batch_order)
             self.i_batch = 0
-        return selector, idx
+
+        weight = self.batch_size / self.n_samples
+        if idx == self.n_batches - 1 and self.n_samples % self.batch_size != 0:
+            weight = (self.n_samples % self.batch_size) / self.n_samples
+
+        return selector, (idx, weight)

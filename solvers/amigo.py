@@ -55,10 +55,10 @@ class Solver(BaseSolver):
         inner_var = self.inner_var0.copy()
         v = self.f_outer.grad_inner_var(inner_var, outer_var, np.array([0]))
         inner_sampler = MinibatchSampler(
-            self.f_inner.numba_oracle, self.inner_batch_size
+            self.f_inner.n_samples, self.inner_batch_size
         )
         outer_sampler = MinibatchSampler(
-            self.f_outer.numba_oracle, self.outer_batch_size
+            self.f_outer.n_samples, self.outer_batch_size
         )
 
         callback((inner_var, outer_var))
@@ -92,7 +92,7 @@ def amigo(inner_oracle, outer_oracle, inner_var, outer_var, v,
           inner_step_size, outer_step_size, v_step_size):
 
     for i in range(max_iter):
-        outer_slice, _ = outer_sampler.get_batch(outer_oracle)
+        outer_slice, _ = outer_sampler.get_batch()
         grad_in, grad_out = outer_oracle.grad(
             inner_var, outer_var, outer_slice
         )
@@ -100,7 +100,7 @@ def amigo(inner_oracle, outer_oracle, inner_var, outer_var, v,
         v = sgd_v(inner_oracle, inner_var, outer_var, v, grad_in,
                   inner_sampler, n_v_step, v_step_size)
 
-        inner_slice, _ = inner_sampler.get_batch(inner_oracle)
+        inner_slice, _ = inner_sampler.get_batch()
         cross_hvp = inner_oracle.cross(inner_var, outer_var, v, inner_slice)
         implicit_grad = grad_out - cross_hvp
 

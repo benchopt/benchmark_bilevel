@@ -52,10 +52,10 @@ class Solver(BaseSolver):
 
         # Init sampler and lr
         inner_sampler = MinibatchSampler(
-            self.f_inner.numba_oracle, batch_size=self.batch_size
+            self.f_inner.n_samples, batch_size=self.batch_size
         )
         outer_sampler = MinibatchSampler(
-            self.f_outer.numba_oracle, batch_size=self.batch_size
+            self.f_outer.n_samples, batch_size=self.batch_size
         )
         if self.step_size == 'auto':
             inner_step_size = 1 / self.f_inner.lipschitz_inner(
@@ -117,7 +117,7 @@ def ttsa(
     for i in range(max_iter):
 
         # Step.1 - Update direction for z with momentum
-        slice_inner, _ = inner_sampler.get_batch(inner_oracle)
+        slice_inner, _ = inner_sampler.get_batch()
         grad_inner_var = inner_oracle.grad_inner_var(
             inner_var, outer_var, slice_inner
         )
@@ -126,7 +126,7 @@ def ttsa(
         inner_var -= inner_step_size * grad_inner_var
 
         # Step.3 - Compute implicit grad approximation with HIA
-        slice_outer, _ = outer_sampler.get_batch(outer_oracle)
+        slice_outer, _ = outer_sampler.get_batch()
         grad_outer, impl_grad = outer_oracle.grad(
             inner_var, outer_var, slice_outer
         )

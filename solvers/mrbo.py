@@ -41,10 +41,10 @@ class Solver(BaseSolver):
         inner_var = self.inner_var0.copy()
         outer_var = self.outer_var0.copy()
         inner_sampler = MinibatchSampler(
-            self.f_inner.numba_oracle, batch_size=self.batch_size
+            self.f_inner.n_samples, batch_size=self.batch_size
         )
         outer_sampler = MinibatchSampler(
-            self.f_outer.numba_oracle, batch_size=self.batch_size
+            self.f_outer.n_samples, batch_size=self.batch_size
         )
         if self.step_size == 'auto':
             inner_step_size = 1 / self.f_inner.lipschitz_inner(
@@ -87,7 +87,7 @@ def joint_shia(
     s = v
     s_old = v_old
     for i in range(n_step):
-        inner_slice, _ = inner_sampler.get_batch(inner_oracle)
+        inner_slice, _ = inner_sampler.get_batch()
         hvp = inner_oracle.hvp(inner_var, outer_var, v, inner_slice)
         v -= step_size * hvp
         s += v
@@ -106,7 +106,7 @@ def sustain(inner_oracle, outer_oracle, inner_var, outer_var,
     for i in range(max_iter):
 
         # Step.1 - Update direction for z with momentum
-        slice_inner, _ = inner_sampler.get_batch(inner_oracle)
+        slice_inner, _ = inner_sampler.get_batch()
         grad_inner_var = inner_oracle.grad_inner_var(
             inner_var, outer_var, slice_inner
         )
@@ -118,7 +118,7 @@ def sustain(inner_oracle, outer_oracle, inner_var, outer_var,
         )
 
         # Step.2 - Compute implicit grad approximation with HIA
-        slice_outer, _ = outer_sampler.get_batch(outer_oracle)
+        slice_outer, _ = outer_sampler.get_batch()
         grad_outer, impl_grad = outer_oracle.grad(
             inner_var, outer_var, slice_outer
         )
