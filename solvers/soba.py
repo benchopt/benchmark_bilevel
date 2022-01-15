@@ -20,7 +20,7 @@ class Solver(BaseSolver):
     name = 'SOBA'
 
     stopping_criterion = SufficientProgressCriterion(
-        patience=100, strategy='callback'
+        patience=constants.PATIENCE, strategy='callback'
     )
 
     # any parameter defined here is accessible as a class attribute

@@ -6,13 +6,13 @@ from benchopt import safe_import_context
 with safe_import_context() as import_ctx:
     import numpy as np
     from numba import njit
+    constants = import_ctx.import_from('constants')
     MinibatchSampler = import_ctx.import_from(
         'minibatch_sampler', 'MinibatchSampler'
     )
     LearningRateScheduler = import_ctx.import_from(
         'learning_rate_scheduler', 'LearningRateScheduler'
     )
-    constants = import_ctx.import_from('constants')
 
 
 class Solver(BaseSolver):
@@ -20,59 +20,63 @@ class Solver(BaseSolver):
     name = 'MRBO'
 
     stopping_criterion = SufficientProgressCriterion(
-        patience=100, strategy='callback'
+        patience=constants.PATIENCE, strategy='callback'
     )
 
     # any parameter defined here is accessible as a class attribute
     parameters = {
         'step_size': constants.STEP_SIZES,
         'outer_ratio': constants.OUTER_RATIOS,
+        'n_hia_step': constants.N_HIA_STEPS,
         'batch_size': constants.BATCH_SIZES
     }
 
     @staticmethod
     def get_next(stop_val):
-        return stop_val + 50
+        return stop_val + 1
 
     def set_objective(self, f_train, f_test, inner_var0, outer_var0):
         self.f_inner = f_train
         self.f_outer = f_test
         self.inner_var0 = inner_var0
         self.outer_var0 = outer_var0
-        self.random_state = 29
 
     def run(self, callback):
-        # rng = np.random.RandomState(self.random_state)
+        eval_freq = constants.EVAL_FREQ  # // self.batch_size
+        rng = np.random.RandomState(constants.RANDOM_STATE)
+
+        # Init variables
         inner_var = self.inner_var0.copy()
         outer_var = self.outer_var0.copy()
+        memory_inner = np.zeros((2, *inner_var.shape), inner_var.dtype)
+        memory_outer = np.zeros((2, *outer_var.shape), outer_var.dtype)
+
+        # Init sampler and lr scheduler
         inner_sampler = MinibatchSampler(
             self.f_inner.n_samples, batch_size=self.batch_size
         )
         outer_sampler = MinibatchSampler(
             self.f_outer.n_samples, batch_size=self.batch_size
         )
-        if self.step_size == 'auto':
-            inner_step_size = 1 / self.f_inner.lipschitz_inner(
-                inner_var, outer_var
-            )
-        else:
-            inner_step_size = self.step_size
-        outer_step_size = inner_step_size / self.outer_ratio
-        eta = inner_step_size
-        hia_step = inner_step_size
-        n_hia_step = 10
+        step_sizes = np.array(
+            [self.step_size, self.step_size, self.step_size / self.outer_ratio]
+        )
+        exponents = np.zeros(3)
+        lr_scheduler = LearningRateScheduler(
+            np.array(step_sizes, dtype=float), exponents
+        )
 
-        memory_inner = np.zeros((2, *inner_var.shape), inner_var.dtype)
-        memory_outer = np.zeros((2, *outer_var.shape), outer_var.dtype)
+        # Constants for HIA approximations
+        eta = 0.5
 
-        eval_freq = 1024
+        # Start algorithm
         while callback((inner_var, outer_var)):
-            inner_var, outer_var, memory_inner, memory_outer = sustain(
+            inner_var, outer_var, memory_inner, memory_outer = mrbo(
                 self.f_inner.numba_oracle, self.f_outer.numba_oracle,
                 inner_var, outer_var, memory_inner, memory_outer,
                 eval_freq, inner_sampler, outer_sampler,
-                inner_step_size, outer_step_size,
-                n_hia_step, hia_step, eta
+                lr_scheduler, self.n_hia_step, eta,
+                seed=rng.randint(constants.MAX_SEED)
             )
         self.beta = (inner_var, outer_var)
 
@@ -83,7 +87,7 @@ class Solver(BaseSolver):
 @njit
 def joint_shia(
     inner_oracle, inner_var, outer_var, v, inner_var_old, outer_var_old, v_old,
-    inner_sampler, n_step, step_size
+    inner_sampler, n_step, step_size, seed=None
 ):
     """Hessian Inverse Approximation subroutine from [Ji2021].
 
@@ -105,10 +109,16 @@ def joint_shia(
 
 
 @njit()
-def sustain(inner_oracle, outer_oracle, inner_var, outer_var,
-            memory_inner, memory_outer, max_iter, inner_sampler, outer_sampler,
-            inner_step_size, outer_step_size, n_hia_step, hia_step, eta):
+def mrbo(inner_oracle, outer_oracle, inner_var, outer_var,
+         memory_inner, memory_outer, max_iter, inner_sampler, outer_sampler,
+         lr_scheduler, n_hia_step, eta, seed=None):
+
+    # Set seed for randomness
+    if seed is not None:
+        np.random.seed(seed)
+
     for i in range(max_iter):
+        inner_lr, hia_lr, outer_lr = lr_scheduler.get_lr()
 
         # Step.1 - Update direction for z with momentum
         slice_inner, _ = inner_sampler.get_batch()
@@ -133,7 +143,7 @@ def sustain(inner_oracle, outer_oracle, inner_var, outer_var,
         ihvp, ihvp_old = joint_shia(
             inner_oracle, inner_var, outer_var, grad_outer,
             memory_inner[0], memory_outer[0], grad_outer_old,
-            inner_sampler, n_hia_step, hia_step
+            inner_sampler, n_hia_step, hia_lr
         )
         impl_grad -= inner_oracle.cross(
             inner_var, outer_var, ihvp, slice_inner
@@ -152,8 +162,8 @@ def sustain(inner_oracle, outer_oracle, inner_var, outer_var,
         memory_outer[0] = outer_var
 
         # Step.5 - update the variables with the directions
-        inner_var -= inner_step_size * memory_inner[1]
-        outer_var -= outer_step_size * memory_outer[1]
+        inner_var -= inner_lr * memory_inner[1]
+        outer_var -= outer_lr * memory_outer[1]
 
         # Step.6 - project back to the constraint set
         inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)

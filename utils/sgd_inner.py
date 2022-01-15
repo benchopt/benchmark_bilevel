@@ -2,8 +2,9 @@ from numba import njit
 
 
 @njit
-def sgd_inner(inner_oracle, inner_var, outer_var,
-              step_size, inner_sampler, n_inner_step):
+def sgd_inner(inner_oracle, inner_var, outer_var, step_size, inner_sampler,
+              n_inner_step):
+
     for i in range(n_inner_step):
         inner_slice, _ = inner_sampler.get_batch()
         grad_inner = inner_oracle.grad_inner_var(
