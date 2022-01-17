@@ -59,7 +59,9 @@ class Solver(BaseSolver):
         step_sizes = np.array(
             [self.step_size, self.step_size / self.outer_ratio]
         )
-        exponents = np.zeros(2)
+        exponents = np.array(
+            [.4, .6]
+        )
         lr_scheduler = LearningRateScheduler(
             np.array(step_sizes, dtype=float), exponents
         )

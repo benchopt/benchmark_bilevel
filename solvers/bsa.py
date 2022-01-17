@@ -70,7 +70,7 @@ class Solver(BaseSolver):
         step_sizes = np.array(
             [self.step_size, self.step_size, self.step_size / self.outer_ratio]
         )
-        exponents = np.zeros(3)
+        exponents = np.array([.5, 0., .5])
         lr_scheduler = LearningRateScheduler(
             np.array(step_sizes, dtype=float), exponents
         )
@@ -86,7 +86,7 @@ class Solver(BaseSolver):
             inner_var, outer_var = bsa(
                 self.f_inner.numba_oracle, self.f_outer.numba_oracle,
                 inner_var, outer_var, eval_freq, lr_scheduler,
-                self.n_inner_step, n_hia_step=self.n_innen_hia_step,
+                self.n_inner_step, n_hia_step=self.n_hia_step,
                 inner_sampler=inner_sampler, outer_sampler=outer_sampler,
                 seed=rng.randint(constants.MAX_SEED)
             )

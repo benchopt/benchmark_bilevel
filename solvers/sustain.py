@@ -1,4 +1,3 @@
-
 from benchopt import BaseSolver
 from benchopt.stopping_criterion import SufficientProgressCriterion
 
@@ -60,10 +59,15 @@ class Solver(BaseSolver):
         outer_sampler = MinibatchSampler(
             self.f_outer.n_samples, batch_size=self.batch_size
         )
-        step_sizes = np.array(
-            [self.step_size, self.step_size, self.step_size / self.outer_ratio]
+        step_sizes = np.array(  # (inner_ss, hia_lr, eta, outer_ss)
+            [
+                self.step_size,
+                self.step_size,
+                self.eta,
+                self.step_size / self.outer_ratio,
+            ]
         )
-        exponents = np.zeros(3)
+        exponents = np.array([1/3, 0., 2/3, 1/3])
         lr_scheduler = LearningRateScheduler(
             np.array(step_sizes, dtype=float), exponents
         )
@@ -74,7 +78,7 @@ class Solver(BaseSolver):
                 self.f_inner.numba_oracle, self.f_outer.numba_oracle,
                 inner_var, outer_var, memory_inner, memory_outer,
                 eval_freq, lr_scheduler, inner_sampler, outer_sampler,
-                self.n_hia_step, self.eta, seed=rng.randint(constants.MAX_SEED)
+                self.n_hia_step, seed=rng.randint(constants.MAX_SEED)
             )
         self.beta = (inner_var, outer_var)
 
@@ -82,7 +86,7 @@ class Solver(BaseSolver):
         return self.beta
 
 
-@njit(cache=True)
+@njit()
 def joint_hia(inner_oracle, inner_var, outer_var, v,
               inner_var_old, outer_var_old, v_old,
               inner_sampler, n_step, step_size):
@@ -104,17 +108,17 @@ def joint_hia(inner_oracle, inner_var, outer_var, v,
     return n_step * step_size * v, n_step * step_size * v_old
 
 
-@njit(cache=True)
+@njit()
 def sustain(inner_oracle, outer_oracle, inner_var, outer_var,
             memory_inner, memory_outer, max_iter, lr_scheduler,
-            inner_sampler, outer_sampler, n_hia_step, eta, seed=None):
+            inner_sampler, outer_sampler, n_hia_step, seed=None):
 
     # Set seed for randomness
     if seed is not None:
         np.random.seed(seed)
 
     for i in range(max_iter):
-        inner_lr, hia_lr, outer_lr = lr_scheduler.get_lr()
+        inner_lr, hia_lr, eta, outer_lr = lr_scheduler.get_lr()
 
         # Step.1 - Update direction for z with momentum
         slice_inner, _ = inner_sampler.get_batch()
