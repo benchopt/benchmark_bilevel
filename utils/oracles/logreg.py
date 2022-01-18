@@ -191,6 +191,12 @@ class LogisticRegressionOracleNumba():
             tmp += .5 * theta.dot(lmbda * theta)
         return tmp
 
+    def accuracy(self, theta, lmbda, idx):
+        x = self.X[idx]
+        y = self.y[idx]
+        tmp = y * (x @ theta)
+        return np.sum(tmp < 0) / x.shape[0]
+
     def grad_inner_var(self, theta, lmbda, idx):
         tmp = grad_theta_log_loss(self.X[idx], self.y[idx], theta)
         if self.reg == 'exp':
@@ -397,3 +403,6 @@ class LogisticRegressionOracle(BaseOracle):
     def lipschitz_inner(self, theta, lmbda):
         Hop = _get_hvp_op(self.X, self.y, theta, self.reg, lmbda)
         return svds(Hop, k=1, return_singular_vectors=False)
+
+    def accuracy(self, theta, lmbda, idx):
+        return self.numba_oracle.accuracy(theta, lmbda, idx)

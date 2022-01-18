@@ -7,11 +7,15 @@ from benchopt import safe_import_context
 with safe_import_context() as import_ctx:
     import numpy as np
     from numba import njit
+    constants = import_ctx.import_from('constants')
+    sgd_inner = import_ctx.import_from('sgd_inner', 'sgd_inner')
+    sgd_v = import_ctx.import_from('hessian_approximation', 'sgd_v')
     MinibatchSampler = import_ctx.import_from(
         'minibatch_sampler', 'MinibatchSampler'
     )
-    sgd_inner = import_ctx.import_from('sgd_inner', 'sgd_inner')
-    sgd_v = import_ctx.import_from('hessian_approximation', 'sgd_v')
+    LearningRateScheduler = import_ctx.import_from(
+        'learning_rate_scheduler', 'LearningRateScheduler'
+    )
 
 
 class Solver(BaseSolver):
@@ -19,15 +23,15 @@ class Solver(BaseSolver):
     name = 'amigo'
 
     stopping_criterion = SufficientProgressCriterion(
-        patience=15, strategy='callback'
+        patience=constants.PATIENCE, strategy='callback'
     )
 
     # any parameter defined here is accessible as a class attribute
     parameters = {
-        'n_inner_step': [10, 100],
-        'batch_size': [32, 64],
-        'step_size': [1e-2],
-        'outer_ratio': [5, 20],
+        'step_size': constants.STEP_SIZES,
+        'outer_ratio': constants.OUTER_RATIOS,
+        'n_inner_step': constants.N_INNER_STEPS,
+        'batch_size': constants.BATCH_SIZES,
     }
 
     @staticmethod
@@ -48,32 +52,40 @@ class Solver(BaseSolver):
             self.outer_batch_size = self.batch_size
 
     def run(self, callback):
-        n_eval_freq = max(1, 1_024 // self.n_inner_step)
-        inner_step_size = self.step_size
-        outer_step_size = self.step_size / self.outer_ratio
-        outer_var = self.outer_var0.copy()
+        eval_freq = constants.EVAL_FREQ  # // self.batch_size
+        rng = np.random.RandomState(constants.RANDOM_STATE)
+
+        # Init variables
         inner_var = self.inner_var0.copy()
+        outer_var = self.outer_var0.copy()
         v = self.f_outer.grad_inner_var(inner_var, outer_var, np.array([0]))
+
+        # Init sampler and lr scheduler
         inner_sampler = MinibatchSampler(
-            self.f_inner.numba_oracle, self.inner_batch_size
+            self.f_inner.n_samples, batch_size=self.batch_size
         )
         outer_sampler = MinibatchSampler(
-            self.f_outer.numba_oracle, self.outer_batch_size
+            self.f_outer.n_samples, batch_size=self.batch_size
+        )
+        step_sizes = np.array(
+            [self.step_size, self.step_size, self.step_size / self.outer_ratio]
+        )
+        exponents = np.zeros(3)
+        lr_scheduler = LearningRateScheduler(
+            np.array(step_sizes, dtype=float), exponents
         )
 
-        callback((inner_var, outer_var))
-        # L = self.f_inner.lipschitz_inner(inner_var, outer_var)
+        # Start algorithm
         inner_var = sgd_inner(
-            self.f_inner.numba_oracle, inner_var, outer_var,
-            step_size=inner_step_size,
-            inner_sampler=inner_sampler, n_inner_step=self.n_inner_step
+            self.f_inner, inner_var, outer_var, self.step_size,
+            inner_sampler=inner_sampler, n_inner_step=self.n_inner_step,
         )
         while callback((inner_var, outer_var)):
             inner_var, outer_var, v = amigo(
-                self.f_inner.numba_oracle, self.f_outer.numba_oracle,
+                self.f_inner, self.f_outer,
                 inner_var, outer_var, v, inner_sampler, outer_sampler,
-                n_eval_freq, self.n_inner_step, 10,
-                inner_step_size, outer_step_size, inner_step_size
+                eval_freq, self.n_inner_step, 10, lr_scheduler,
+                seed=rng.randint(constants.MAX_SEED)
             )
 
         self.beta = (inner_var, outer_var)
@@ -85,22 +97,29 @@ class Solver(BaseSolver):
         pass
 
 
-@njit
+
 def amigo(inner_oracle, outer_oracle, inner_var, outer_var, v,
-          inner_sampler, outer_sampler,
-          max_iter, n_inner_step, n_v_step,
-          inner_step_size, outer_step_size, v_step_size):
+          inner_sampler, outer_sampler, max_iter, n_inner_step, n_v_step,
+          lr_scheduler, seed=None):
+
+    # Set seed for randomness
+    if seed is not None:
+        np.random.seed(seed)
 
     for i in range(max_iter):
-        outer_slice, _ = outer_sampler.get_batch(outer_oracle)
+        inner_step_size, v_step_size, outer_step_size = lr_scheduler.get_lr()
+
+        # Get outer gradient
+        outer_slice, _ = outer_sampler.get_batch()
         grad_in, grad_out = outer_oracle.grad(
             inner_var, outer_var, outer_slice
         )
 
+        # compute SGD for the auxillary variable
         v = sgd_v(inner_oracle, inner_var, outer_var, v, grad_in,
                   inner_sampler, n_v_step, v_step_size)
 
-        inner_slice, _ = inner_sampler.get_batch(inner_oracle)
+        inner_slice, _ = inner_sampler.get_batch()
         cross_hvp = inner_oracle.cross(inner_var, outer_var, v, inner_slice)
         implicit_grad = grad_out - cross_hvp
 
@@ -108,7 +127,7 @@ def amigo(inner_oracle, outer_oracle, inner_var, outer_var, v,
         inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)
 
         inner_var = sgd_inner(
-            inner_oracle, inner_var, outer_var, step_size=inner_step_size,
+            inner_oracle, inner_var, outer_var, inner_step_size,
             inner_sampler=inner_sampler, n_inner_step=n_inner_step
         )
     return inner_var, outer_var, v

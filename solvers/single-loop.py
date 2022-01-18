@@ -20,7 +20,7 @@ class Solver(BaseSolver):
     name = 'single-loop'
 
     stopping_criterion = SufficientProgressCriterion(
-        patience=100, strategy='callback'
+        patience=constants.PATIENCE, strategy='callback'
     )
 
     # any parameter defined here is accessible as a class attribute
@@ -48,10 +48,10 @@ class Solver(BaseSolver):
         v = np.zeros_like(inner_var)
 
         inner_sampler = MinibatchSampler(
-            self.f_inner.numba_oracle, batch_size=self.batch_size
+            self.f_inner.n_samples, batch_size=self.batch_size
         )
         outer_sampler = MinibatchSampler(
-            self.f_outer.numba_oracle, batch_size=self.batch_size
+            self.f_outer.n_samples, batch_size=self.batch_size
         )
         if self.step_size == 'auto':
             step_size = 1 / self.f_inner.lipschitz_inner(
@@ -75,7 +75,7 @@ class Solver(BaseSolver):
         use_saga = self.vr == 'saga'
         if use_saga:
             memories = init_memory(
-                self.f_inner.numba_oracle, self.f_outer.numba_oracle,
+                self.f_inner, self.f_outer,
                 inner_var, outer_var, v
             )
         else:
@@ -87,7 +87,7 @@ class Solver(BaseSolver):
         rng = np.random.RandomState(constants.RANDOM_STATE)
         while callback((inner_var, outer_var)):
             inner_var, outer_var, v = saga(
-                self.f_inner.numba_oracle, self.f_outer.numba_oracle,
+                self.f_inner, self.f_outer,
                 inner_var, outer_var, v, eval_freq,
                 inner_sampler, outer_sampler, lr_scheduler,
                 *memories, saga_inner=use_saga, saga_v=use_saga,
@@ -101,8 +101,8 @@ class Solver(BaseSolver):
         return self.beta
 
 
-@njit
-# @njit(parallel=True)
+
+# (parallel=True)
 def _init_memory(inner_oracle, outer_oracle, inner_var, outer_var, v):
     n_outer = outer_oracle.n_samples
     n_inner = inner_oracle.n_samples
@@ -136,7 +136,7 @@ def init_memory(inner_oracle, outer_oracle, inner_var, outer_var, v):
     return memories
 
 
-@njit
+
 def variance_reduction(grad, memory, idx):
     n_samples = memory.shape[0] - 1
     diff = grad - memory[idx[0]]
@@ -146,7 +146,7 @@ def variance_reduction(grad, memory, idx):
     return direction
 
 
-@njit
+
 def saga(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
          inner_sampler, outer_sampler, lr_scheduler,
          memory_inner_grad, memory_hvp, memory_outer_grad, memory_cross_v,
@@ -155,12 +155,12 @@ def saga(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
     for i in range(max_iter):
         inner_step_size, outer_step_size = lr_scheduler.get_lr()
 
-        slice_outer, id_outer = outer_sampler.get_batch(outer_oracle)
+        slice_outer, id_outer = outer_sampler.get_batch()
         grad_outer, impl_grad = outer_oracle.grad(
             inner_var, outer_var, slice_outer
         )
 
-        slice_inner, id_inner = inner_sampler.get_batch(inner_oracle)
+        slice_inner, id_inner = inner_sampler.get_batch()
         _, grad_inner_var, hvp, cross_v = inner_oracle.oracles(
             inner_var, outer_var, v, slice_inner, inverse='id'
         )

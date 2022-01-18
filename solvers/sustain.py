@@ -1,4 +1,3 @@
-
 from benchopt import BaseSolver
 from benchopt.stopping_criterion import SufficientProgressCriterion
 
@@ -7,10 +6,13 @@ from benchopt import safe_import_context
 with safe_import_context() as import_ctx:
     import numpy as np
     from numba import njit
+    constants = import_ctx.import_from('constants')
     MinibatchSampler = import_ctx.import_from(
         'minibatch_sampler', 'MinibatchSampler'
     )
-    constants = import_ctx.import_from('constants')
+    LearningRateScheduler = import_ctx.import_from(
+        'learning_rate_scheduler', 'LearningRateScheduler'
+    )
 
 
 class Solver(BaseSolver):
@@ -18,7 +20,7 @@ class Solver(BaseSolver):
     name = 'SUSTAIN'
 
     stopping_criterion = SufficientProgressCriterion(
-        patience=100, strategy='callback'
+        patience=constants.PATIENCE, strategy='callback'
     )
 
     # any parameter defined here is accessible as a class attribute
@@ -26,7 +28,8 @@ class Solver(BaseSolver):
         'step_size': constants.STEP_SIZES,
         'outer_ratio': constants.OUTER_RATIOS,
         'n_hia_step': constants.N_HIA_STEPS,
-        'batch_size': [1],
+        'batch_size': constants.BATCH_SIZES,
+        'eta': constants.ETA,
     }
 
     @staticmethod
@@ -46,36 +49,36 @@ class Solver(BaseSolver):
         # Init variables
         inner_var = self.inner_var0.copy()
         outer_var = self.outer_var0.copy()
+        memory_inner = np.zeros((2, *inner_var.shape), inner_var.dtype)
+        memory_outer = np.zeros((2, *outer_var.shape), outer_var.dtype)
 
         # Init sampler and lr scheduler
         inner_sampler = MinibatchSampler(
-            self.f_inner.numba_oracle, batch_size=self.batch_size
+            self.f_inner.n_samples, batch_size=self.batch_size
         )
         outer_sampler = MinibatchSampler(
-            self.f_outer.numba_oracle, batch_size=self.batch_size
+            self.f_outer.n_samples, batch_size=self.batch_size
         )
-        if self.step_size == 'auto':
-            inner_step_size = 1 / self.f_inner.lipschitz_inner(
-                inner_var, outer_var
-            )
-        else:
-            inner_step_size = self.step_size
-        hia_step_size = inner_step_size
-        outer_step_size = inner_step_size / self.outer_ratio
-        eta = inner_step_size
-
-        memory_inner = np.zeros((2, *inner_var.shape), inner_var.dtype)
-        memory_outer = np.zeros((2, *outer_var.shape), outer_var.dtype)
+        step_sizes = np.array(  # (inner_ss, hia_lr, eta, outer_ss)
+            [
+                self.step_size,
+                self.step_size,
+                self.eta,
+                self.step_size / self.outer_ratio,
+            ]
+        )
+        exponents = np.array([1/3, 0., 2/3, 1/3])
+        lr_scheduler = LearningRateScheduler(
+            np.array(step_sizes, dtype=float), exponents
+        )
 
         eval_freq = constants.EVAL_FREQ
         while callback((inner_var, outer_var)):
             inner_var, outer_var, memory_inner, memory_outer = sustain(
-                self.f_inner.numba_oracle, self.f_outer.numba_oracle,
+                self.f_inner, self.f_outer,
                 inner_var, outer_var, memory_inner, memory_outer,
-                eval_freq, inner_sampler, outer_sampler,
-                inner_step_size, outer_step_size,
-                self.n_hia_step, hia_step_size, eta,
-                seed=rng.randint(constants.MAX_SEED)
+                eval_freq, lr_scheduler, inner_sampler, outer_sampler,
+                self.n_hia_step, seed=rng.randint(constants.MAX_SEED)
             )
         self.beta = (inner_var, outer_var)
 
@@ -83,7 +86,7 @@ class Solver(BaseSolver):
         return self.beta
 
 
-@njit(cache=True)
+
 def joint_hia(inner_oracle, inner_var, outer_var, v,
               inner_var_old, outer_var_old, v_old,
               inner_sampler, n_step, step_size):
@@ -95,7 +98,7 @@ def joint_hia(inner_oracle, inner_var, outer_var, v,
     """
     p = np.random.randint(n_step)
     for i in range(p):
-        inner_slice, _ = inner_sampler.get_batch(inner_oracle)
+        inner_slice, _ = inner_sampler.get_batch()
         hvp = inner_oracle.hvp(inner_var, outer_var, v, inner_slice)
         v -= step_size * hvp
         hvp_old = inner_oracle.hvp(
@@ -105,18 +108,20 @@ def joint_hia(inner_oracle, inner_var, outer_var, v,
     return n_step * step_size * v, n_step * step_size * v_old
 
 
-@njit(cache=True)
-def sustain(inner_oracle, outer_oracle, inner_var, outer_var,
-            memory_inner, memory_outer, max_iter, inner_sampler, outer_sampler,
-            inner_step_size, outer_step_size, n_hia_step, hia_step_size, eta,
-            seed=None):
 
-    np.random.seed(seed)
+def sustain(inner_oracle, outer_oracle, inner_var, outer_var,
+            memory_inner, memory_outer, max_iter, lr_scheduler,
+            inner_sampler, outer_sampler, n_hia_step, seed=None):
+
+    # Set seed for randomness
+    if seed is not None:
+        np.random.seed(seed)
 
     for i in range(max_iter):
+        inner_lr, hia_lr, eta, outer_lr = lr_scheduler.get_lr()
 
         # Step.1 - Update direction for z with momentum
-        slice_inner, _ = inner_sampler.get_batch(inner_oracle)
+        slice_inner, _ = inner_sampler.get_batch()
         grad_inner_var = inner_oracle.grad_inner_var(
             inner_var, outer_var, slice_inner
         )
@@ -128,7 +133,7 @@ def sustain(inner_oracle, outer_oracle, inner_var, outer_var,
         )
 
         # Step.2 - Compute implicit grad approximation with HIA
-        slice_outer, _ = outer_sampler.get_batch(outer_oracle)
+        slice_outer, _ = outer_sampler.get_batch()
         grad_outer, impl_grad = outer_oracle.grad(
             inner_var, outer_var, slice_outer
         )
@@ -138,7 +143,7 @@ def sustain(inner_oracle, outer_oracle, inner_var, outer_var,
         ihvp, ihvp_old = joint_hia(
             inner_oracle, inner_var, outer_var, grad_outer,
             memory_inner[0], memory_outer[0], grad_outer_old,
-            inner_sampler, n_hia_step, hia_step_size
+            inner_sampler, n_hia_step, hia_lr
         )
         impl_grad -= inner_oracle.cross(
             inner_var, outer_var, ihvp, slice_inner
@@ -157,8 +162,8 @@ def sustain(inner_oracle, outer_oracle, inner_var, outer_var,
         memory_outer[0] = outer_var
 
         # Step.5 - update the variables with the directions
-        inner_var -= inner_step_size * memory_inner[1]
-        outer_var -= outer_step_size * memory_outer[1]
+        inner_var -= inner_lr * memory_inner[1]
+        outer_var -= outer_lr * memory_outer[1]
 
         # Step.6 - project back to the constraint set
         inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)

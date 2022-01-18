@@ -7,13 +7,13 @@ from benchopt import safe_import_context
 with safe_import_context() as import_ctx:
     import numpy as np
     from numba import njit
+    constants = import_ctx.import_from('constants')
     MinibatchSampler = import_ctx.import_from(
         'minibatch_sampler', 'MinibatchSampler'
     )
     LearningRateScheduler = import_ctx.import_from(
         'learning_rate_scheduler', 'LearningRateScheduler'
     )
-    constants = import_ctx.import_from('constants')
 
 
 class Solver(BaseSolver):
@@ -21,14 +21,14 @@ class Solver(BaseSolver):
     name = 'FSLA'
 
     stopping_criterion = SufficientProgressCriterion(
-        patience=200, strategy='callback'
+        patience=constants.PATIENCE, strategy='callback'
     )
 
     # any parameter defined here is accessible as a class attribute
     parameters = {
         'step_size': constants.STEP_SIZES,
         'outer_ratio': constants.OUTER_RATIOS,
-        'batch_size': constants.BATCH_SIZES,
+        'batch_size': constants.BATCH_SIZES
     }
 
     @staticmethod
@@ -59,21 +59,21 @@ class Solver(BaseSolver):
             self.f_outer.n_samples, batch_size=self.batch_size
         )
         step_sizes = np.array(
-            [self.step_size, self.step_size / self.outer_ratio]
+            [self.step_size, self.step_size, self.step_size / self.outer_ratio]
         )
-        exponents = np.zeros(2)
+        # Use 1 / sqrt(t) for the learning rates
+        exponents = 0.5 * np.ones(len(step_sizes))
         lr_scheduler = LearningRateScheduler(
             np.array(step_sizes, dtype=float), exponents
         )
-        eta = self.step_size
 
         # Start algorithm
         while callback((inner_var, outer_var)):
             inner_var, outer_var, v = fsla(
-                self.f_inner.numba_oracle, self.f_outer.numba_oracle,
+                self.f_inner, self.f_outer,
                 inner_var, outer_var, v, memory_outer,
                 eval_freq, inner_sampler, outer_sampler, lr_scheduler,
-                eta, seed=rng.randint(constants.MAX_SEED)
+                seed=rng.randint(constants.MAX_SEED)
             )
         self.beta = (inner_var, outer_var)
 
@@ -81,15 +81,17 @@ class Solver(BaseSolver):
         return self.beta
 
 
-@njit()
+
 def fsla(inner_oracle, outer_oracle, inner_var, outer_var, v,
          memory_outer, max_iter, inner_sampler, outer_sampler,
-         lr_scheduler, eta, seed=None):
-    # Set seed for randomness
-    np.random.seed(seed)
+         lr_scheduler, seed=None):
 
-    for _ in range(max_iter):
-        inner_step_size, outer_step_size = lr_scheduler.get_lr()
+    # Set seed for randomness
+    if seed is not None:
+        np.random.seed(seed)
+
+    for i in range(max_iter):
+        inner_lr, eta, outer_lr = lr_scheduler.get_lr()
 
         # Step.1 - SGD step on the inner problem
         slice_inner, _ = inner_sampler.get_batch()
@@ -97,7 +99,7 @@ def fsla(inner_oracle, outer_oracle, inner_var, outer_var, v,
             inner_var, outer_var, slice_inner
         )
         inner_var_old = inner_var.copy()
-        inner_var -= inner_step_size * grad_inner_var
+        inner_var -= inner_lr * grad_inner_var
 
         # Step.2 - SGD step on the auxillary variable v
         slice_inner2, _ = inner_sampler.get_batch()
@@ -107,7 +109,7 @@ def fsla(inner_oracle, outer_oracle, inner_var, outer_var, v,
             inner_var, outer_var, slice_outer
         )
         v_old = v.copy()
-        v -= inner_step_size * (hvp - grad_in_outer)
+        v -= inner_lr * (hvp - grad_in_outer)
 
         # Step.3 - compute the implicit gradient estimates, for the old
         # and new variables
@@ -131,7 +133,7 @@ def fsla(inner_oracle, outer_oracle, inner_var, outer_var, v,
 
         # Step.5 - update the outer variable
         memory_outer[0] = outer_var
-        outer_var -= outer_step_size * memory_outer[1]
+        outer_var -= outer_lr * memory_outer[1]
 
         # Step.6 - project back to the constraint set
         inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)

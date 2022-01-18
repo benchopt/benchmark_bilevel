@@ -1,15 +1,29 @@
 
 from benchopt import BaseSolver
+from benchopt.stopping_criterion import SufficientProgressCriterion
+
+from benchopt import safe_import_context
+
+with safe_import_context() as import_ctx:
+    constants = import_ctx.import_from('constants')
 
 
 class Solver(BaseSolver):
     """Gradient descent solver, optionally accelerated."""
     name = 'GD'
 
-    stop_strategy = 'callback'
+    stopping_criterion = SufficientProgressCriterion(
+        patience=constants.PATIENCE, strategy='callback'
+    )
 
     # any parameter defined here is accessible as a class attribute
-    parameters = {'step_size': [.1, 1e-2]}
+    parameters = {
+        'step_size': constants.STEP_SIZES,
+    }
+
+    @staticmethod
+    def get_next(stop_val):
+        return stop_val + 1
 
     def set_objective(self, f_train, f_test, inner_var0, outer_var0):
         self.f_train = f_train

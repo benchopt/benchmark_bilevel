@@ -7,13 +7,14 @@ from benchopt import safe_import_context
 with safe_import_context() as import_ctx:
     import numpy as np
     from numba import njit
+    constants = import_ctx.import_from('constants')
+    hia = import_ctx.import_from('hessian_approximation', 'hia')
     MinibatchSampler = import_ctx.import_from(
         'minibatch_sampler', 'MinibatchSampler'
     )
-    hia = import_ctx.import_from(
-        'hessian_approximation', 'hia'
+    LearningRateScheduler = import_ctx.import_from(
+        'learning_rate_scheduler', 'LearningRateScheduler'
     )
-    constants = import_ctx.import_from('constants')
 
 
 class Solver(BaseSolver):
@@ -21,7 +22,7 @@ class Solver(BaseSolver):
     name = 'TTSA'
 
     stopping_criterion = SufficientProgressCriterion(
-        patience=100, strategy='callback'
+        patience=constants.PATIENCE, strategy='callback'
     )
 
     # any parameter defined here is accessible as a class attribute
@@ -29,7 +30,7 @@ class Solver(BaseSolver):
         'step_size': constants.STEP_SIZES,
         'outer_ratio': constants.OUTER_RATIOS,
         'n_hia_step': constants.N_HIA_STEPS,
-        'batch_size': [1],
+        'batch_size': constants.BATCH_SIZES,
     }
 
     @staticmethod
@@ -52,29 +53,27 @@ class Solver(BaseSolver):
 
         # Init sampler and lr
         inner_sampler = MinibatchSampler(
-            self.f_inner.numba_oracle, batch_size=self.batch_size
+            self.f_inner.n_samples, batch_size=self.batch_size
         )
         outer_sampler = MinibatchSampler(
-            self.f_outer.numba_oracle, batch_size=self.batch_size
+            self.f_outer.n_samples, batch_size=self.batch_size
         )
-        if self.step_size == 'auto':
-            inner_step_size = 1 / self.f_inner.lipschitz_inner(
-                inner_var, outer_var
-            )
-        else:
-            inner_step_size = self.step_size
-        hia_step = inner_step_size
-        outer_step_size = inner_step_size / self.outer_ratio
+        step_sizes = np.array(
+            [self.step_size, self.step_size, self.step_size / self.outer_ratio]
+        )
+        exponents = np.array([.4, 0., .6])
+        lr_scheduler = LearningRateScheduler(
+            np.array(step_sizes, dtype=float), exponents
+        )
 
         # Start algorithm
         eval_freq = constants.EVAL_FREQ
         while callback((inner_var, outer_var)):
             inner_var, outer_var, = ttsa(
-                self.f_inner.numba_oracle, self.f_outer.numba_oracle,
+                self.f_inner, self.f_outer,
                 inner_var, outer_var,
-                eval_freq, inner_sampler, outer_sampler,
-                inner_step_size, outer_step_size,
-                self.n_hia_step, hia_step, seed=rng.randint(constants.MAX_SEED)
+                eval_freq, inner_sampler, outer_sampler, lr_scheduler,
+                self.n_hia_step, seed=rng.randint(constants.MAX_SEED)
             )
         self.beta = (inner_var, outer_var)
 
@@ -82,11 +81,10 @@ class Solver(BaseSolver):
         return self.beta
 
 
-@njit()
+
 def ttsa(
     inner_oracle, outer_oracle, inner_var, outer_var, max_iter,
-    inner_sampler, outer_sampler, inner_step_size, outer_step_size,
-    n_hia_step, hia_step, seed=None
+    inner_sampler, outer_sampler, lr_scheduler, n_hia_step, seed=None
 ):
     """Numba compatible TTSA algorithm.
 
@@ -112,34 +110,37 @@ def ttsa(
         outer problems.
     """
 
-    np.random.seed(seed)
+    # Set seed for randomness
+    if seed is not None:
+        np.random.seed(seed)
 
     for i in range(max_iter):
+        inner_lr, hia_lr, outer_lr = lr_scheduler.get_lr()
 
         # Step.1 - Update direction for z with momentum
-        slice_inner, _ = inner_sampler.get_batch(inner_oracle)
+        slice_inner, _ = inner_sampler.get_batch()
         grad_inner_var = inner_oracle.grad_inner_var(
             inner_var, outer_var, slice_inner
         )
 
         # Step.2 - Update the inner variable
-        inner_var -= inner_step_size * grad_inner_var
+        inner_var -= inner_lr * grad_inner_var
 
         # Step.3 - Compute implicit grad approximation with HIA
-        slice_outer, _ = outer_sampler.get_batch(outer_oracle)
+        slice_outer, _ = outer_sampler.get_batch()
         grad_outer, impl_grad = outer_oracle.grad(
             inner_var, outer_var, slice_outer
         )
         ihvp = hia(
             inner_oracle, inner_var, outer_var, grad_outer,
-            inner_sampler, n_hia_step, hia_step
+            inner_sampler, n_hia_step, hia_lr
         )
         impl_grad -= inner_oracle.cross(
             inner_var, outer_var, ihvp, slice_inner
         )
 
         # Step.4 - update the outer variables
-        outer_var -= outer_step_size * impl_grad
+        outer_var -= outer_lr * impl_grad
 
         # Step.6 - project back to the constraint set
         inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)

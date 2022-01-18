@@ -143,10 +143,10 @@ class RidgeRegressionOracleNumba():
         x = self.X[idx]
         y = self.y[idx]
         n_samples = x.shape[0]
-        residual = (x @ theta - y)
-        val = 0.5 / n_samples * (residual @ residual)
-        grad = x.T @ (residual / n_samples)
-        hvp = x.T @ (x @ v) / n_samples
+        residual = np.dot(x, theta) - y
+        val = 0
+        grad = np.dot(x.T, residual) / n_samples
+        hvp = np.dot(x.T, np.dot(x, v)) / n_samples
         if self.reg != 'none':
             alpha = np.exp(lmbda) if self.reg == 'exp' else lmbda
             val += .5 * (theta @ (alpha * theta))

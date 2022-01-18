@@ -2,6 +2,8 @@ from benchopt import BaseSolver
 from benchopt.stopping_criterion import SufficientProgressCriterion
 
 from benchopt import safe_import_context
+from benchopt.utils import profile
+
 
 with safe_import_context() as import_ctx:
     import numpy as np
@@ -69,7 +71,7 @@ class Solver(BaseSolver):
         use_saga = self.vr == 'saga'
         if use_saga:
             memories = init_memory(
-                self.f_inner.numba_oracle, self.f_outer.numba_oracle,
+                self.f_inner, self.f_outer,
                 inner_var, outer_var, v, inner_sampler, outer_sampler
             )
 
@@ -84,7 +86,7 @@ class Solver(BaseSolver):
         # Start algorithm
         while callback((inner_var, outer_var)):
             inner_var, outer_var, v = saba(
-                self.f_inner.numba_oracle, self.f_outer.numba_oracle,
+                self.f_inner, self.f_outer,
                 inner_var, outer_var, v, eval_freq,
                 inner_sampler, outer_sampler, lr_scheduler, *memories,
                 saga_inner=use_saga, saga_v=use_saga, saga_x=use_saga,
@@ -98,16 +100,16 @@ class Solver(BaseSolver):
         return self.beta
 
 
-@njit
+# @njit
 # @njit(parallel=True)
 def _init_memory(inner_oracle, outer_oracle, inner_var, outer_var, v,
                  inner_sampler, outer_sampler):
     n_outer = outer_sampler.n_batches
     n_inner = inner_sampler.n_batches
-    n_features = inner_oracle.n_features
-    memory_inner_grad = np.zeros((n_inner + 1, n_features))
-    memory_hvp = np.zeros((n_inner + 1, n_features))
-    memory_cross_v = np.zeros((n_inner + 1, n_features))
+    inner_size, outer_size = inner_oracle.variables_shape 
+    memory_inner_grad = np.zeros((n_inner + 1, inner_size))
+    memory_hvp = np.zeros((n_inner + 1, inner_size))
+    memory_cross_v = np.zeros((n_inner + 1, outer_size))
     for _ in prange(n_inner):
         slice_inner, id_inner = inner_sampler.get_batch()
         _, grad_inner_var, hvp, cross_v = inner_oracle.oracles(
@@ -117,29 +119,36 @@ def _init_memory(inner_oracle, outer_oracle, inner_var, outer_var, v,
         memory_hvp[id_inner, :] = hvp
         memory_cross_v[id_inner, :] = cross_v
 
-    memory_grad_in_outer = np.zeros((n_outer + 1, n_features))
+    memory_grad_in_outer = np.zeros((n_outer + 1, inner_size))
     for id_outer in prange(n_outer):
         slice_outer, id_outer = outer_sampler.get_batch()
         memory_grad_in_outer[id_outer, :] = outer_oracle.grad_inner_var(
             inner_var, outer_var, slice_outer
         )
-
     return memory_inner_grad, memory_hvp, memory_cross_v, memory_grad_in_outer
 
 
 def init_memory(inner_oracle, outer_oracle, inner_var, outer_var, v,
-                inner_sampler, outer_sampler):
-    memories = _init_memory(
-        inner_oracle, outer_oracle, inner_var, outer_var, v,
-        inner_sampler, outer_sampler
-    )
-    for mem in memories:
-        mem[-1] = mem[:-1].mean(axis=0)
-
+                inner_sampler, outer_sampler, mode='zero'):
+    if mode == 'full':
+        memories = _init_memory(
+            inner_oracle, outer_oracle, inner_var, outer_var, v,
+            inner_sampler, outer_sampler
+        )
+        for mem in memories:
+            mem[-1] = mem[:-1].mean(axis=0)
+    else:
+        n_outer = outer_sampler.n_batches
+        n_inner = inner_sampler.n_batches
+        inner_size, outer_size = inner_oracle.variables_shape 
+        memories = (np.zeros((n_inner + 1, inner_size[0])),
+                    np.zeros((n_inner + 1, inner_size[0])),
+                    np.zeros((n_inner + 1, outer_size[0])),
+                    np.zeros((n_outer + 1, inner_size[0])))
     return memories
 
 
-@njit
+# @njit
 def variance_reduction(grad, memory, idx):
     n_batches = memory.shape[0] - 1
     diff = grad - memory[idx]
@@ -149,7 +158,8 @@ def variance_reduction(grad, memory, idx):
     return direction
 
 
-@njit
+# @njit
+@profile
 def saba(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
          inner_sampler, outer_sampler, lr_scheduler,
          memory_inner_grad, memory_hvp, memory_cross_v, memory_grad_in_outer,

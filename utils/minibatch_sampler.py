@@ -13,7 +13,7 @@ spec = [
 ]
 
 
-@jitclass(spec)
+# @jitclass(spec)
 class MinibatchSampler():
     """Minibatch sampler helper, relying on shuffling and slices.
 
@@ -41,10 +41,11 @@ class MinibatchSampler():
 
         # Batch size
         self.batch_size = batch_size
-
+        assert n_samples % batch_size == 0
         # Internal batch information
         self.i_batch = 0
         self.n_batches = n_samples // batch_size
+        # assert self.n_batches == 1
         self.batch_order = np.arange(self.n_batches)
 
     def get_batch(self):

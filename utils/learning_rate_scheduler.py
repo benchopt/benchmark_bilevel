@@ -2,14 +2,6 @@ from numba import int64, float64
 from numba.experimental import jitclass
 
 
-spec = [
-    ('i_step', int64),
-    ('constants', float64[:]),
-    ('exponents', float64[:])
-]
-
-
-@jitclass(spec)
 class LearningRateScheduler():
     """Scheduler for learning rates, either constant or decreasing.
 
@@ -42,9 +34,8 @@ class LearningRateScheduler():
         self.i_step = 1
 
     def get_lr(self):
-        # lr = self.constants.copy()
-        # mask = self.exponents != 0
-        # lr[mask] /= self.i_step ** self.exponents[mask]
-        # self.i_step += 1
-        # return lr
-        return self.constants
+        lr = self.constants.copy()
+        mask = self.exponents != 0
+        lr[mask] /= self.i_step ** self.exponents[mask]
+        self.i_step += 1
+        return lr

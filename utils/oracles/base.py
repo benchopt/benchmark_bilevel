@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 from scipy.optimize import fmin_l_bfgs_b
 from sklearn.utils import check_random_state
+from scipy.optimize import check_grad
 
 
 class BaseOracle(ABC):
@@ -101,12 +102,13 @@ class BaseOracle(ABC):
             inner_var = inner_var.reshape(*inner_shape)
             return self.grad_inner_var(inner_var, outer_var, idx)
 
+        assert(check_grad(func, fprime, np.random.randn(var_shape_flat)) < 1e-4)
         inner_var_star, _, d = fmin_l_bfgs_b(
             func, np.zeros(var_shape_flat), fprime=fprime
         )
         if d['warnflag'] != 0:
-            print('LBFGS did not converged!')
-            print("Final gradient:", d['grad'])
+            print('LBFGS did not converge   !')
+            print("Final gradient:", np.linalg.norm(d['grad']))
             raise RuntimeError()
         return inner_var_star
 
