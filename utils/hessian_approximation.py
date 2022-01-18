@@ -2,9 +2,7 @@ import numpy as np
 from numba import njit
 
 
-
-def hia(inner_oracle, inner_var, outer_var, v, inner_sampler,
-        n_step, step_size):
+def hia(inner_oracle, inner_var, outer_var, v, inner_sampler, n_step, step_size):
     """Hessian Inverse Approximation subroutine from [Ghadimi2018].
 
     This implement Algorithm.3
@@ -17,10 +15,7 @@ def hia(inner_oracle, inner_var, outer_var, v, inner_sampler,
     return n_step * step_size * v
 
 
-
-def shia(
-    inner_oracle, inner_var, outer_var, v, inner_sampler, n_step, step_size
-):
+def shia(inner_oracle, inner_var, outer_var, v, inner_sampler, n_step, step_size):
     """Hessian Inverse Approximation subroutine from [Ji2021].
 
     This implement Algorithm.3
@@ -34,9 +29,9 @@ def shia(
     return step_size * s
 
 
-
-def sgd_v(inner_oracle, inner_var, outer_var, v, grad_out,
-          inner_sampler, n_step, step_size):
+def sgd_v(
+    inner_oracle, inner_var, outer_var, v, grad_out, inner_sampler, n_step, step_size
+):
     r"""SGD for the inverse Hessian approximation.
 
     This function solves the following problem

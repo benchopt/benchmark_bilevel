@@ -7,13 +7,14 @@ from sklearn.utils.extmath import safe_sparse_dot
 from scipy.sparse import linalg as splinalg
 
 from numba import njit
-from numba import float64, int64, types    # import the types
+from numba import float64, int64, types  # import the types
 from numba.experimental import jitclass
 
 from .base import BaseOracle
 
 import warnings
-warnings.filterwarnings('error', category=RuntimeWarning)
+
+warnings.filterwarnings("error", category=RuntimeWarning)
 
 
 @njit
@@ -68,37 +69,35 @@ def grad_theta_log_loss(x, y, theta):
 
 @njit
 def hvp_log_loss(x, y, theta, v):
-    """Returns an hessian-vector product for the logistic loss and a vector v.
-    """
+    """Returns an hessian-vector product for the logistic loss and a vector v."""
     n_samples, n_features = x.shape
     tmp = np.zeros_like(y)
     tmp2 = y * (x @ theta)
 
     idx1 = tmp2 < 0
-    tmp[idx1] = np.exp(tmp2[idx1]) * expit(- tmp2[idx1])**2
+    tmp[idx1] = np.exp(tmp2[idx1]) * expit(-tmp2[idx1]) ** 2
     idx2 = tmp2 >= 0
-    tmp[idx2] = np.exp(- tmp2[idx2]) * expit(tmp2[idx2])**2
+    tmp[idx2] = np.exp(-tmp2[idx2]) * expit(tmp2[idx2]) ** 2
 
-    xv = (x @ v)
+    xv = x @ v
 
     hvp = (x.T @ (xv * tmp)) / n_samples
     return hvp
 
 
 def value_grad_hvp_log_loss(x, y, theta, v):
-    """Returns value, gradient, hessian-vector product for the logistic loss.
-    """
+    """Returns value, gradient, hessian-vector product for the logistic loss."""
     n_samples, n_features = x.shape
     tmp = y * safe_sparse_dot(x, theta)
-    val = - logsig(tmp).mean()
+    val = -logsig(tmp).mean()
 
     tmp2 = expit(-tmp)
     grad = -safe_sparse_dot(x.T, (y * tmp2)) / n_samples
 
     idx1 = tmp < 0
-    tmp2[idx1] = np.exp(tmp[idx1]) * tmp2[idx1]**2
+    tmp2[idx1] = np.exp(tmp[idx1]) * tmp2[idx1] ** 2
     idx2 = tmp >= 0
-    tmp2[idx2] = np.exp(- tmp[idx2]) * expit(tmp[idx2])**2
+    tmp2[idx2] = np.exp(-tmp[idx2]) * expit(tmp[idx2]) ** 2
 
     hvp = safe_sparse_dot(x.T, (x.dot(v) * tmp2)) / n_samples
     return val, grad, hvp
@@ -111,9 +110,9 @@ def _get_hvp_op(x, y, theta, reg, lmbda):
     assert tmp2.shape == y.shape
 
     idx1 = tmp2 < 0
-    tmp[idx1] = np.exp(tmp2[idx1]) * expit(-tmp2[idx1])**2
+    tmp[idx1] = np.exp(tmp2[idx1]) * expit(-tmp2[idx1]) ** 2
     idx2 = tmp2 >= 0
-    tmp[idx2] = np.exp(- tmp2[idx2]) * expit(tmp2[idx2])**2
+    tmp[idx2] = np.exp(-tmp2[idx2]) * expit(tmp2[idx2]) ** 2
 
     # Precompute as much as possible
     if sparse.issparse(x):
@@ -140,16 +139,16 @@ def _get_hvp_op(x, y, theta, reg, lmbda):
 
 
 spec = [
-    ('X', float64[:, ::1]),          # an array field
-    ('y', float64[::1]),               # a simple scalar field
-    ('reg', types.unicode_type),
-    ('n_samples', int64),
-    ('n_features', int64),
+    ("X", float64[:, ::1]),  # an array field
+    ("y", float64[::1]),  # a simple scalar field
+    ("reg", types.unicode_type),
+    ("n_samples", int64),
+    ("n_features", int64),
 ]
 
 
 @jitclass(spec)
-class LogisticRegressionOracleNumba():
+class LogisticRegressionOracleNumba:
     """Class defining the oracles for the L^2 regularized logistic loss.
 
     **NOTE:** This class is taylored for the binary logreg.
@@ -163,6 +162,7 @@ class LogisticRegressionOracleNumba():
     reg : bool
         Whether or not to apply regularisation.
     """
+
     def __init__(self, X, y, reg=False):
 
         self.X = X
@@ -176,34 +176,34 @@ class LogisticRegressionOracleNumba():
     def value(self, theta, lmbda, idx):
         x = self.X[idx]
         y = self.y[idx]
-        tmp = - logsig(y * (x @ theta)).mean()
-        if self.reg == 'exp':
-            tmp += .5 * theta.dot(np.exp(lmbda) * theta)
-        elif self.reg == 'lin':
-            tmp += .5 * theta.dot(lmbda * theta)
+        tmp = -logsig(y * (x @ theta)).mean()
+        if self.reg == "exp":
+            tmp += 0.5 * theta.dot(np.exp(lmbda) * theta)
+        elif self.reg == "lin":
+            tmp += 0.5 * theta.dot(lmbda * theta)
         return tmp
 
     def grad_inner_var(self, theta, lmbda, idx):
         tmp = grad_theta_log_loss(self.X[idx], self.y[idx], theta)
-        if self.reg == 'exp':
+        if self.reg == "exp":
             tmp += np.exp(lmbda) * theta
-        elif self.reg == 'lin':
+        elif self.reg == "lin":
             tmp += lmbda * theta
         return tmp
 
     def grad_outer_var(self, theta, lmbda, idx):
-        if self.reg == 'exp':
-            grad = .5 * np.exp(lmbda) * theta ** 2
-        elif self.reg == 'lin':
-            grad = .5 * theta ** 2
+        if self.reg == "exp":
+            grad = 0.5 * np.exp(lmbda) * theta ** 2
+        elif self.reg == "lin":
+            grad = 0.5 * theta ** 2
         else:
             grad = np.zeros_like(lmbda)
         return grad
 
     def cross(self, theta, lmbda, v, idx):
-        if self.reg == 'exp':
+        if self.reg == "exp":
             res = np.exp(lmbda) * theta * v
-        elif self.reg == 'lin':
+        elif self.reg == "lin":
             res = theta * v
         else:
             res = np.zeros_like(lmbda)
@@ -211,17 +211,17 @@ class LogisticRegressionOracleNumba():
 
     def hvp(self, theta, lmbda, v, idx):
         tmp = hvp_log_loss(self.X[idx], self.y[idx], theta, v)
-        if self.reg == 'exp':
+        if self.reg == "exp":
             tmp += np.exp(lmbda) * v
-        elif self.reg == 'lin':
+        elif self.reg == "lin":
             tmp += lmbda * v
         return tmp
 
     def prox(self, theta, lmbda):
-        if self.reg == 'exp':
+        if self.reg == "exp":
             lmbda[lmbda < -12] = -12
             lmbda[lmbda > 12] = 12
-        elif self.reg == 'lin':
+        elif self.reg == "lin":
             lmbda = np.maximum(lmbda, 0)
         return theta, lmbda
 
@@ -240,12 +240,13 @@ class LogisticRegressionOracle(BaseOracle):
     reg : bool
         Whether or not to apply regularisation.
     """
+
     def __init__(self, X, y, reg=False):
         super().__init__()
 
         # Make sure the targets are {1, -1}.
         target_type = type_of_target(y)
-        if target_type != 'binary':
+        if target_type != "binary":
             y = y > np.median(y)
         self.encoder = OrdinalEncoder()
         y = self.encoder.fit_transform(y[:, None]).flatten()
@@ -256,9 +257,7 @@ class LogisticRegressionOracle(BaseOracle):
 
         # attributes
         self.n_samples, self.n_features = X.shape
-        self.variables_shape = np.array([
-            [self.n_features], [self.n_features]
-        ])
+        self.variables_shape = np.array([[self.n_features], [self.n_features]])
 
     def value(self, theta, lmbda, idx):
         return self.numba_oracle.value(theta, lmbda, idx)
@@ -278,34 +277,32 @@ class LogisticRegressionOracle(BaseOracle):
     def prox(self, theta, lmbda):
         return self.numba_oracle.prox(theta, lmbda)
 
-    def inverse_hvp(self, theta, lmbda, v, idx, approx='cg'):
-        if approx == 'id':
+    def inverse_hvp(self, theta, lmbda, v, idx, approx="cg"):
+        if approx == "id":
             return v
-        if approx != 'cg':
+        if approx != "cg":
             raise NotImplementedError
         x_i = self.X[idx]
         y_i = self.y[idx]
         Hop = _get_hvp_op(x_i, y_i, theta, self.reg, lmbda)
         Hv, success = splinalg.cg(
-            Hop, v,
+            Hop,
+            v,
             x0=v.copy(),
             tol=1e-15,
             maxiter=1000,
         )
         if success != 0:
-            print('CG did not converge to the desired precision')
+            print("CG did not converge to the desired precision")
         return Hv
 
-    def oracles(self, theta, lmbda, v, idx, inverse='id'):
-        """Returns the value, the gradient,
-        """
-        val, grad, hvp = value_grad_hvp_log_loss(
-            self.X[idx], self.y[idx], theta, v
-        )
+    def oracles(self, theta, lmbda, v, idx, inverse="id"):
+        """Returns the value, the gradient,"""
+        val, grad, hvp = value_grad_hvp_log_loss(self.X[idx], self.y[idx], theta, v)
         inv_hvp = self.inverse_hvp(theta, lmbda, v, idx, approx=inverse)
         if self.reg:
             reg = np.exp(lmbda) / self.n_features
-            val += .5 * (reg @ theta ** 2)
+            val += 0.5 * (reg @ theta ** 2)
             grad += reg * theta
             hvp += reg * v
 

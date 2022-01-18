@@ -1,4 +1,3 @@
-
 from benchopt import BaseSolver
 from benchopt.stopping_criterion import SufficientProgressCriterion
 
@@ -7,30 +6,30 @@ from benchopt import safe_import_context
 with safe_import_context() as import_ctx:
     import numpy as np
     from numba import njit
-    constants = import_ctx.import_from('constants')
-    hia = import_ctx.import_from('hessian_approximation', 'hia')
-    MinibatchSampler = import_ctx.import_from(
-        'minibatch_sampler', 'MinibatchSampler'
-    )
+
+    constants = import_ctx.import_from("constants")
+    hia = import_ctx.import_from("hessian_approximation", "hia")
+    MinibatchSampler = import_ctx.import_from("minibatch_sampler", "MinibatchSampler")
     LearningRateScheduler = import_ctx.import_from(
-        'learning_rate_scheduler', 'LearningRateScheduler'
+        "learning_rate_scheduler", "LearningRateScheduler"
     )
 
 
 class Solver(BaseSolver):
     """Single loop Bi-level optimization algorithm."""
-    name = 'TTSA'
+
+    name = "TTSA"
 
     stopping_criterion = SufficientProgressCriterion(
-        patience=constants.PATIENCE, strategy='callback'
+        patience=constants.PATIENCE, strategy="callback"
     )
 
     # any parameter defined here is accessible as a class attribute
     parameters = {
-        'step_size': constants.STEP_SIZES,
-        'outer_ratio': constants.OUTER_RATIOS,
-        'n_hia_step': constants.N_HIA_STEPS,
-        'batch_size': constants.BATCH_SIZES,
+        "step_size": constants.STEP_SIZES,
+        "outer_ratio": constants.OUTER_RATIOS,
+        "n_hia_step": constants.N_HIA_STEPS,
+        "batch_size": constants.BATCH_SIZES,
     }
 
     @staticmethod
@@ -61,7 +60,7 @@ class Solver(BaseSolver):
         step_sizes = np.array(
             [self.step_size, self.step_size, self.step_size / self.outer_ratio]
         )
-        exponents = np.array([.4, 0., .6])
+        exponents = np.array([0.4, 0.0, 0.6])
         lr_scheduler = LearningRateScheduler(
             np.array(step_sizes, dtype=float), exponents
         )
@@ -70,10 +69,16 @@ class Solver(BaseSolver):
         eval_freq = constants.EVAL_FREQ
         while callback((inner_var, outer_var)):
             inner_var, outer_var, = ttsa(
-                self.f_inner, self.f_outer,
-                inner_var, outer_var,
-                eval_freq, inner_sampler, outer_sampler, lr_scheduler,
-                self.n_hia_step, seed=rng.randint(constants.MAX_SEED)
+                self.f_inner,
+                self.f_outer,
+                inner_var,
+                outer_var,
+                eval_freq,
+                inner_sampler,
+                outer_sampler,
+                lr_scheduler,
+                self.n_hia_step,
+                seed=rng.randint(constants.MAX_SEED),
             )
         self.beta = (inner_var, outer_var)
 
@@ -81,10 +86,17 @@ class Solver(BaseSolver):
         return self.beta
 
 
-
 def ttsa(
-    inner_oracle, outer_oracle, inner_var, outer_var, max_iter,
-    inner_sampler, outer_sampler, lr_scheduler, n_hia_step, seed=None
+    inner_oracle,
+    outer_oracle,
+    inner_var,
+    outer_var,
+    max_iter,
+    inner_sampler,
+    outer_sampler,
+    lr_scheduler,
+    n_hia_step,
+    seed=None,
 ):
     """Numba compatible TTSA algorithm.
 
@@ -119,25 +131,24 @@ def ttsa(
 
         # Step.1 - Update direction for z with momentum
         slice_inner, _ = inner_sampler.get_batch()
-        grad_inner_var = inner_oracle.grad_inner_var(
-            inner_var, outer_var, slice_inner
-        )
+        grad_inner_var = inner_oracle.grad_inner_var(inner_var, outer_var, slice_inner)
 
         # Step.2 - Update the inner variable
         inner_var -= inner_lr * grad_inner_var
 
         # Step.3 - Compute implicit grad approximation with HIA
         slice_outer, _ = outer_sampler.get_batch()
-        grad_outer, impl_grad = outer_oracle.grad(
-            inner_var, outer_var, slice_outer
-        )
+        grad_outer, impl_grad = outer_oracle.grad(inner_var, outer_var, slice_outer)
         ihvp = hia(
-            inner_oracle, inner_var, outer_var, grad_outer,
-            inner_sampler, n_hia_step, hia_lr
+            inner_oracle,
+            inner_var,
+            outer_var,
+            grad_outer,
+            inner_sampler,
+            n_hia_step,
+            hia_lr,
         )
-        impl_grad -= inner_oracle.cross(
-            inner_var, outer_var, ihvp, slice_inner
-        )
+        impl_grad -= inner_oracle.cross(inner_var, outer_var, ihvp, slice_inner)
 
         # Step.4 - update the outer variables
         outer_var -= outer_lr * impl_grad

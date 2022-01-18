@@ -6,30 +6,30 @@ from benchopt import safe_import_context
 with safe_import_context() as import_ctx:
     import numpy as np
     from numba import njit
-    constants = import_ctx.import_from('constants')
-    MinibatchSampler = import_ctx.import_from(
-        'minibatch_sampler', 'MinibatchSampler'
-    )
+
+    constants = import_ctx.import_from("constants")
+    MinibatchSampler = import_ctx.import_from("minibatch_sampler", "MinibatchSampler")
     LearningRateScheduler = import_ctx.import_from(
-        'learning_rate_scheduler', 'LearningRateScheduler'
+        "learning_rate_scheduler", "LearningRateScheduler"
     )
 
 
 class Solver(BaseSolver):
     """Single loop Bi-level optimization algorithm."""
-    name = 'SUSTAIN'
+
+    name = "SUSTAIN"
 
     stopping_criterion = SufficientProgressCriterion(
-        patience=constants.PATIENCE, strategy='callback'
+        patience=constants.PATIENCE, strategy="callback"
     )
 
     # any parameter defined here is accessible as a class attribute
     parameters = {
-        'step_size': constants.STEP_SIZES,
-        'outer_ratio': constants.OUTER_RATIOS,
-        'n_hia_step': constants.N_HIA_STEPS,
-        'batch_size': constants.BATCH_SIZES,
-        'eta': constants.ETA,
+        "step_size": constants.STEP_SIZES,
+        "outer_ratio": constants.OUTER_RATIOS,
+        "n_hia_step": constants.N_HIA_STEPS,
+        "batch_size": constants.BATCH_SIZES,
+        "eta": constants.ETA,
     }
 
     @staticmethod
@@ -67,7 +67,7 @@ class Solver(BaseSolver):
                 self.step_size / self.outer_ratio,
             ]
         )
-        exponents = np.array([1/3, 0., 2/3, 1/3])
+        exponents = np.array([1 / 3, 0.0, 2 / 3, 1 / 3])
         lr_scheduler = LearningRateScheduler(
             np.array(step_sizes, dtype=float), exponents
         )
@@ -75,10 +75,18 @@ class Solver(BaseSolver):
         eval_freq = constants.EVAL_FREQ
         while callback((inner_var, outer_var)):
             inner_var, outer_var, memory_inner, memory_outer = sustain(
-                self.f_inner, self.f_outer,
-                inner_var, outer_var, memory_inner, memory_outer,
-                eval_freq, lr_scheduler, inner_sampler, outer_sampler,
-                self.n_hia_step, seed=rng.randint(constants.MAX_SEED)
+                self.f_inner,
+                self.f_outer,
+                inner_var,
+                outer_var,
+                memory_inner,
+                memory_outer,
+                eval_freq,
+                lr_scheduler,
+                inner_sampler,
+                outer_sampler,
+                self.n_hia_step,
+                seed=rng.randint(constants.MAX_SEED),
             )
         self.beta = (inner_var, outer_var)
 
@@ -86,10 +94,18 @@ class Solver(BaseSolver):
         return self.beta
 
 
-
-def joint_hia(inner_oracle, inner_var, outer_var, v,
-              inner_var_old, outer_var_old, v_old,
-              inner_sampler, n_step, step_size):
+def joint_hia(
+    inner_oracle,
+    inner_var,
+    outer_var,
+    v,
+    inner_var_old,
+    outer_var_old,
+    v_old,
+    inner_sampler,
+    n_step,
+    step_size,
+):
     """Hessian Inverse Approximation subroutine from [Ghadimi2018].
 
     This is a modification that jointly compute the HIA with the same samples
@@ -101,17 +117,25 @@ def joint_hia(inner_oracle, inner_var, outer_var, v,
         inner_slice, _ = inner_sampler.get_batch()
         hvp = inner_oracle.hvp(inner_var, outer_var, v, inner_slice)
         v -= step_size * hvp
-        hvp_old = inner_oracle.hvp(
-            inner_var_old, outer_var_old, v_old, inner_slice
-        )
+        hvp_old = inner_oracle.hvp(inner_var_old, outer_var_old, v_old, inner_slice)
         v_old -= step_size * hvp_old
     return n_step * step_size * v, n_step * step_size * v_old
 
 
-
-def sustain(inner_oracle, outer_oracle, inner_var, outer_var,
-            memory_inner, memory_outer, max_iter, lr_scheduler,
-            inner_sampler, outer_sampler, n_hia_step, seed=None):
+def sustain(
+    inner_oracle,
+    outer_oracle,
+    inner_var,
+    outer_var,
+    memory_inner,
+    memory_outer,
+    max_iter,
+    lr_scheduler,
+    inner_sampler,
+    outer_sampler,
+    n_hia_step,
+    seed=None,
+):
 
     # Set seed for randomness
     if seed is not None:
@@ -122,38 +146,39 @@ def sustain(inner_oracle, outer_oracle, inner_var, outer_var,
 
         # Step.1 - Update direction for z with momentum
         slice_inner, _ = inner_sampler.get_batch()
-        grad_inner_var = inner_oracle.grad_inner_var(
-            inner_var, outer_var, slice_inner
-        )
+        grad_inner_var = inner_oracle.grad_inner_var(inner_var, outer_var, slice_inner)
         grad_inner_var_old = inner_oracle.grad_inner_var(
             memory_inner[0], memory_outer[0], slice_inner
         )
-        memory_inner[1] = eta * grad_inner_var + (1-eta) * (
+        memory_inner[1] = eta * grad_inner_var + (1 - eta) * (
             memory_inner[1] + grad_inner_var - grad_inner_var_old
         )
 
         # Step.2 - Compute implicit grad approximation with HIA
         slice_outer, _ = outer_sampler.get_batch()
-        grad_outer, impl_grad = outer_oracle.grad(
-            inner_var, outer_var, slice_outer
-        )
+        grad_outer, impl_grad = outer_oracle.grad(inner_var, outer_var, slice_outer)
         grad_outer_old, impl_grad_old = outer_oracle.grad(
             memory_inner[0], memory_outer[0], slice_outer
         )
         ihvp, ihvp_old = joint_hia(
-            inner_oracle, inner_var, outer_var, grad_outer,
-            memory_inner[0], memory_outer[0], grad_outer_old,
-            inner_sampler, n_hia_step, hia_lr
+            inner_oracle,
+            inner_var,
+            outer_var,
+            grad_outer,
+            memory_inner[0],
+            memory_outer[0],
+            grad_outer_old,
+            inner_sampler,
+            n_hia_step,
+            hia_lr,
         )
-        impl_grad -= inner_oracle.cross(
-            inner_var, outer_var, ihvp, slice_inner
-        )
+        impl_grad -= inner_oracle.cross(inner_var, outer_var, ihvp, slice_inner)
         impl_grad_old -= inner_oracle.cross(
             memory_inner[0], memory_outer[0], ihvp_old, slice_inner
         )
 
         # Step.3 - Update direction for x with momentum
-        memory_outer[1] = eta * impl_grad + (1-eta) * (
+        memory_outer[1] = eta * impl_grad + (1 - eta) * (
             memory_outer[1] + impl_grad - impl_grad_old
         )
 

@@ -5,27 +5,23 @@ from benchopt import safe_import_context
 with safe_import_context() as import_ctx:
     import numpy as np
     from sklearn.utils import check_random_state
-    oracles = import_ctx.import_from('oracles')
+
+    oracles = import_ctx.import_from("oracles")
 
 
 class Objective(BaseObjective):
     name = "Datacleaning"
 
-    parameters = {
-    }
+    parameters = {}
 
-    def __init__(self,random_state=2442):
+    def __init__(self, random_state=2442):
         self.inner_oracle = oracles.DataCleaningOracle
         self.outer_oracle = oracles.MultiLogRegOracle
         self.random_state = random_state
 
     def set_data(self, X_train, y_train, X_test, y_test):
-        self.f_train = self.inner_oracle(
-            X_train, y_train
-        )
-        self.f_test = self.outer_oracle(
-            X_test, y_test
-        )
+        self.f_train = self.inner_oracle(X_train, y_train)
+        self.f_test = self.outer_oracle(X_test, y_test)
 
         rng = check_random_state(self.random_state)
         inner_shape, outer_shape = self.f_train.variables_shape
@@ -44,7 +40,7 @@ class Objective(BaseObjective):
         # inner_star = self.f_train.get_inner_var_star(outer_var)
         # value_function = self.f_test.get_value(inner_star, outer_var)
         # inner_value = self.f_train.get_value(inner_var, outer_var)
-        # outer_value = self.f_test.get_value(inner_var, outer_var) 
+        # outer_value = self.f_test.get_value(inner_var, outer_var)
         # d_inner = np.linalg.norm(inner_var - inner_star)
         # d_value = outer_value - value_function
         # grad_f_test_inner, grad_f_test_outer = self.f_test.get_grad(
@@ -57,14 +53,12 @@ class Objective(BaseObjective):
         # )
         # grad_value -= self.f_train.get_cross(inner_star, outer_var, v)
 
-        return dict(
-            value=acc
-        )
+        return dict(value=acc)
 
     def to_dict(self):
         return dict(
             f_train=self.f_train,
             f_test=self.f_test,
             inner_var0=self.inner_var0,
-            outer_var0=self.outer_var0
+            outer_var0=self.outer_var0,
         )

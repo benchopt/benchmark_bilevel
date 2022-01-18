@@ -14,7 +14,7 @@ class Dataset(BaseDataset):
     # List of parameters to generate the datasets. The benchmark will consider
     # the cross product for each key in the dictionary.
     parameters = {
-        'n_samples, n_features': [
+        "n_samples, n_features": [
             # (50_000, 22)
             (10_000, 20)
         ]
@@ -34,17 +34,12 @@ class Dataset(BaseDataset):
         X /= X.std(axis=0, keepdims=True)
         noise = 0.1 * rng.randn(self.n_samples)
         indiv_noises = 10 * rng.rand(self.n_features)
-        indiv_noises[:self.n_features // 2] /= 10
+        indiv_noises[: self.n_features // 2] /= 10
         beta_noise = indiv_noises * rng.rand(self.n_samples, self.n_features)
         y = np.sum(beta * (1 + beta_noise) * X, axis=1) + noise
 
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, random_state=rng
-        )
+        X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=rng)
 
-        data = dict(
-            X_train=X_train, y_train=y_train,
-            X_test=X_test, y_test=y_test
-        )
+        data = dict(X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test)
 
         return self.n_features, data

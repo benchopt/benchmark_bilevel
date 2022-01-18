@@ -28,6 +28,7 @@ def my_softmax_and_logsumexp(x):
     lse = np.log(e.sum(axis=1)) + m
     return s, lse
 
+
 def softmax_hvp(z, v):
     """
     Computes the HVP for the softmax at x times v where z = softmax(x)
@@ -231,4 +232,9 @@ class DataCleaningOracle(BaseOracle):
         xv = x @ v
         hvp = x.T @ (softmax_hvp(Y_proba, xv) * weights[:, None]) / n_samples
         jvp[idx] = d_weights * np.sum((Y_proba - y) * xv, axis=1) / n_samples
-        return loss, grad_theta.ravel() + 2 * self.reg * theta_flat, hvp.ravel() + 2 * self.reg * v_flat, jvp
+        return (
+            loss,
+            grad_theta.ravel() + 2 * self.reg * theta_flat,
+            hvp.ravel() + 2 * self.reg * v_flat,
+            jvp,
+        )

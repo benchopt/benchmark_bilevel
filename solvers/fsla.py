@@ -1,4 +1,3 @@
-
 from benchopt import BaseSolver
 from benchopt.stopping_criterion import SufficientProgressCriterion
 
@@ -7,28 +6,28 @@ from benchopt import safe_import_context
 with safe_import_context() as import_ctx:
     import numpy as np
     from numba import njit
-    constants = import_ctx.import_from('constants')
-    MinibatchSampler = import_ctx.import_from(
-        'minibatch_sampler', 'MinibatchSampler'
-    )
+
+    constants = import_ctx.import_from("constants")
+    MinibatchSampler = import_ctx.import_from("minibatch_sampler", "MinibatchSampler")
     LearningRateScheduler = import_ctx.import_from(
-        'learning_rate_scheduler', 'LearningRateScheduler'
+        "learning_rate_scheduler", "LearningRateScheduler"
     )
 
 
 class Solver(BaseSolver):
     """Fully Single Loop Algorithm (FSLA) for Bi-level optimization."""
-    name = 'FSLA'
+
+    name = "FSLA"
 
     stopping_criterion = SufficientProgressCriterion(
-        patience=constants.PATIENCE, strategy='callback'
+        patience=constants.PATIENCE, strategy="callback"
     )
 
     # any parameter defined here is accessible as a class attribute
     parameters = {
-        'step_size': constants.STEP_SIZES,
-        'outer_ratio': constants.OUTER_RATIOS,
-        'batch_size': constants.BATCH_SIZES
+        "step_size": constants.STEP_SIZES,
+        "outer_ratio": constants.OUTER_RATIOS,
+        "batch_size": constants.BATCH_SIZES,
     }
 
     @staticmethod
@@ -70,10 +69,17 @@ class Solver(BaseSolver):
         # Start algorithm
         while callback((inner_var, outer_var)):
             inner_var, outer_var, v = fsla(
-                self.f_inner, self.f_outer,
-                inner_var, outer_var, v, memory_outer,
-                eval_freq, inner_sampler, outer_sampler, lr_scheduler,
-                seed=rng.randint(constants.MAX_SEED)
+                self.f_inner,
+                self.f_outer,
+                inner_var,
+                outer_var,
+                v,
+                memory_outer,
+                eval_freq,
+                inner_sampler,
+                outer_sampler,
+                lr_scheduler,
+                seed=rng.randint(constants.MAX_SEED),
             )
         self.beta = (inner_var, outer_var)
 
@@ -81,10 +87,19 @@ class Solver(BaseSolver):
         return self.beta
 
 
-
-def fsla(inner_oracle, outer_oracle, inner_var, outer_var, v,
-         memory_outer, max_iter, inner_sampler, outer_sampler,
-         lr_scheduler, seed=None):
+def fsla(
+    inner_oracle,
+    outer_oracle,
+    inner_var,
+    outer_var,
+    v,
+    memory_outer,
+    max_iter,
+    inner_sampler,
+    outer_sampler,
+    lr_scheduler,
+    seed=None,
+):
 
     # Set seed for randomness
     if seed is not None:
@@ -95,9 +110,7 @@ def fsla(inner_oracle, outer_oracle, inner_var, outer_var, v,
 
         # Step.1 - SGD step on the inner problem
         slice_inner, _ = inner_sampler.get_batch()
-        grad_inner_var = inner_oracle.grad_inner_var(
-            inner_var, outer_var, slice_inner
-        )
+        grad_inner_var = inner_oracle.grad_inner_var(inner_var, outer_var, slice_inner)
         inner_var_old = inner_var.copy()
         inner_var -= inner_lr * grad_inner_var
 
@@ -105,18 +118,14 @@ def fsla(inner_oracle, outer_oracle, inner_var, outer_var, v,
         slice_inner2, _ = inner_sampler.get_batch()
         hvp = inner_oracle.hvp(inner_var, outer_var, v, slice_inner2)
         slice_outer, _ = outer_sampler.get_batch()
-        grad_in_outer = outer_oracle.grad_inner_var(
-            inner_var, outer_var, slice_outer
-        )
+        grad_in_outer = outer_oracle.grad_inner_var(inner_var, outer_var, slice_outer)
         v_old = v.copy()
         v -= inner_lr * (hvp - grad_in_outer)
 
         # Step.3 - compute the implicit gradient estimates, for the old
         # and new variables
         slice_outer2, _ = outer_sampler.get_batch()
-        impl_grad = outer_oracle.grad_outer_var(
-            inner_var, outer_var, slice_outer2
-        )
+        impl_grad = outer_oracle.grad_outer_var(inner_var, outer_var, slice_outer2)
         impl_grad_old = outer_oracle.grad_outer_var(
             inner_var_old, memory_outer[0], slice_outer2
         )
@@ -127,9 +136,7 @@ def fsla(inner_oracle, outer_oracle, inner_var, outer_var, v,
         )
 
         # Step.4 - update direction with momentum
-        memory_outer[1] = (
-            impl_grad + (1-eta) * (memory_outer[1] - impl_grad_old)
-        )
+        memory_outer[1] = impl_grad + (1 - eta) * (memory_outer[1] - impl_grad_old)
 
         # Step.5 - update the outer variable
         memory_outer[0] = outer_var

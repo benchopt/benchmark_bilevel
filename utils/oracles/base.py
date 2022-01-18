@@ -41,6 +41,7 @@ class BaseOracle(ABC):
 
     Note that the batch size should be defined in __init__.
     """
+
     # Shape of the variable for the considered problem
     variables_shape = None
 
@@ -68,25 +69,24 @@ class BaseOracle(ABC):
         pass
 
     @abstractmethod
-    def inverse_hvp(self, inner_var, outer_var, v, idx, approx='cg'):
+    def inverse_hvp(self, inner_var, outer_var, v, idx, approx="cg"):
         pass
 
     def grad(self, inner_var, outer_var, idx):
-        return self.grad_inner_var(inner_var, outer_var, idx), \
-            self.grad_outer_var(inner_var, outer_var, idx)
+        return self.grad_inner_var(inner_var, outer_var, idx), self.grad_outer_var(
+            inner_var, outer_var, idx
+        )
 
     def prox(self, inner_var, outer_var):
         "Prox function for the inner and outer_var."
         return inner_var, outer_var
 
-    def oracles(self, inner_var, outer_var, v, idx, inverse='id'):
+    def oracles(self, inner_var, outer_var, v, idx, inverse="id"):
         """Compute all the quantities together on the same batch."""
         val = self.value(inner_var, outer_var, idx)
         grad = self.grad_inner_var(inner_var, outer_var, idx)
         hvp = self.hvp(inner_var, outer_var, v, idx)
-        inv_hvp = self.inverse_hvp(
-            inner_var, outer_var, v, idx, approx=inverse
-        )
+        inv_hvp = self.inverse_hvp(inner_var, outer_var, v, idx, approx=inverse)
         implicit_grad = self.cross(inner_var, outer_var, inv_hvp, idx)
         return val, grad, hvp, implicit_grad
 
@@ -102,26 +102,26 @@ class BaseOracle(ABC):
             inner_var = inner_var.reshape(*inner_shape)
             return self.grad_inner_var(inner_var, outer_var, idx)
 
-        assert(check_grad(func, fprime, np.random.randn(var_shape_flat)) < 1e-4)
+        assert check_grad(func, fprime, np.random.randn(var_shape_flat)) < 1e-4
         inner_var_star, _, d = fmin_l_bfgs_b(
             func, np.zeros(var_shape_flat), fprime=fprime
         )
-        if d['warnflag'] != 0:
-            print('LBFGS did not converge   !')
-            print("Final gradient:", np.linalg.norm(d['grad']))
+        if d["warnflag"] != 0:
+            print("LBFGS did not converge   !")
+            print("Final gradient:", np.linalg.norm(d["grad"]))
             raise RuntimeError()
         return inner_var_star
 
     def __getattr__(self, name):
         # construct get_* and get_batch_* for all methods in this list:
 
-        if name.startswith('get_batch_'):
-            name = name.replace('get_batch_', '')
+        if name.startswith("get_batch_"):
+            name = name.replace("get_batch_", "")
             method = getattr(self, name)
             return _get_batch_method(method, name).__get__(self, BaseOracle)
 
-        if name.startswith('get_'):
-            method = getattr(self, name.replace('get_', ''))
+        if name.startswith("get_"):
+            method = getattr(self, name.replace("get_", ""))
 
             return _get_full_batch_method(method).__get__(self, BaseOracle)
 
@@ -129,24 +129,24 @@ class BaseOracle(ABC):
 
 
 def _get_full_batch_method(method):
-
     def get_full_batch(self, *args, **kwargs):
         idx = np.arange(self.n_samples)
         return method(*args, idx=idx, **kwargs)
+
     return get_full_batch
 
 
 def _get_batch_method(method, name):
-    def get_batch(self, *args, batch_size=1, vr='none', random_state=None,
-                  **kwargs):
+    def get_batch(self, *args, batch_size=1, vr="none", random_state=None, **kwargs):
         rng = check_random_state(random_state)
-        if batch_size is None or batch_size == 'all':
+        if batch_size is None or batch_size == "all":
             batch_size = self.n_samples
 
-        assert vr in ['none', 'saga'], (
-            f"'vr' should be in ['none', 'saga']. Got '{vr}'."
-        )
-        use_vr = vr != 'none'
+        assert vr in [
+            "none",
+            "saga",
+        ], f"'vr' should be in ['none', 'saga']. Got '{vr}'."
+        use_vr = vr != "none"
         memory, vr_res = None, None
 
         if use_vr:
@@ -155,8 +155,7 @@ def _get_batch_method(method, name):
             # Initialize the memory if it does not exists
             if memory is None:
                 all_results = [
-                    method(*args, idx=[i], **kwargs)
-                    for i in range(self.n_samples)
+                    method(*args, idx=[i], **kwargs) for i in range(self.n_samples)
                 ]
                 params = all_results[0]
                 if isinstance(params, tuple):
@@ -170,12 +169,10 @@ def _get_batch_method(method, name):
                 self.memory[name] = (vr_res, memory)
                 return vr_res
 
-        idx = rng.choice(
-            range(self.n_samples), size=batch_size, replace=False
-        )
+        idx = rng.choice(range(self.n_samples), size=batch_size, replace=False)
         res = method(*args, idx=idx, **kwargs)
 
-        if vr == 'none':
+        if vr == "none":
             return res
 
         i = idx[0]

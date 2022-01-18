@@ -2,7 +2,7 @@ from numba import int64, float64
 from numba.experimental import jitclass
 
 
-class LearningRateScheduler():
+class LearningRateScheduler:
     """Scheduler for learning rates, either constant or decreasing.
 
     This class holds a state counting the number of steps performed.
@@ -25,6 +25,7 @@ class LearningRateScheduler():
         Exponent for each learning rate. If 0, this corresponds to constant
         learning rates.
     """
+
     def __init__(self, constants, exponents):
 
         self.constants = constants

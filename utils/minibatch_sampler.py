@@ -5,16 +5,16 @@ from numba.experimental import jitclass
 
 
 spec = [
-    ('n_samples', int64),
-    ('batch_size', int64),
-    ('i_batch', int64),
-    ('n_batches', int64),
-    ('batch_order', int64[:]),
+    ("n_samples", int64),
+    ("batch_size", int64),
+    ("i_batch", int64),
+    ("n_batches", int64),
+    ("batch_order", int64[:]),
 ]
 
 
 # @jitclass(spec)
-class MinibatchSampler():
+class MinibatchSampler:
     """Minibatch sampler helper, relying on shuffling and slices.
 
     Generating minibatches on the fly can be quite slow and does not allow for
@@ -37,6 +37,7 @@ class MinibatchSampler():
         An oracle implemented in numba, with attribute `n_samples` and method
         `set_order`.
     """
+
     def __init__(self, n_samples, batch_size=1):
 
         # Batch size
@@ -50,8 +51,7 @@ class MinibatchSampler():
 
     def get_batch(self):
         idx = self.batch_order[self.i_batch]
-        selector = slice(idx * self.batch_size,
-                         (idx + 1) * self.batch_size)
+        selector = slice(idx * self.batch_size, (idx + 1) * self.batch_size)
         self.i_batch += 1
         if self.i_batch == self.n_batches:
             np.random.shuffle(self.batch_order)
