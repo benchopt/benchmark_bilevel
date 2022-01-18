@@ -1,9 +1,9 @@
 import numpy as np
 
 EVAL_FREQ = 2 ** 17
-PATIENCE = 30
+PATIENCE = 50
 
-STEP_SIZES = [10, 5, 1, .5, 1e-1]
+STEP_SIZES = [5, 2, 1, .5, 1e-1]
 OUTER_RATIOS = [2, 4, 6, 8]
 BATCH_SIZES = [64]
 
