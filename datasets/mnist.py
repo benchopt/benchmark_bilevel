@@ -9,7 +9,8 @@ with safe_import_context() as import_ctx:
     import gzip
     import numpy as np
     from sklearn.preprocessing import StandardScaler
-    from sklearn.decomposition import PCA
+    from sklearn.model_selection import train_test_split
+
 
 
 class Dataset(BaseDataset):
@@ -57,26 +58,27 @@ class Dataset(BaseDataset):
             with open("mnist.pkl", "rb") as f:
                 mnist = pickle.load(f)
 
-        X_train, y_train, X_test, y_test = (
+        X_train, y_train, X_val, y_val = (
             mnist["training_images"],
             mnist["training_labels"],
             mnist["test_images"],
             mnist["test_labels"],
         )
-        n_train = 2 ** (int(np.floor(np.log2(X_train.shape[0]))))
-        n_test = 2 ** (int(np.floor(np.log2(X_test.shape[0]))))
+        n_train = 20000
+        n_val = 5000
+        X_train, X_test, y_train, y_test = train_test_split(X_train, y_train, test_size=n_val, train_size=n_train)
 
         corrupted = rng.rand(n_train) < ratio
         X_train = X_train[:n_train]
         y_train = y_train[:n_train]
         y_train[corrupted] = rng.randint(0, 10, np.sum(corrupted))
-        X_test = X_test[:n_test]
-        y_test = y_test[:n_test]
         scaler = StandardScaler()
         X_train = scaler.fit_transform(X_train)
         X_test = scaler.transform(X_test)
+        X_val = scaler.transform(X_val)
         # pca = PCA(30, whiten=True)
         # X_train = pca.fit_transform(X_train)
         # X_test = pca.transform(X_test)
-        data = dict(X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test)
+        data = dict(X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test,
+                    X_val=X_val, y_val=y_val)
         return X_train.shape[1], data

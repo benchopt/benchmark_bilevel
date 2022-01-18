@@ -177,11 +177,12 @@ def init_memory(
 
 
 # @njit
-def variance_reduction(grad, memory, idx):
+def variance_reduction(grad, memory, id):
+    idx, weight = id
     n_batches = memory.shape[0] - 1
     diff = grad - memory[idx]
     direction = diff + memory[-1]
-    memory[-1] += diff / n_batches
+    memory[-1] += diff * weight
     memory[idx, :] = grad
     return direction
 

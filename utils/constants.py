@@ -6,8 +6,8 @@ PATIENCE = 100
 # OUTER_RATIOS = [4]
 BATCH_SIZES = [64]
 
-STEP_SIZES = [0.1]
-OUTER_RATIOS = [4]
+STEP_SIZES = [0.01, 0.1, 1]
+OUTER_RATIOS = [4, 10]
 # Number of inner loop steps
 N_INNER_STEPS = [10]
 N_HIA_STEPS = [10]
