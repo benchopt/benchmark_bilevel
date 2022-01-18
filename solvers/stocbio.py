@@ -23,7 +23,7 @@ class Solver(BaseSolver):
 
     :cat:`two-loops`
     """
-    name = 'stocBiO'
+    name = 'StocBiO'
 
     stopping_criterion = SufficientProgressCriterion(
         patience=constants.PATIENCE, strategy='callback'

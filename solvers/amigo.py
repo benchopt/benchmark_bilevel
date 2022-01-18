@@ -20,7 +20,7 @@ with safe_import_context() as import_ctx:
 
 class Solver(BaseSolver):
     """Two loops solver."""
-    name = 'amigo'
+    name = 'AmIGO'
 
     stopping_criterion = SufficientProgressCriterion(
         patience=constants.PATIENCE, strategy='callback'
@@ -36,7 +36,7 @@ class Solver(BaseSolver):
 
     @staticmethod
     def get_next(stop_val):
-        return max(1, min(stop_val * 2, stop_val + 50))
+        return stop_val + 1
 
     def set_objective(self, f_train, f_test, inner_var0, outer_var0):
         self.f_inner = f_train
@@ -52,7 +52,7 @@ class Solver(BaseSolver):
             self.outer_batch_size = self.batch_size
 
     def run(self, callback):
-        eval_freq = constants.EVAL_FREQ  # // self.batch_size
+        eval_freq = constants.EVAL_FREQ
         rng = np.random.RandomState(constants.RANDOM_STATE)
 
         # Init variables
