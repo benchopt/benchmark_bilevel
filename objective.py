@@ -37,7 +37,7 @@ class Objective(BaseObjective):
 
         if np.isnan(outer_var).any():
             raise ValueError
-        acc = self.f_test.get_accuracy(inner_var, outer_var)
+        acc = self.f_test.accuracy(inner_var, outer_var, self.X_val, self.y_val)
         # inner_star = self.f_train.get_inner_var_star(outer_var)
         # value_function = self.f_test.get_value(inner_star, outer_var)
         # inner_value = self.f_train.get_value(inner_var, outer_var)
