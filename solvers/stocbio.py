@@ -54,7 +54,7 @@ class Solver(BaseSolver):
             self.outer_batch_size = self.batch_size
 
     def run(self, callback):
-        eval_freq = constants.EVAL_FREQ // self.batch_size
+        eval_freq = constants.EVAL_FREQ
         rng = np.random.RandomState(constants.RANDOM_STATE)
 
         # Init variables

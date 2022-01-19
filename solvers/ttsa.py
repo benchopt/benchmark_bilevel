@@ -66,7 +66,6 @@ class Solver(BaseSolver):
         )
 
         # Start algorithm
-        eval_freq = constants.EVAL_FREQ
         while callback((inner_var, outer_var)):
             inner_var, outer_var, = ttsa(
                 self.f_inner,

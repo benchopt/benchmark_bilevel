@@ -1,17 +1,17 @@
 import numpy as np
-from scipy import sparse
-from scipy.sparse.linalg import svds
-from sklearn.utils.multiclass import type_of_target
-from sklearn.utils.extmath import safe_sparse_dot
+# from scipy import sparse
+# from scipy.sparse.linalg import svds
+# from sklearn.utils.multiclass import type_of_target
+# from sklearn.utils.extmath import safe_sparse_dot
 from sklearn.preprocessing import OneHotEncoder
 
-from scipy.sparse import linalg as splinalg
+# from scipy.sparse import linalg as splinalg
 import scipy.special as sc
 
-from numba import njit
-from numba import float64, int64, types  # import the types
-from numba.experimental import jitclass
-import numba_scipy.special
+# from numba import njit
+# from numba import float64, int64, types  # import the types
+# from numba.experimental import jitclass
+# import numba_scipy.special
 from .base import BaseOracle
 
 import warnings

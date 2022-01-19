@@ -35,7 +35,7 @@ class Solver(BaseSolver):
 
     @staticmethod
     def get_next(stop_val):
-        return max(1, min(stop_val * 2, stop_val + 50))
+        return stop_val + 1
 
     def set_objective(self, f_train, f_test, inner_var0, outer_var0):
         self.f_inner = f_train

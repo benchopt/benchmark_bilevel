@@ -72,7 +72,6 @@ class Solver(BaseSolver):
             np.array(step_sizes, dtype=float), exponents
         )
 
-        eval_freq = constants.EVAL_FREQ
         while callback((inner_var, outer_var)):
             inner_var, outer_var, memory_inner, memory_outer = sustain(
                 self.f_inner,
