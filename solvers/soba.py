@@ -6,26 +6,28 @@ from benchopt import safe_import_context
 with safe_import_context() as import_ctx:
     import numpy as np
     from numba import njit
-
-    MinibatchSampler = import_ctx.import_from("minibatch_sampler", "MinibatchSampler")
-    LearningRateScheduler = import_ctx.import_from(
-        "learning_rate_scheduler", "LearningRateScheduler"
+    MinibatchSampler = import_ctx.import_from(
+        'minibatch_sampler', 'MinibatchSampler'
     )
-    constants = import_ctx.import_from("constants")
+    LearningRateScheduler = import_ctx.import_from(
+        'learning_rate_scheduler', 'LearningRateScheduler'
+    )
+    constants = import_ctx.import_from('constants')
 
 
 class Solver(BaseSolver):
     """Stochastic Bi-level Algorithm (SOBA)."""
+    name = 'SOBA'
 
-    name = "SOBA"
-
-    stopping_criterion = SufficientProgressCriterion(patience=100, strategy="callback")
+    stopping_criterion = SufficientProgressCriterion(
+        patience=constants.PATIENCE, strategy='callback'
+    )
 
     # any parameter defined here is accessible as a class attribute
     parameters = {
-        "step_size": constants.STEP_SIZES,
-        "outer_ratio": constants.OUTER_RATIOS,
-        "batch_size": constants.BATCH_SIZES,
+        'step_size': constants.STEP_SIZES,
+        'outer_ratio': constants.OUTER_RATIOS,
+        'batch_size': constants.BATCH_SIZES
     }
 
     @staticmethod
@@ -54,8 +56,12 @@ class Solver(BaseSolver):
         outer_sampler = MinibatchSampler(
             self.f_outer.n_samples, batch_size=self.batch_size
         )
-        step_sizes = np.array([self.step_size, self.step_size / self.outer_ratio])
-        exponents = np.zeros(2)
+        step_sizes = np.array(
+            [self.step_size, self.step_size / self.outer_ratio]
+        )
+        exponents = np.array(
+            [.4, .6]
+        )
         lr_scheduler = LearningRateScheduler(
             np.array(step_sizes, dtype=float), exponents
         )
@@ -63,16 +69,10 @@ class Solver(BaseSolver):
         # Start algorithm
         while callback((inner_var, outer_var)):
             inner_var, outer_var, v = soba(
-                self.f_inner.numba_oracle,
-                self.f_outer.numba_oracle,
-                inner_var,
-                outer_var,
-                v,
-                eval_freq,
-                inner_sampler,
-                outer_sampler,
-                lr_scheduler,
-                seed=rng.randint(constants.MAX_SEED),
+                self.f_inner, self.f_outer,
+                inner_var, outer_var, v, eval_freq,
+                inner_sampler, outer_sampler, lr_scheduler,
+                seed=rng.randint(constants.MAX_SEED)
             )
             if np.isnan(outer_var).any():
                 raise ValueError()
@@ -82,19 +82,9 @@ class Solver(BaseSolver):
         return self.beta
 
 
-@njit
-def soba(
-    inner_oracle,
-    outer_oracle,
-    inner_var,
-    outer_var,
-    v,
-    max_iter,
-    inner_sampler,
-    outer_sampler,
-    lr_scheduler,
-    seed=None,
-):
+
+def soba(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
+         inner_sampler, outer_sampler, lr_scheduler, seed=None):
 
     # Set seed for randomness
     np.random.seed(seed)
@@ -105,11 +95,13 @@ def soba(
         # Step.1 - get all gradients and compute the implicit gradient.
         slice_inner, _ = inner_sampler.get_batch()
         _, grad_inner_var, hvp, cross_v = inner_oracle.oracles(
-            inner_var, outer_var, v, slice_inner, inverse="id"
+            inner_var, outer_var, v, slice_inner, inverse='id'
         )
 
         slice_outer, _ = outer_sampler.get_batch()
-        grad_in_outer, impl_grad = outer_oracle.grad(inner_var, outer_var, slice_outer)
+        grad_in_outer, impl_grad = outer_oracle.grad(
+            inner_var, outer_var, slice_outer
+        )
         impl_grad -= cross_v
 
         # Step.2 - update inner variable with SGD.
