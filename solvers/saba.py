@@ -9,11 +9,11 @@ with safe_import_context() as import_ctx:
     import numpy as np
     from numba import njit, prange
 
+    constants = import_ctx.import_from("constants")
     MinibatchSampler = import_ctx.import_from("minibatch_sampler", "MinibatchSampler")
     LearningRateScheduler = import_ctx.import_from(
         "learning_rate_scheduler", "LearningRateScheduler"
     )
-    constants = import_ctx.import_from("constants")
 
 
 class Solver(BaseSolver):
@@ -28,7 +28,7 @@ class Solver(BaseSolver):
         "step_size": constants.STEP_SIZES,
         "outer_ratio": constants.OUTER_RATIOS,
         "batch_size": constants.BATCH_SIZES,
-        "vr": ["saga", "none"],
+        "vr": ["saga"],
     }
 
     @staticmethod

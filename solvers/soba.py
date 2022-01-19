@@ -69,10 +69,16 @@ class Solver(BaseSolver):
         # Start algorithm
         while callback((inner_var, outer_var)):
             inner_var, outer_var, v = soba(
-                self.f_inner, self.f_outer,
-                inner_var, outer_var, v, eval_freq,
-                inner_sampler, outer_sampler, lr_scheduler,
-                seed=rng.randint(constants.MAX_SEED)
+                self.f_inner,
+                self.f_outer,
+                inner_var,
+                outer_var,
+                v,
+                eval_freq,
+                inner_sampler,
+                outer_sampler,
+                lr_scheduler,
+                seed=rng.randint(constants.MAX_SEED),
             )
             if np.isnan(outer_var).any():
                 raise ValueError()
@@ -82,9 +88,18 @@ class Solver(BaseSolver):
         return self.beta
 
 
-
-def soba(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
-         inner_sampler, outer_sampler, lr_scheduler, seed=None):
+def soba(
+    inner_oracle,
+    outer_oracle,
+    inner_var,
+    outer_var,
+    v,
+    max_iter,
+    inner_sampler,
+    outer_sampler,
+    lr_scheduler,
+    seed=None,
+):
 
     # Set seed for randomness
     np.random.seed(seed)
