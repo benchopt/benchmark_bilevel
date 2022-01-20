@@ -40,8 +40,8 @@ class Objective(BaseObjective):
         acc = self.f_test.accuracy(inner_var, outer_var, self.X_val, self.y_val)
         # inner_star = self.f_train.get_inner_var_star(outer_var)
         # value_function = self.f_test.get_value(inner_star, outer_var)
-        inner_value = self.f_train.get_value(inner_var, outer_var)
-        outer_value = self.f_test.get_value(inner_var, outer_var)
+        # inner_value = self.f_train.get_value(inner_var, outer_var)
+        # outer_value = self.f_test.get_value(inner_var, outer_var)
         # d_inner = np.linalg.norm(inner_var - inner_star)
         # d_value = outer_value - value_function
         # grad_f_test_inner, grad_f_test_outer = self.f_test.get_grad(
