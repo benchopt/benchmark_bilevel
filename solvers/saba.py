@@ -247,6 +247,4 @@ def saba(
         impl_grad -= cross_v
         outer_var -= outer_step_size * impl_grad
         inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)
-        np.save('outer.np', outer_var)
-        # np.save('inner', inner_var)
     return inner_var, outer_var, v

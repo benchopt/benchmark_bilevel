@@ -69,7 +69,6 @@ class Dataset(BaseDataset):
         X_train, X_test, y_train, y_test = train_test_split(X_train, y_train, test_size=n_val, train_size=n_train, random_state=rng)
 
         corrupted = rng.rand(n_train) < ratio
-        np.save('corrupted.np', corrupted)
         y_train[corrupted] = rng.randint(0, 10, np.sum(corrupted))
         scaler = StandardScaler()
         X_train = scaler.fit_transform(X_train)
