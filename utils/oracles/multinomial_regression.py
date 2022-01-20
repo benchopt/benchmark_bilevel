@@ -77,7 +77,7 @@ class MultiLogRegOracle(BaseOracle):
         n_samples, n_features = x.shape
         prod = x @ theta
         individual_losses = -prod[y == 1] + sc.logsumexp(prod, axis=1)
-        loss = -(individual_losses).sum() / n_samples
+        loss = (individual_losses).sum() / n_samples
         return loss
 
     def grad_inner_var(self, theta_flat, lmbda, idx):
@@ -86,7 +86,7 @@ class MultiLogRegOracle(BaseOracle):
         y = self.y[idx]
         n_samples, n_features = x.shape
         Y_proba = sc.softmax(x @ theta, axis=1)
-        grad_theta = -x.T @ ((Y_proba - y)) / n_samples
+        grad_theta = x.T @ ((Y_proba - y)) / n_samples
         return grad_theta.ravel()
 
     def grad_outer_var(self, theta_flat, lmbda, idx):
@@ -98,7 +98,7 @@ class MultiLogRegOracle(BaseOracle):
         y = self.y[idx]
         n_samples, n_features = x.shape
         Y_proba = sc.softmax(x @ theta, axis=1)
-        grad_theta = -x.T @ ((Y_proba - y)) / n_samples
+        grad_theta = x.T @ ((Y_proba - y)) / n_samples
         return grad_theta.ravel(), 0.0
 
     def cross(self, theta_flat, lmbda, v_flat, idx):
@@ -122,8 +122,8 @@ class MultiLogRegOracle(BaseOracle):
         prod = x @ theta
         Y_proba = sc.softmax(prod, axis=1)
         individual_losses = -prod[y == 1] + sc.logsumexp(prod, axis=1)
-        loss = -(individual_losses).sum() / n_samples
-        grad_theta = -x.T @ ((Y_proba - y)) / n_samples
+        loss = (individual_losses).sum() / n_samples
+        grad_theta = x.T @ ((Y_proba - y)) / n_samples
         return loss, grad_theta.ravel(), None, None
 
     def accuracy(self, theta_flat, lmbda, x, y):
