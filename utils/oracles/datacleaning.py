@@ -72,7 +72,7 @@ class DataCleaningOracle(BaseOracle):
         Whether or not to apply regularisation.
     """
 
-    def __init__(self, X, y, reg=1e-3):
+    def __init__(self, X, y, reg=1e-1):
         super().__init__()
 
         # Make sure the targets are one hot encoded.

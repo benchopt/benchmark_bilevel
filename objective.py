@@ -26,7 +26,8 @@ class Objective(BaseObjective):
         self.y_val = y_val
         rng = check_random_state(self.random_state)
         inner_shape, outer_shape = self.f_train.variables_shape
-        self.inner_var0 = rng.randn(*inner_shape)
+        # self.inner_var0 = rng.randn(*inner_shape)
+        self.inner_var0 = np.zeros(*inner_shape)
         self.outer_var0 = np.ones(*outer_shape)
         self.inner_var0, self.outer_var0 = self.f_train.prox(
             self.inner_var0, self.outer_var0
