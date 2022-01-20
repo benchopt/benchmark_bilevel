@@ -1,6 +1,6 @@
 import numpy as np
 
-EVAL_FREQ = 2 ** 8
+EVAL_FREQ = 2 ** 7
 PATIENCE = 100
 BATCH_SIZES = [64]
 

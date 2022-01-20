@@ -20,7 +20,7 @@ class Dataset(BaseDataset):
     install_cmd = "conda"
     requirements = ["scikit-learn"]
 
-    def __init__(self, ratio=0.7, random_state=325):
+    def __init__(self, ratio=.7, random_state=32):
         # Store the parameters of the dataset
         self.random_state = random_state
         self.ratio = ratio
@@ -66,11 +66,10 @@ class Dataset(BaseDataset):
         )
         n_train = 20000
         n_val = 5000
-        X_train, X_test, y_train, y_test = train_test_split(X_train, y_train, test_size=n_val, train_size=n_train)
+        X_train, X_test, y_train, y_test = train_test_split(X_train, y_train, test_size=n_val, train_size=n_train, random_state=rng)
 
         corrupted = rng.rand(n_train) < ratio
-        X_train = X_train[:n_train]
-        y_train = y_train[:n_train]
+        np.save('corrupted.np', corrupted)
         y_train[corrupted] = rng.randint(0, 10, np.sum(corrupted))
         scaler = StandardScaler()
         X_train = scaler.fit_transform(X_train)

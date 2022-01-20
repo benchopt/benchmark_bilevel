@@ -9,11 +9,11 @@ with safe_import_context() as import_ctx:
     import numpy as np
     from numba import njit, prange
 
-    constants = import_ctx.import_from("constants")
     MinibatchSampler = import_ctx.import_from("minibatch_sampler", "MinibatchSampler")
     LearningRateScheduler = import_ctx.import_from(
         "learning_rate_scheduler", "LearningRateScheduler"
     )
+    constants = import_ctx.import_from("constants")
 
 
 class Solver(BaseSolver):
@@ -246,6 +246,7 @@ def saba(
 
         impl_grad -= cross_v
         outer_var -= outer_step_size * impl_grad
-
         inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)
+        np.save('outer.np', outer_var)
+        # np.save('inner', inner_var)
     return inner_var, outer_var, v
