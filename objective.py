@@ -24,7 +24,9 @@ class Objective(BaseObjective):
         self.f_test = self.outer_oracle(X_test, y_test)
         self.X_val = X_val
         self.y_val = y_val
-        rng = check_random_state(self.random_state)
+
+        # Init inner and outer variables
+        # rng = check_random_state(self.random_state)
         inner_shape, outer_shape = self.f_train.variables_shape
         # self.inner_var0 = rng.randn(*inner_shape)
         self.inner_var0 = np.zeros(*inner_shape)
