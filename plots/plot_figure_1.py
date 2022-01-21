@@ -23,22 +23,22 @@ solvers = [
     for s in solvers
 ]
 solver_legend = dict(
-    none="SGD",
-    saga_z=r'SAGA on $z$',
-    saga="SAGA"
+    none="SOBA",
+    saga="SABA"
 )
 
 fig = plt.figure(figsize=(4, 3))
 for s in solvers:
-    to_plot = df.loc[
-        df["solver_name"] == begining_solver+s+end_solver
-    ]
-    plt.semilogy(
-        to_plot["stop_val"],
-        to_plot["objective_value"],
-        label=solver_legend[s],
-        linewidth=2
-    )
+    if s != 'saga_z':
+        to_plot = df.loc[
+            df["solver_name"] == begining_solver+s+end_solver
+        ]
+        plt.semilogy(
+            to_plot["stop_val"],
+            to_plot["objective_value"],
+            label=solver_legend[s],
+            linewidth=2
+        )
 
 plt.xlim(right=4000)
 plt.ylim(bottom=1e-17)
