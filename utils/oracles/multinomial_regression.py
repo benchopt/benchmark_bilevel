@@ -38,7 +38,7 @@ def multilogreg_oracle(X, Y, theta, idx):
     return loss, grad_theta
 
 
-class MultiLogRegOracle(BaseOracle):
+class MultinomialLogRegOracle(BaseOracle):
     """Class defining the oracles for datacleaning
     **NOTE:** This class is taylored for the binary logreg.
 

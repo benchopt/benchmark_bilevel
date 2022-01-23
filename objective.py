@@ -10,18 +10,29 @@ with safe_import_context() as import_ctx:
 
 
 class Objective(BaseObjective):
-    name = "Datacleaning"
+    name = "Bilevel"
 
-    parameters = {}
+    parameters = {
+        'task': ['datacleaning', 'multilogreg']
+    }
 
-    def __init__(self, random_state=2442):
-        self.inner_oracle = oracles.DataCleaningOracle
-        self.outer_oracle = oracles.MultiLogRegOracle
+    def __init__(self, task='datacleaning', random_state=2442):
+        if task == 'datacleaning':
+            self.get_inner_oracle = oracles.DataCleaningOracle
+            self.get_outer_oracle = oracles.MultinomialLogRegOracle
+        elif task == 'multilogreg':
+            self.get_inner_oracle = oracles.MultiLogRegOracle
+            self.get_outer_oracle = (
+                lambda X, y: oracles.MultiLogRegOracle(X, y, reg='none')
+            )
+        else:
+            raise ValueError
+
         self.random_state = random_state
 
     def set_data(self, X_train, y_train, X_test, y_test, X_val, y_val):
-        self.f_train = self.inner_oracle(X_train, y_train)
-        self.f_test = self.outer_oracle(X_test, y_test)
+        self.f_train = self.get_inner_oracle(X_train, y_train)
+        self.f_test = self.get_outer_oracle(X_test, y_test)
         self.X_val = X_val
         self.y_val = y_val
 

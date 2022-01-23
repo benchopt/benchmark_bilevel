@@ -1,11 +1,11 @@
 import numpy as np
 
-EVAL_FREQ = 2 ** 3
+EVAL_FREQ = 2 ** 5
 PATIENCE = 12_800
 BATCH_SIZES = [64]
 
-STEP_SIZES = np.logspace(-4, 1, 11)
-OUTER_RATIOS = np.logspace(-5, 0, 11)
+STEP_SIZES = np.logspace(-3, 0, 7)
+OUTER_RATIOS = np.logspace(-5, -2, 7)
 
 # Number of inner loop steps
 N_INNER_STEPS = [10]

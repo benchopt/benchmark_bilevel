@@ -8,10 +8,6 @@ from sklearn.preprocessing import OneHotEncoder
 from scipy.sparse import linalg as splinalg
 import scipy.special as sc
 
-from numba import njit
-from numba import float64, int64, types  # import the types
-from numba.experimental import jitclass
-import numba_scipy.special
 from .base import BaseOracle
 
 from benchopt.utils import profile
