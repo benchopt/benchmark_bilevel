@@ -106,13 +106,9 @@ class BaseOracle(ABC):
         )
         if d['warnflag'] != 0:
             print('LBFGS did not converged!')
+            print("Final gradient:", d['grad'])
             raise RuntimeError()
         return inner_var_star
-
-    def get_value_function(self, outer_var):
-        idx = np.arange(self.n_samples)
-        inner_var_star = self.inner_var_star(outer_var, idx=idx)
-        return self.value(inner_var_star, outer_var, idx=idx)
 
     def __getattr__(self, name):
         # construct get_* and get_batch_* for all methods in this list:

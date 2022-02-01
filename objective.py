@@ -1,39 +1,41 @@
 from benchopt import BaseObjective
+from benchopt import safe_import_context
 
-import numpy as np
-from sklearn.utils import check_random_state
-
-import sys
-from pathlib import Path
-oracle_module = Path(__file__).parent
-sys.path += [str(oracle_module.resolve())]
-
-from oracles import RidgeRegressionOracle  # noqa: E402
-from oracles import LogisticRegressionOracle  # noqa: E402
+with safe_import_context() as import_ctx:
+    import numpy as np
+    from sklearn.utils import check_random_state
+    oracles = import_ctx.import_from('oracles')
 
 
 class Objective(BaseObjective):
     name = "Bi-level Hyperparameter Optimization"
 
     parameters = {
-        'model': ['logreg', 'ridge']
+        'model': ['logreg', 'ridge'],
+        'n_reg': [1, 'full'],
+        'reg': ['exp', 'lin']
     }
 
-    def __init__(self, model='ridge', random_state=29):
+    is_convex = False
+
+    def __init__(self, model='ridge', reg='exp',  n_reg='full',
+                 random_state=2442):
         if model == 'ridge':
-            self.oracle = RidgeRegressionOracle
+            self.oracle = oracles.RidgeRegressionOracle
         elif model == 'logreg':
-            self.oracle = LogisticRegressionOracle
+            self.oracle = oracles.LogisticRegressionOracle
         else:
             raise ValueError(
                 f"model should be 'ridge' or 'logreg'. Got '{model}'."
             )
 
+        self.reg = reg
+        self.n_reg = n_reg
         self.random_state = random_state
 
     def set_data(self, X_train, y_train, X_test, y_test):
         self.f_train = self.oracle(
-            X_train, y_train, reg='lin'
+            X_train, y_train, reg=self.reg
         )
         self.f_test = self.oracle(
             X_test, y_test, reg='none'
@@ -42,8 +44,11 @@ class Objective(BaseObjective):
         rng = check_random_state(self.random_state)
         inner_shape, outer_shape = self.f_train.variables_shape
         self.inner_var0 = rng.randn(*inner_shape)
-        # self.outer_var0 = np.log(2 * rng.rand(*outer_shape))
-        self.outer_var0 = 10 * rng.rand(*outer_shape)
+        self.outer_var0 = rng.rand(*outer_shape)
+        if self.reg == 'exp':
+            self.outer_var0 = np.log(self.outer_var0)
+        if self.n_reg == 1:
+            self.outer_var0 = self.outer_var0[:1]
         self.inner_var0, self.outer_var0 = self.f_train.prox(
             self.inner_var0, self.outer_var0
         )
@@ -70,6 +75,8 @@ class Objective(BaseObjective):
             grad_f_test_inner
         )
         grad_value -= self.f_train.get_cross(inner_star, outer_var, v)
+        grad_inner = self.f_train.get_grad_inner_var(inner_var, outer_var)
+        grad_star = self.f_train.get_grad_inner_var(inner_star, outer_var)
 
         return dict(
             value_func=value_function,
@@ -77,7 +84,9 @@ class Objective(BaseObjective):
             outer_value=outer_value,
             d_inner=d_inner,
             d_value=d_value,
-            value=np.linalg.norm(grad_value)**2
+            value=np.linalg.norm(grad_value)**2,
+            grad_inner=np.linalg.norm(grad_inner),
+            grad_star=np.linalg.norm(grad_star),
         )
 
     def to_dict(self):

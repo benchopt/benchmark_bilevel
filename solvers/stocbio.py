@@ -5,29 +5,41 @@ from benchopt.stopping_criterion import SufficientProgressCriterion
 from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
+    import numpy as np
     from numba import njit
-    from oracles.minibatch_sampler import MinibatchSampler
+    constants = import_ctx.import_from('constants')
+    sgd_inner = import_ctx.import_from('sgd_inner', 'sgd_inner')
+    shia = import_ctx.import_from('hessian_approximation', 'shia')
+    MinibatchSampler = import_ctx.import_from(
+        'minibatch_sampler', 'MinibatchSampler'
+    )
+    LearningRateScheduler = import_ctx.import_from(
+        'learning_rate_scheduler', 'LearningRateScheduler'
+    )
 
 
 class Solver(BaseSolver):
-    """Two loops solver."""
-    name = 'stocBiO'
+    """StocBio solver from [Ji2021]
+
+    :cat:`two-loops`
+    """
+    name = 'StocBiO'
 
     stopping_criterion = SufficientProgressCriterion(
-        patience=100, strategy='callback'
+        patience=constants.PATIENCE, strategy='callback'
     )
 
     # any parameter defined here is accessible as a class attribute
     parameters = {
-        'step_size': [1e-2],
-        'n_inner_step': [10],
-        'batch_size': [32, 100],
-        'outer_ratio': [5, 20],
+        'step_size': constants.STEP_SIZES,
+        'outer_ratio': constants.OUTER_RATIOS,
+        'n_inner_step': constants.N_INNER_STEPS,
+        'batch_size': constants.BATCH_SIZES,
     }
 
     @staticmethod
     def get_next(stop_val):
-        return max(1, min(stop_val * 2, stop_val + 50))
+        return stop_val + 1
 
     def set_objective(self, f_train, f_test, inner_var0, outer_var0):
         self.f_inner = f_train
@@ -43,32 +55,41 @@ class Solver(BaseSolver):
             self.outer_batch_size = self.batch_size
 
     def run(self, callback):
-        n_eval_freq = max(1, 1_024 // self.n_inner_step)
-        inner_step_size = self.step_size
-        outer_step_size = self.step_size / self.outer_ratio
+        eval_freq = constants.EVAL_FREQ  # // self.batch_size
+        rng = np.random.RandomState(constants.RANDOM_STATE)
+
+        # Init variables
         outer_var = self.outer_var0.copy()
         inner_var = self.inner_var0.copy()
+
+        # Init sampler and lr
         inner_sampler = MinibatchSampler(
-            self.f_inner.numba_oracle, self.inner_batch_size
+            self.f_inner.n_samples, self.inner_batch_size
         )
         outer_sampler = MinibatchSampler(
-            self.f_outer.numba_oracle, self.outer_batch_size
+            self.f_outer.n_samples, self.outer_batch_size
+        )
+        step_sizes = np.array(
+            [self.step_size, self.step_size, self.step_size / self.outer_ratio]
+        )
+        exponents = np.zeros(3)
+        lr_scheduler = LearningRateScheduler(
+            np.array(step_sizes, dtype=float), exponents
         )
 
-        callback((inner_var, outer_var))
-        # L = self.f_inner.lipschitz_inner(inner_var, outer_var)
+        # Start algorithm
         inner_var = sgd_inner(
             self.f_inner.numba_oracle, inner_var, outer_var,
-            step_size=inner_step_size,
+            step_size=self.step_size,
             inner_sampler=inner_sampler, n_inner_step=self.n_inner_step
         )
         while callback((inner_var, outer_var)):
             inner_var, outer_var = stocbio(
                 self.f_inner.numba_oracle, self.f_outer.numba_oracle,
-                inner_var, outer_var, n_eval_freq, outer_step_size,
-                self.n_inner_step, inner_step_size,
-                n_shia_step=self.n_inner_step, shia_step_size=inner_step_size,
+                inner_var, outer_var, eval_freq, lr_scheduler,
+                self.n_inner_step, n_shia_step=self.n_inner_step,
                 inner_sampler=inner_sampler, outer_sampler=outer_sampler,
+                seed=rng.randint(constants.MAX_SEED)
             )
 
         self.beta = (inner_var, outer_var)
@@ -81,39 +102,9 @@ class Solver(BaseSolver):
 
 
 @njit
-def sgd_inner(inner_oracle, inner_var, outer_var,
-              step_size, inner_sampler, n_inner_step):
-    for _ in range(n_inner_step):
-        inner_slice, _ = inner_sampler.get_batch(inner_oracle)
-        grad_inner = inner_oracle.grad_inner_var(
-            inner_var, outer_var, inner_slice
-        )
-        inner_var -= step_size * grad_inner
-
-    return inner_var
-
-
-@njit
-def shia(
-    inner_oracle, inner_var, outer_var, v, inner_sampler, n_step, step_size
-):
-    """Hessian Inverse Approximation subroutine from [Ji2021].
-
-    This implement Algorithm.3
-    """
-    s = v
-    for i in range(n_step):
-        inner_slice, _ = inner_sampler.get_batch(inner_oracle)
-        hvp = inner_oracle.hvp(inner_var, outer_var, v, inner_slice)
-        v -= step_size * hvp
-        s += v
-    return step_size * s
-
-
-@njit
 def stocbio(inner_oracle, outer_oracle, inner_var, outer_var,
-            max_iter, outer_step_size, n_inner_step, inner_step_size,
-            n_shia_step, shia_step_size, inner_sampler, outer_sampler):
+            max_iter, lr_scheduler, n_inner_step, n_shia_step,
+            inner_sampler, outer_sampler, seed=None):
     """Numba compatible stocBiO algorithm.
 
     Parameters
@@ -140,27 +131,32 @@ def stocbio(inner_oracle, outer_oracle, inner_var, outer_var,
         outer problems.
     """
 
+    # Set seed for randomness
+    if seed is not None:
+        np.random.seed(seed)
+
     for i in range(max_iter):
-        outer_slice, _ = outer_sampler.get_batch(outer_oracle)
+        inner_lr, shia_lr, outer_lr = lr_scheduler.get_lr()
+        outer_slice, _ = outer_sampler.get_batch()
         grad_in, grad_out = outer_oracle.grad(
             inner_var, outer_var, outer_slice
         )
 
         implicit_grad = shia(
             inner_oracle, inner_var, outer_var, grad_in,
-            inner_sampler, n_shia_step, shia_step_size
+            inner_sampler, n_shia_step, shia_lr
         )
-        inner_slice, _ = inner_sampler.get_batch(inner_oracle)
+        inner_slice, _ = inner_sampler.get_batch()
         implicit_grad = inner_oracle.cross(
             inner_var, outer_var, implicit_grad, inner_slice
         )
         grad_outer_var = grad_out - implicit_grad
 
-        outer_var -= outer_step_size * grad_outer_var
+        outer_var -= outer_lr * grad_outer_var
         inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)
 
         inner_var = sgd_inner(
-            inner_oracle, inner_var, outer_var, step_size=inner_step_size,
+            inner_oracle, inner_var, outer_var, step_size=inner_lr,
             inner_sampler=inner_sampler, n_inner_step=n_inner_step
         )
     return inner_var, outer_var
