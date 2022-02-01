@@ -13,6 +13,9 @@ with safe_import_context() as import_ctx:
     LearningRateScheduler = import_ctx.import_from(
         'learning_rate_scheduler', 'LearningRateScheduler'
     )
+    joint_hia = import_ctx.import_from(
+        'hessian_approximation', 'joint_hia'
+    )
 
 
 class Solver(BaseSolver):
@@ -84,28 +87,6 @@ class Solver(BaseSolver):
 
     def get_result(self):
         return self.beta
-
-
-@njit()
-def joint_hia(inner_oracle, inner_var, outer_var, v,
-              inner_var_old, outer_var_old, v_old,
-              inner_sampler, n_step, step_size):
-    """Hessian Inverse Approximation subroutine from [Ghadimi2018].
-
-    This is a modification that jointly compute the HIA with the same samples
-    for the current estimates and the one from the previous iteration, in
-    order to compute the momentum term.
-    """
-    p = np.random.randint(n_step)
-    for i in range(p):
-        inner_slice, _ = inner_sampler.get_batch()
-        hvp = inner_oracle.hvp(inner_var, outer_var, v, inner_slice)
-        v -= step_size * hvp
-        hvp_old = inner_oracle.hvp(
-            inner_var_old, outer_var_old, v_old, inner_slice
-        )
-        v_old -= step_size * hvp_old
-    return n_step * step_size * v, n_step * step_size * v_old
 
 
 @njit()

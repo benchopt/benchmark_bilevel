@@ -7,6 +7,7 @@ with safe_import_context() as import_ctx:
     import numpy as np
     from numba import njit
     constants = import_ctx.import_from('constants')
+    joint_shia = import_ctx.import_from('hessian_approximation', 'joint_hia')
     MinibatchSampler = import_ctx.import_from(
         'minibatch_sampler', 'MinibatchSampler'
     )
@@ -86,30 +87,6 @@ class Solver(BaseSolver):
 
     def get_result(self):
         return self.beta
-
-
-@njit
-def joint_shia(
-    inner_oracle, inner_var, outer_var, v, inner_var_old, outer_var_old, v_old,
-    inner_sampler, n_step, step_size, seed=None
-):
-    """Hessian Inverse Approximation subroutine from [Ji2021].
-
-    This implement Algorithm.3
-    """
-    s = v
-    s_old = v_old
-    for i in range(n_step):
-        inner_slice, _ = inner_sampler.get_batch()
-        hvp = inner_oracle.hvp(inner_var, outer_var, v, inner_slice)
-        v -= step_size * hvp
-        s += v
-        hvp_old = inner_oracle.hvp(
-            inner_var_old, outer_var_old, v_old, inner_slice
-        )
-        v_old -= step_size * hvp_old
-        s_old += v_old
-    return step_size * v, step_size * v_old
 
 
 @njit()
