@@ -117,3 +117,26 @@ def test_oracle_inner_var_star(model, reg):
     g_inner_var_star = f.get_grad_inner_var(inner_var, outer_var)
     # XXX: Investigate why the norm is not smaller
     assert np.allclose(g_inner_var_star, 0)
+
+
+def test_datacleaning():
+    n_samples, n_features, n_classes = 1000, 10, 10
+    X = np.random.randn(n_samples, n_features)
+    y = np.random.randint(0, n_classes, size=n_samples)
+    reg = 1e-2
+    f = oracles.DataCleaningOracle(X, y, reg)
+    f_jit = oracles.DataCleaningOracleNumba(X, y, reg)
+
+    inner_var = np.random.randn(n_features * n_classes)
+    outer_var = np.random.randn(n_samples)
+
+    idx = np.arange(n_samples)
+    v = np.random.randn(n_features*n_classes)
+
+    a, b, c, d = f.oracles(inner_var, outer_var, v, idx, 'id')
+    a_, b_, c_, d_ = f_jit.oracles(inner_var, outer_var, v, idx, 'id')
+
+    assert np.allclose(a, a_)
+    assert np.allclose(b, b_)
+    assert np.allclose(c, c_)
+    assert np.allclose(d, d_)
