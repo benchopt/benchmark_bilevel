@@ -13,12 +13,15 @@ class Objective(BaseObjective):
     name = "Bilevel"
 
     parameters = {
-        'task': ['datacleaning', 'multilogreg']
+        'task': ['datacleaning', 'datacleaning_jit', 'multilogreg']
     }
 
     def __init__(self, task='datacleaning', random_state=2442):
         if task == 'datacleaning':
             self.get_inner_oracle = oracles.DataCleaningOracle
+            self.get_outer_oracle = oracles.MultinomialLogRegOracle
+        elif task == 'datacleaning_jit':
+            self.get_inner_oracle = oracles.DataCleaningOracleNumba
             self.get_outer_oracle = oracles.MultinomialLogRegOracle
         elif task == 'multilogreg':
             self.get_inner_oracle = oracles.MultiLogRegOracle

@@ -2,7 +2,6 @@ from benchopt import BaseSolver
 from benchopt.stopping_criterion import SufficientProgressCriterion
 
 from benchopt import safe_import_context
-from benchopt.utils import profile
 
 
 with safe_import_context() as import_ctx:
@@ -188,7 +187,6 @@ def variance_reduction(grad, memory, id):
 
 
 # @njit
-@profile
 def saba(
     inner_oracle,
     outer_oracle,
@@ -221,7 +219,7 @@ def saba(
 
         slice_inner, id_inner = inner_sampler.get_batch()
         _, grad_inner_var, hvp, cross_v = inner_oracle.oracles(
-            inner_var, outer_var, v, slice_inner, inverse="id"
+            inner_var, outer_var, v, slice_inner, "id"
         )
 
         # here memory_*[-1] corresponds to the running average of
