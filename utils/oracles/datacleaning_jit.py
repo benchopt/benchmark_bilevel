@@ -1,18 +1,10 @@
 import numpy as np
-from scipy import sparse
-from scipy.sparse.linalg import svds
-from sklearn.utils.multiclass import type_of_target
-from sklearn.utils.extmath import safe_sparse_dot
-from sklearn.preprocessing import OneHotEncoder
 
 from scipy.sparse import linalg as splinalg
-import scipy.special as sc
 
 from numba import njit
 from numba.experimental import jitclass
-from numba import float64, int64, types  # import the types
-
-from .base import BaseOracle
+from numba import float64, int64  # import the types
 
 import warnings
 
@@ -37,14 +29,26 @@ def expit(t):
 
 
 @njit
-def my_softmax_and_logsumexp(x):
+def logsumexp(x):
     m = np.zeros(x.shape[0])
     for k in range(x.shape[0]):
         m[k] = np.max(x[k, :])
     x = x - m.reshape(-1, 1)
     e = np.exp(x)
-    s = e / (e.sum(axis=1)).reshape(-1, 1)
-    lse = np.log(e.sum(axis=1)) + m
+    sumexp = e.sum(axis=1)
+    lse = np.log(sumexp) + m
+    return lse
+
+
+@njit
+def softmax(x):
+    return np.exp(x - logsumexp(x))
+
+
+@njit
+def my_softmax_and_logsumexp(x):
+    lse = logsumexp(x)
+    s = np.exp(x - lse)
     return s, lse
 
 
@@ -140,17 +144,21 @@ class DataCleaningOracleNumba():
         lbda = lmbda[idx]
         prod = x @ theta
         weights = expit(lbda)
-        individual_losses = -prod[y == 1] + sc.logsumexp(prod, axis=1)
+        lse = logsumexp(prod)
+        individual_losses = np.zeros(n_samples, dtype=np.float64)
+        for i in range(y.shape[0]):
+            individual_losses[i] = - prod[i][y[i] == 1][0] + lse[i]
         regul = np.dot(theta_flat, theta_flat)
-        return (individual_losses * weights).sum() / n_samples + self.reg * regul
+        val = (individual_losses * weights).sum()
+        return val / n_samples + self.reg * regul
 
     def grad_inner_var(self, theta_flat, lmbda, idx):
         theta = theta_flat.reshape(self.n_features, self.n_classes)
         x = self.X[idx]
         y = self.y[idx]
         lbda = lmbda[idx]
-        n_samples, n_features = x.shape
-        Y_proba = sc.softmax(x @ theta, axis=1)
+        n_samples, _ = x.shape
+        Y_proba = softmax(x @ theta)
         weights = expit(lbda)
         grad_theta = x.T @ ((Y_proba - y) * weights[:, None]) / n_samples
         return grad_theta.ravel() + 2 * self.reg * theta_flat
@@ -161,10 +169,13 @@ class DataCleaningOracleNumba():
         y = self.y[idx]
         lbda = lmbda[idx]
         grad_lbda = np.zeros_like(lmbda)
-        n_samples, n_features = x.shape
+        n_samples, _ = x.shape
         prod = x @ theta
         weights = expit(lbda)
-        individual_losses = -prod[y == 1] + sc.logsumexp(prod, axis=1)
+        lse = logsumexp(prod)
+        individual_losses = np.zeros(n_samples, dtype=np.float64)
+        for i in range(y.shape[0]):
+            individual_losses[i] = - prod[i][y[i] == 1][0] + lse[i]
         d_weights = weights - weights ** 2
         grad_lbda[idx] = d_weights * individual_losses / n_samples
         return grad_lbda
@@ -177,9 +188,12 @@ class DataCleaningOracleNumba():
         grad_lbda = np.zeros_like(lmbda)
         n_samples, n_features = x.shape
         prod = x @ theta
-        Y_proba = sc.softmax(prod, axis=1)
+        Y_proba = softmax(prod)
         weights = expit(lbda)
-        individual_losses = -prod[y == 1] + sc.logsumexp(prod, axis=1)
+        lse = logsumexp(prod)
+        individual_losses = np.zeros(n_samples, dtype=np.float64)
+        for i in range(y.shape[0]):
+            individual_losses[i] = - prod[i][y[i] == 1][0] + lse[i]
         grad_theta = x.T @ ((Y_proba - y) * weights[:, None]) / n_samples
         d_weights = weights - weights ** 2
         grad_lbda[idx] = d_weights * individual_losses / n_samples
@@ -192,8 +206,8 @@ class DataCleaningOracleNumba():
         y = self.y[idx]
         lbda = lmbda[idx]
         jvp = np.zeros_like(lmbda)
-        n_samples, n_features = x.shape
-        Y_proba = sc.softmax(x @ theta, axis=1)
+        n_samples, _ = x.shape
+        Y_proba = softmax(x @ theta)
         weights = expit(lbda)
         d_weights = weights - weights ** 2
         xv = x @ v
@@ -204,10 +218,9 @@ class DataCleaningOracleNumba():
         theta = theta_flat.reshape(self.n_features, self.n_classes)
         v = v_flat.reshape(self.n_features, self.n_classes)
         x = self.X[idx]
-        y = self.y[idx]
         lbda = lmbda[idx]
-        n_samples, n_features = x.shape
-        Y_proba = sc.softmax(x @ theta, axis=1)
+        n_samples, _ = x.shape
+        Y_proba = softmax(x @ theta)
         weights = expit(lbda)
         xv = x @ v
         hvp = x.T @ (softmax_hvp(Y_proba, xv) * weights[:, None]) / n_samples
@@ -224,9 +237,8 @@ class DataCleaningOracleNumba():
         if approx != "cg":
             raise NotImplementedError
         x = self.X[idx]
-        y = self.y[idx]
         lbda = lmbda[idx]
-        Y_proba = sc.softmax(x @ theta, axis=1)
+        Y_proba = softmax(x @ theta)
         weights = expit(lbda)
         n_samples, n_features = x.shape
         n_classes = self.n_classes
@@ -234,7 +246,8 @@ class DataCleaningOracleNumba():
         def compute_hvp(v_flat):
             v = v_flat.reshape(n_features, n_classes)
             xv = x @ v
-            hvp = x.T @ (softmax_hvp(Y_proba, xv) * weights[:, None]) / n_samples
+            hvp = x.T @ (softmax_hvp(Y_proba, xv) * weights[:, None])
+            hvp /= n_samples
             return hvp.ravel() + 2 * self.reg * v_flat
 
         Hop = splinalg.LinearOperator(
@@ -265,14 +278,15 @@ class DataCleaningOracleNumba():
         prod = x @ theta
         Y_proba, lse = my_softmax_and_logsumexp(prod)
         weights = expit(lbda)
-        individual_losses = np.zeros(y.shape[0], dtype=np.float64)
+        individual_losses = np.zeros(n_samples, dtype=np.float64)
         for i in range(y.shape[0]):
             individual_losses[i] = - prod[i][y[i] == 1][0] + lse[i]
         loss = (individual_losses * weights).sum() / n_samples
         grad_theta = x.T @ ((Y_proba - y) * weights.reshape(-1, 1)) / n_samples
         d_weights = weights - weights ** 2
         xv = x @ v
-        hvp = x.T @ (softmax_hvp(Y_proba, xv) * weights.reshape(-1, 1)) / n_samples
+        hvp = x.T @ (softmax_hvp(Y_proba, xv) * weights.reshape(-1, 1))
+        hvp /= n_samples
         jvp[idx] = d_weights * np.sum((Y_proba - y) * xv, axis=1) / n_samples
         return (
             loss,
