@@ -4,6 +4,7 @@ from .datacleaning import DataCleaningOracle
 from .datacleaning_jit import DataCleaningOracleNumba
 from .multi_logreg import MultiLogRegOracle
 from .multinomial_regression import MultinomialLogRegOracle
+from .multinomial_regression_jit import MultinomialLogRegOracleNumba
 
 __all__ = [
     "RidgeRegressionOracle",
@@ -11,5 +12,6 @@ __all__ = [
     "DataCleaningOracle",
     "MultiLogRegOracle",
     "MultinomialLogRegOracle",
+    "MultinomialLogRegOracleNumba",
     "DataCleaningOracleNumba",
 ]

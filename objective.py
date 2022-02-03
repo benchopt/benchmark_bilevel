@@ -4,7 +4,6 @@ from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
     import numpy as np
-    from sklearn.utils import check_random_state
 
     oracles = import_ctx.import_from("oracles")
 
@@ -22,7 +21,7 @@ class Objective(BaseObjective):
             self.get_outer_oracle = oracles.MultinomialLogRegOracle
         elif task == 'datacleaning_jit':
             self.get_inner_oracle = oracles.DataCleaningOracleNumba
-            self.get_outer_oracle = oracles.MultinomialLogRegOracle
+            self.get_outer_oracle = oracles.MultinomialLogRegOracleNumba
         elif task == 'multilogreg':
             self.get_inner_oracle = oracles.MultiLogRegOracle
             self.get_outer_oracle = (
@@ -54,7 +53,9 @@ class Objective(BaseObjective):
 
         if np.isnan(outer_var).any():
             raise ValueError
-        acc = self.f_test.accuracy(inner_var, outer_var, self.X_val, self.y_val)
+        acc = self.f_test.accuracy(
+            inner_var, outer_var, self.X_val, self.y_val
+        )
         # inner_star = self.f_train.get_inner_var_star(outer_var)
         # value_function = self.f_test.get_value(inner_star, outer_var)
         # inner_value = self.f_train.get_value(inner_var, outer_var)
