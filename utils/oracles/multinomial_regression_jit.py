@@ -55,8 +55,6 @@ class MultinomialLogRegOracleNumba():
     """
 
     def __init__(self, X, y):
-        super().__init__()
-
         # Make sure the targets are one hot encoded.
         if y.ndim == 1:
             self.y = one_hot_encoder_numba(y)
@@ -68,7 +66,7 @@ class MultinomialLogRegOracleNumba():
 
         # attributes
         self.n_samples, self.n_features = X.shape
-        _, self.n_classes = y.shape
+        _, self.n_classes = self.y.shape
         self.variables_shape = np.array(
             [[self.n_features * self.n_classes], [self.n_samples]]
         )

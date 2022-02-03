@@ -33,13 +33,13 @@ def logsumexp(x):
 
 @njit
 def softmax(x):
-    return np.exp(x - logsumexp(x))
+    return np.exp(x - logsumexp(x).reshape(-1, 1))
 
 
 @njit
 def my_softmax_and_logsumexp(x):
     lse = logsumexp(x)
-    s = np.exp(x - lse)
+    s = np.exp(x - lse.reshape(-1, 1))
     return s, lse
 
 
