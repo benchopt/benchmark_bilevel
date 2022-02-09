@@ -11,47 +11,10 @@ from numba import float64, int64, types    # import the types
 from numba.experimental import jitclass
 
 from .base import BaseOracle
+from .special import expit, logsig
 
 import warnings
 warnings.filterwarnings('error', category=RuntimeWarning)
-
-
-@njit
-def logsig(x):
-    """Computes the log-sigmoid function component-wise.
-
-    Implemented as proposed in [1].
-
-    [1] http://fa.bianp.net/blog/2019/evaluate_logistic/"""
-
-    out = np.zeros_like(x)
-    idx0 = x < -33
-    out[idx0] = x[idx0]
-    idx1 = (x >= -33) & (x < -18)
-    out[idx1] = x[idx1] - np.exp(x[idx1])
-    idx2 = (x >= -18) & (x < 37)
-    out[idx2] = -np.log1p(np.exp(-x[idx2]))
-    idx3 = x >= 37
-    out[idx3] = -np.exp(-x[idx3])
-
-    return out
-
-
-@njit
-def expit(t):
-    """Computes the sigmoid function component-wise.
-
-    Implemented as proposed in [1].
-
-    [1] http://fa.bianp.net/blog/2019/evaluate_logistic/"""
-
-    out = np.zeros_like(t)
-    idx1 = t >= 0
-    out[idx1] = 1 / (1 + np.exp(-t[idx1]))
-    idx2 = t < 0
-    tmp = np.exp(t[idx2])
-    out[idx2] = tmp / (1 + tmp)
-    return out
 
 
 @njit
