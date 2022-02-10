@@ -8,43 +8,70 @@ with safe_import_context() as import_ctx:
 
 
 class Objective(BaseObjective):
-    name = "Bi-level Hyperparameter Optimization"
+    name = "Bilevel Optimization"
 
     parameters = {
-        'model': ['logreg', 'ridge'],
-        'n_reg': [1, 'full'],
-        'reg': ['exp', 'lin']
+        'task, model, n_reg, reg': [
+            ('datacleaning', None, None, None),
+            ('classif', 'logreg', 'full', 'exp'),
+            ('classif', 'logreg', 'full', 'lin'),
+            ('classif', 'logreg', 1, 'exp'),
+            ('classif', 'logreg', 1, 'lin'),
+            ('classif', 'ridge', 'full', 'exp'),
+            ('classif', 'ridge', 'full', 'lin'),
+            ('classif', 'ridge', 1, 'exp'),
+            ('classif', 'ridge', 1, 'lin'),
+        ],
     }
 
-    is_convex = False
-
-    def __init__(self, model='ridge', reg='exp',  n_reg='full',
+    def __init__(self, task='classif', model='ridge', reg='exp',  n_reg='full',
                  random_state=2442):
-        if model == 'ridge':
-            self.oracle = oracles.RidgeRegressionOracle
-        elif model == 'logreg':
-            self.oracle = oracles.LogisticRegressionOracle
+        if task == 'classif':
+            self.reg = reg
+            self.n_reg = n_reg
+            if model == 'ridge':
+                self.inner_oracle = oracles.RidgeRegressionOracle
+                self.outer_oracle = oracles.RidgeRegressionOracle
+            elif model == 'logreg':
+                self.inner_oracle = oracles.LogisticRegressionOracle
+                self.outer_oracle = oracles.LogisticRegressionOracle
+            else:
+                raise ValueError(
+                    f"model should be 'ridge' or 'logreg'. Got '{model}'."
+                )
+        elif task == 'datacleaning':
+            self.reg = 2e-1
+            self.inner_oracle = oracles.DataCleaningOracle
+            self.outer_oracle = oracles.MultinomialLogRegOracle
         else:
             raise ValueError(
-                f"model should be 'ridge' or 'logreg'. Got '{model}'."
+                f"task should be 'classif' or 'datacleaning'. Got '{task}'"
             )
-
-        self.reg = reg
-        self.n_reg = n_reg
+        self.task = task
         self.random_state = random_state
 
-    def set_data(self, X_train, y_train, X_test, y_test):
-        self.f_train = self.oracle(
+    def set_data(self, X_train, y_train, X_test, y_test,
+                 X_val=None, y_val=None):
+        self.f_train = self.inner_oracle(
             X_train, y_train, reg=self.reg
         )
-        self.f_test = self.oracle(
-            X_test, y_test, reg='none'
-        )
+        if self.task == 'datacleaning':
+            self.f_test = self.outer_oracle(
+                X_test, y_test, reg=0.
+            )
+            self.X_val, self.y_val = X_val, y_val
+        else:
+            self.f_test = self.outer_oracle(
+                X_test, y_test, reg='none'
+            )
 
         rng = check_random_state(self.random_state)
         inner_shape, outer_shape = self.f_train.variables_shape
         self.inner_var0 = rng.randn(*inner_shape)
-        self.outer_var0 = rng.rand(*outer_shape)
+        if self.task == "classif":
+            self.outer_var0 = rng.rand(*outer_shape)
+        elif self.task == "datacleaning":
+            self.outer_var0 = np.ones(*outer_shape)
         if self.reg == 'exp':
             self.outer_var0 = np.log(self.outer_var0)
         if self.n_reg == 1:
@@ -60,34 +87,42 @@ class Objective(BaseObjective):
         if np.isnan(outer_var).any():
             raise ValueError
 
-        inner_star = self.f_train.get_inner_var_star(outer_var)
-        value_function = self.f_test.get_value(inner_star, outer_var)
-        inner_value = self.f_train.get_value(inner_var, outer_var)
-        outer_value = self.f_test.get_value(inner_var, outer_var)
-        d_inner = np.linalg.norm(inner_var - inner_star)
-        d_value = outer_value - value_function
-        grad_f_test_inner, grad_f_test_outer = self.f_test.get_grad(
-            inner_star, outer_var
-        )
-        grad_value = grad_f_test_outer
-        v = self.f_train.get_inverse_hvp(
-            inner_star, outer_var,
-            grad_f_test_inner
-        )
-        grad_value -= self.f_train.get_cross(inner_star, outer_var, v)
-        grad_inner = self.f_train.get_grad_inner_var(inner_var, outer_var)
-        grad_star = self.f_train.get_grad_inner_var(inner_star, outer_var)
+        if self.task == 'classif':
+            inner_star = self.f_train.get_inner_var_star(outer_var)
+            value_function = self.f_test.get_value(inner_star, outer_var)
+            inner_value = self.f_train.get_value(inner_var, outer_var)
+            outer_value = self.f_test.get_value(inner_var, outer_var)
+            d_inner = np.linalg.norm(inner_var - inner_star)
+            d_value = outer_value - value_function
+            grad_f_test_inner, grad_f_test_outer = self.f_test.get_grad(
+                inner_star, outer_var
+            )
+            grad_value = grad_f_test_outer
+            v = self.f_train.get_inverse_hvp(
+                inner_star, outer_var,
+                grad_f_test_inner
+            )
+            grad_value -= self.f_train.get_cross(inner_star, outer_var, v)
+            grad_inner = self.f_train.get_grad_inner_var(inner_var, outer_var)
+            grad_star = self.f_train.get_grad_inner_var(inner_star, outer_var)
 
-        return dict(
-            value_func=value_function,
-            inner_value=inner_value,
-            outer_value=outer_value,
-            d_inner=d_inner,
-            d_value=d_value,
-            value=np.linalg.norm(grad_value)**2,
-            grad_inner=np.linalg.norm(grad_inner),
-            grad_star=np.linalg.norm(grad_star),
-        )
+            return dict(
+                value_func=value_function,
+                inner_value=inner_value,
+                outer_value=outer_value,
+                d_inner=d_inner,
+                d_value=d_value,
+                value=np.linalg.norm(grad_value)**2,
+                grad_inner=np.linalg.norm(grad_inner),
+                grad_star=np.linalg.norm(grad_star),
+            )
+        elif self.task == 'datacleaning':
+            acc = self.f_test.accuracy(
+                inner_var, outer_var, self.X_val, self.y_val
+            )
+            return dict(
+                value=acc
+            )
 
     def to_dict(self):
         return dict(
