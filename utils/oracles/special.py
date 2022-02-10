@@ -1,6 +1,10 @@
 import numpy as np
 from numba import njit
-from ..numba_utils import np_max
+
+from benchopt import safe_import_context
+
+with safe_import_context() as import_ctx:
+    np_max = import_ctx.import_from('numba_utils', 'np_max')
 
 
 @njit
@@ -72,13 +76,3 @@ def softmax_hvp(z, v):
     """
     prod = z * v
     return prod - z * np.sum(prod, axis=1).reshape(-1, 1)
-
-
-@njit
-def one_hot_encoder_numba(y):
-    """Converts a categorical vectors into a one-hot matrix."""
-    m = np.unique(y).shape[0]
-    y_new = np.zeros((y.shape[0], m), dtype=np.float64)
-    for i in range(y.shape[0]):
-        y_new[i, y[i]] = 1.
-    return y_new

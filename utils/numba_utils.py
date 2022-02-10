@@ -27,5 +27,23 @@ def np_max(array, axis=0):
 
 
 @njit
+def np_argmax(array, axis=0):
+    return np_apply_along_axis(np.argmax, axis, array)
+
+
+@njit
 def np_mean(array, axis=0):
     return np_apply_along_axis(np.mean, axis, array)
+
+
+@njit
+def one_hot_fancy_index(M, y, value=1):
+    """For a matrix M and a one-hot matrix y, equivalent to the command
+    M[y == value].
+    """
+    assert y.ndim == 2
+    n, c = y.shape
+    res = np.empty(n)
+    for i in range(n):
+        res[i] = M[i][y[i] == value][0]
+    return res
