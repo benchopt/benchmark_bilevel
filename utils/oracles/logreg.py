@@ -112,6 +112,7 @@ spec = [
     ('reg', types.unicode_type),
     ('n_samples', int64),
     ('n_features', int64),
+    ("variables_shape", int64[:, ::1])
 ]
 
 
@@ -139,6 +140,9 @@ class LogisticRegressionOracleNumba():
         # attributes
         self.n_samples = X.shape[0]
         self.n_features = X.shape[1]
+        self.variables_shape = np.array([
+            [self.n_features], [self.n_features]
+        ])
 
     def set_order(self, idx):
         self.X = self.X[idx]
