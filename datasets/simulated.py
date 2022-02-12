@@ -18,7 +18,7 @@ class Dataset(BaseDataset):
         'n_samples, n_features': [
             (1000, 10),
         ],
-        'correlation': [0, .5, 1-10**(-10), 1-10**(-15)]
+        'correlation': [0, .5, 1-1e-10, 1-1e-15]
 
     }
 
