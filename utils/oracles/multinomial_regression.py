@@ -94,7 +94,7 @@ class MultinomialLogRegOracleNumba():
         return grad_theta.ravel()
 
     def grad_outer_var(self, theta_flat, lmbda, idx):
-        return 0.
+        return np.array([0.])
 
     def grad(self, theta_flat, lmbda, idx):
         theta = theta_flat.reshape(self.n_features, self.n_classes)
@@ -160,7 +160,7 @@ class MultinomialLogRegOracle(BaseOracle):
         super().__init__()
 
         if y.ndim == 1:
-            y = OneHotEncoder().fit_transform(y[:, None]).toarray()
+            y = OneHotEncoder().fit_transform(y.reshape(-1, 1)).toarray()
 
         # Store info for other
         self.X = np.ascontiguousarray(X)

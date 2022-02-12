@@ -31,11 +31,11 @@ def datacleaning_oracle(X, Y, theta, Lbda, v, idx):
     for i in range(y.shape[0]):
         individual_losses[i] = - prod[i][y[i] == 1][0] + lse[i]
     loss = (individual_losses * weights).sum() / n_samples
-    grad_theta = x.T @ ((Y_proba - y) * weights[:, None]) / n_samples
+    grad_theta = x.T @ ((Y_proba - y) * weights.reshape(-1, 1)) / n_samples
     d_weights = weights - weights ** 2
     grad_lbda[idx] = d_weights * individual_losses / n_samples
     xv = x @ v
-    hvp = x.T @ (softmax_hvp(Y_proba, xv) * weights[:, None]) / n_samples
+    hvp = x.T @ (softmax_hvp(Y_proba, xv) * weights.reshape(-1, 1)) / n_samples
     jvp[idx] = d_weights * np.sum((Y_proba - y) * xv, axis=1) / n_samples
     return loss, grad_theta, grad_lbda, hvp, jvp
 
@@ -108,7 +108,7 @@ class DataCleaningOracleNumba():
         n_samples, _ = x.shape
         Y_proba = softmax(x @ theta)
         weights = expit(lbda)
-        grad_theta = x.T @ ((Y_proba - y) * weights[:, None]) / n_samples
+        grad_theta = x.T @ ((Y_proba - y) * weights.reshape(-1, 1)) / n_samples
         return grad_theta.ravel() + 2 * self.reg * theta_flat
 
     def grad_outer_var(self, theta_flat, lmbda, idx):
@@ -144,7 +144,7 @@ class DataCleaningOracleNumba():
         # individual_losses = np.zeros(n_samples, dtype=np.float64)
         # for i in range(y.shape[0]):
         #     individual_losses[i] = - prod[i][y[i] == 1][0] + lse[i]
-        grad_theta = x.T @ ((Y_proba - y) * weights[:, None]) / n_samples
+        grad_theta = x.T @ ((Y_proba - y) * weights.reshape(-1, 1)) / n_samples
         d_weights = weights - weights ** 2
         grad_lbda[idx] = d_weights * individual_losses / n_samples
         return grad_theta.ravel() + 2 * self.reg * theta_flat, grad_lbda
@@ -173,7 +173,8 @@ class DataCleaningOracleNumba():
         Y_proba = softmax(x @ theta)
         weights = expit(lbda)
         xv = x @ v
-        hvp = x.T @ (softmax_hvp(Y_proba, xv) * weights[:, None]) / n_samples
+        hvp = x.T @ (softmax_hvp(Y_proba, xv) * weights.reshape(-1, 1))
+        hvp /= n_samples
         return hvp.ravel() + 2 * self.reg * v_flat
 
     def prox(self, theta, lmbda):
@@ -196,7 +197,7 @@ class DataCleaningOracleNumba():
         def compute_hvp(v_flat):
             v = v_flat.reshape(n_features, n_classes)
             xv = x @ v
-            hvp = x.T @ (softmax_hvp(Y_proba, xv) * weights[:, None])
+            hvp = x.T @ (softmax_hvp(Y_proba, xv) * weights.reshape(-1, 1))
             hvp /= n_samples
             return hvp.ravel() + 2 * self.reg * v_flat
 
@@ -263,7 +264,7 @@ class DataCleaningOracle(BaseOracle):
         super().__init__()
 
         if y.ndim == 1:
-            y = OneHotEncoder().fit_transform(y[:, None]).toarray()
+            y = OneHotEncoder().fit_transform(y.reshape(-1, 1)).toarray()
 
         # Make sure reg is valid
         assert isinstance(reg, float)
