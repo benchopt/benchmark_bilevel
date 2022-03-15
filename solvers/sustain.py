@@ -5,7 +5,7 @@ from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
     import numpy as np
-    from numba import njit
+    # from numba import njit
     constants = import_ctx.import_from('constants')
     MinibatchSampler = import_ctx.import_from(
         'minibatch_sampler', 'MinibatchSampler'
@@ -89,7 +89,7 @@ class Solver(BaseSolver):
         return self.beta
 
 
-@njit()
+# @njit()
 def sustain(inner_oracle, outer_oracle, inner_var, outer_var,
             memory_inner, memory_outer, max_iter, lr_scheduler,
             inner_sampler, outer_sampler, n_hia_step, seed=None):

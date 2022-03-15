@@ -5,7 +5,6 @@ from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
     import numpy as np
-    from numba import njit, prange
     constants = import_ctx.import_from('constants')
     MinibatchSampler = import_ctx.import_from(
         'minibatch_sampler', 'MinibatchSampler'
@@ -28,7 +27,6 @@ class Solver(BaseSolver):
         'step_size': constants.STEP_SIZES,
         'outer_ratio': constants.OUTER_RATIOS,
         'batch_size': constants.BATCH_SIZES,
-        'vr': ['saga']
     }
 
     @staticmethod
@@ -66,28 +64,17 @@ class Solver(BaseSolver):
         )
 
         # Init memory if needed
-        use_saga = self.vr == 'saga'
-        if use_saga:
-            memories = init_memory(
-                self.f_inner.numba_oracle, self.f_outer.numba_oracle,
-                inner_var, outer_var, v, inner_sampler, outer_sampler
-            )
-
-        else:
-            # To be compatible with numba compilation, memories need to always
-            # be of type Array(ndim=2)
-            memories = (
-                np.empty((1, 1)), np.empty((1, 1)), np.empty((1, 1)),
-                np.empty((1, 1))
-            )
+        memories = init_memory(
+            self.f_inner, self.f_outer,
+            inner_var, outer_var, v, inner_sampler, outer_sampler
+        )
 
         # Start algorithm
         while callback((inner_var, outer_var)):
             inner_var, outer_var, v = saba(
-                self.f_inner.numba_oracle, self.f_outer.numba_oracle,
+                self.f_inner, self.f_outer,
                 inner_var, outer_var, v, eval_freq,
                 inner_sampler, outer_sampler, lr_scheduler, *memories,
-                saga_inner=use_saga, saga_v=use_saga, saga_x=use_saga,
                 seed=rng.randint(constants.MAX_SEED)
             )
             if np.isnan(outer_var).any():
@@ -98,20 +85,20 @@ class Solver(BaseSolver):
         return self.beta
 
 
-@njit
-# @njit(parallel=True)
 def init_memory(inner_oracle, outer_oracle, inner_var, outer_var, v,
                 inner_sampler, outer_sampler):
     n_outer = outer_sampler.n_batches
     n_inner = inner_sampler.n_batches
     n_features = inner_oracle.n_features
-    memory_inner_grad = np.zeros((n_inner + 1, n_features))
-    memory_hvp = np.zeros((n_inner + 1, n_features))
+    n_classes = inner_oracle.n_classes
+
+    memory_inner_grad = np.zeros((n_inner + 1, n_features * n_classes))
+    memory_hvp = np.zeros((n_inner + 1,  n_features * n_classes))
     memory_cross_v = np.zeros((n_inner + 1, n_features))
-    for _ in prange(n_inner):
+    for _ in range(n_inner):
         slice_inner, (id_inner, weight) = inner_sampler.get_batch()
         _, grad_inner_var, hvp, cross_v = inner_oracle.oracles(
-            inner_var, outer_var, v, slice_inner, inverse='id'
+            inner_var, outer_var, v, slice_inner
         )
         memory_inner_grad[id_inner, :] = grad_inner_var
         memory_inner_grad[-1, :] += weight * grad_inner_var
@@ -120,8 +107,8 @@ def init_memory(inner_oracle, outer_oracle, inner_var, outer_var, v,
         memory_cross_v[id_inner, :] = cross_v
         memory_cross_v[-1, :] += weight * cross_v
 
-    memory_grad_in_outer = np.zeros((n_outer + 1, n_features))
-    for id_outer in prange(n_outer):
+    memory_grad_in_outer = np.zeros((n_outer + 1, n_features * n_classes))
+    for id_outer in range(n_outer):
         slice_outer, (id_outer, weight) = outer_sampler.get_batch()
         memory_grad_in_outer[id_outer, :] = outer_oracle.grad_inner_var(
             inner_var, outer_var, slice_outer
@@ -131,19 +118,6 @@ def init_memory(inner_oracle, outer_oracle, inner_var, outer_var, v,
     return memory_inner_grad, memory_hvp, memory_cross_v, memory_grad_in_outer
 
 
-# def init_memory(inner_oracle, outer_oracle, inner_var, outer_var, v,
-#                 inner_sampler, outer_sampler):
-#     memories = _init_memory(
-#         inner_oracle, outer_oracle, inner_var, outer_var, v,
-#         inner_sampler, outer_sampler
-#     )
-#     for mem in memories:
-#         mem[-1] = mem[:-1].mean(axis=0)
-
-#     return memories
-
-
-@njit
 def variance_reduction(grad, memory, vr_info):
     idx, weigth = vr_info
     diff = grad - memory[idx]
@@ -153,11 +127,10 @@ def variance_reduction(grad, memory, vr_info):
     return direction
 
 
-@njit
 def saba(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
          inner_sampler, outer_sampler, lr_scheduler,
          memory_inner_grad, memory_hvp, memory_cross_v, memory_grad_in_outer,
-         saga_inner=True, saga_v=True, saga_x=True, seed=None):
+         seed=None):
 
     # Set seed for randomness
     np.random.seed(seed)
@@ -173,33 +146,26 @@ def saba(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
 
         slice_inner, vr_inner = inner_sampler.get_batch()
         _, grad_inner_var, hvp, cross_v = inner_oracle.oracles(
-            inner_var, outer_var, v, slice_inner, inverse='id'
+            inner_var, outer_var, v, slice_inner,
         )
 
-        # here memory_*[-1] corresponds to the running average of
-        # the gradients
-        if saga_inner:
-            grad_inner_var = variance_reduction(
-                grad_inner_var, memory_inner_grad, vr_inner
-            )
+        # Perform variance reduction on each oracle
+        grad_inner_var = variance_reduction(
+            grad_inner_var, memory_inner_grad, vr_inner
+        )
+
+        hvp = variance_reduction(hvp, memory_hvp, vr_inner)
+        grad_in_outer = variance_reduction(
+            grad_in_outer, memory_grad_in_outer, vr_outer
+        )
+
+        cross_v = variance_reduction(
+            cross_v, memory_cross_v, vr_inner
+        )
 
         inner_var -= inner_step_size * grad_inner_var
-
-        if saga_v:
-            hvp = variance_reduction(hvp, memory_hvp, vr_inner)
-            grad_in_outer = variance_reduction(
-                grad_in_outer, memory_grad_in_outer, vr_outer
-            )
-
         v -= inner_step_size * (hvp - grad_in_outer)
-
-        if saga_x:
-            cross_v = variance_reduction(
-                cross_v, memory_cross_v, vr_inner
-            )
-
-        impl_grad -= cross_v
-        outer_var -= outer_step_size * impl_grad
+        outer_var -= outer_step_size * cross_v
 
         inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)
     return inner_var, outer_var, v
