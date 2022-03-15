@@ -20,7 +20,7 @@ def multilogreg_loss(x, y, theta_flat):
     """ Compute the multinomial logistic loss.
     """
     n_samples, n_features = x.shape
-    _, n_classes = y.shape[1]
+    _, n_classes = y.shape
     theta = theta_flat.reshape(n_features, n_classes)
 
     prod = safe_sparse_dot(x, theta)
@@ -116,7 +116,7 @@ class MulticlassLogisticRegressionOracle(BaseOracle):
         self.variables_shape = np.array([
             [(self.n_features, self.n_classes)],
             [self.n_features]
-        ])
+        ], dtype=object)
 
     def value(self, theta_flat, lmbda, idx):
         x = self.X[idx]
