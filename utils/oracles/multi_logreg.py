@@ -26,7 +26,7 @@ def multilogreg_loss(x, y, theta_flat):
     prod = safe_sparse_dot(x, theta)
 
     individual_losses = -prod[y == 1] + sc.logsumexp(prod, axis=1)
-    loss = -(individual_losses).sum() / n_samples
+    loss = (individual_losses).sum() / n_samples
     return loss
 
 
@@ -39,6 +39,7 @@ def multilogreg_grad(x, y, theta_flat):
 
     prod = safe_sparse_dot(x, theta)
     y_proba = sc.softmax(prod, axis=1)
+
     return safe_sparse_dot(x.T, y_proba - y).ravel() / n_samples
 
 
@@ -50,7 +51,7 @@ def multilogreg_hvp(x, y, theta_flat, v_flat):
     theta = theta_flat.reshape(n_features, n_classes)
     v = v_flat.reshape(n_features, n_classes)
 
-    prod = safe_sparse_dot(x, theta),
+    prod = safe_sparse_dot(x, theta)
     y_proba = sc.softmax(prod, axis=1)
     xv = safe_sparse_dot(x, v)
     hvp = safe_sparse_dot(x.T, softmax_hvp(y_proba, xv)).ravel() / n_samples
@@ -139,33 +140,30 @@ class MulticlassLogisticRegressionOracle(BaseOracle):
         if self.reg:
             theta = theta_flat.reshape(self.n_features, self.n_classes)
             res += (np.exp(lmbda)[:, None] * theta).ravel()
-
         return res
 
     def grad_outer_var(self, theta_flat, lmbda, idx):
         if self.reg:
             theta = theta_flat.reshape(self.n_features, self.n_classes)
-            grad = .5 * (np.exp(lmbda) * (theta ** 2)).sum()
+            grad = .5 * (np.exp(lmbda)[:, None] * (theta ** 2)).sum(axis=1)
         else:
             grad = np.zeros(self.n_features)
-
         return grad
 
     def cross(self, theta_flat, lmbda, v_flat, idx):
         res = np.zeros(lmbda.shape)
         if self.reg:
             theta = theta_flat.reshape(self.n_features, self.n_classes)
-            v = theta_flat.reshape(self.n_features, self.n_classes)
+            v = v_flat.reshape(self.n_features, self.n_classes)
             for i in range(self.n_features):
-                res[i * self.n_features:(i + 1) * self.n_features] = \
-                    np.exp(lmbda[i]) * theta[i].dot(v[i])
+                res[i] = np.exp(lmbda[i]) * theta[i].dot(v[i])
         return res
 
     def hvp(self, theta_flat, lmbda, v_flat, idx):
         x = self.X[idx]
         y = self.y[idx]
 
-        res = multilogreg_hvp(x, y, v_flat, idx)
+        res = multilogreg_hvp(x, y, theta_flat, v_flat)
         if self.reg:
             v = v_flat.reshape(self.n_features, self.n_classes)
             res += (np.exp(lmbda)[:, None] * v).ravel()
@@ -182,14 +180,13 @@ class MulticlassLogisticRegressionOracle(BaseOracle):
 
         if self.reg:
             theta = theta_flat.reshape(self.n_features, self.n_classes)
-            v = theta_flat.reshape(self.n_features, self.n_classes)
+            v = v_flat.reshape(self.n_features, self.n_classes)
 
             val += .5 * (np.exp(lmbda)[:, None] * (theta ** 2)).sum()
             grad += (np.exp(lmbda)[:, None] * theta).ravel()
             hvp += (np.exp(lmbda)[:, None] * v).ravel()
 
             for i in range(self.n_features):
-                cross[i * self.n_features:(i + 1) * self.n_features] = \
-                    np.exp(lmbda[i]) * theta[i].dot(v[i])
+                cross[i] = np.exp(lmbda[i]) * theta[i].dot(v[i])
 
         return val, grad, hvp, cross

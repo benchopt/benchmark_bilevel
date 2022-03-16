@@ -66,9 +66,9 @@ class BaseOracle(ABC):
     def hvp(self, inner_var, outer_var, v, idx):
         pass
 
-    @abstractmethod
-    def inverse_hvp(self, inner_var, outer_var, v, idx, approx='cg'):
-        pass
+    # @abstractmethod
+    # def inverse_hvp(self, inner_var, outer_var, v, idx, approx='cg'):
+    #     pass
 
     def grad(self, inner_var, outer_var, idx):
         return self.grad_inner_var(inner_var, outer_var, idx), \
