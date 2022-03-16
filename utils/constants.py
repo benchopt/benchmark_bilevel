@@ -1,10 +1,10 @@
 import numpy as np
 
-EVAL_FREQ = 2 ** 17
-PATIENCE = 50
+EVAL_FREQ = 1
+PATIENCE = 150
 
-STEP_SIZES = np.logspace(-5, 3, 9, base=2)
-OUTER_RATIOS = np.logspace(-2, 1, 7)
+STEP_SIZES = [1e-2]
+OUTER_RATIOS = [1e-1]
 BATCH_SIZES = [64]
 
 # Number of inner loop steps
