@@ -1,4 +1,3 @@
-from .ridge import RidgeRegressionOracle
-from .logreg import LogisticRegressionOracle
+from .multi_logreg import MulticlassLogisticRegressionOracle
 
-__all__ = ['RidgeRegressionOracle', 'LogisticRegressionOracle']
+__all__ = ['MulticlassLogisticRegressionOracle']
