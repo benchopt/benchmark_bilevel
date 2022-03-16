@@ -1,4 +1,3 @@
-import pytest
 import numpy as np
 from scipy.optimize import check_grad
 
@@ -8,31 +7,26 @@ set_benchmark('.')
 from objective import oracles  # noqa: E402
 
 
-def _make_oracle(model, reg, n_samples, n_features):
+def _make_oracle(n_samples, n_features, n_classes):
     X = np.random.randn(n_samples, n_features)
-    y = np.sign(np.random.randn(n_samples))
+    y = np.random.randint(0, n_classes, n_samples)
 
-    if model == 'logreg':
-        f = oracles.LogisticRegressionOracle(X, y, reg=reg)
-    else:
-        f = oracles.RidgeRegressionOracle(X, y, reg=reg)
+    f = oracles.MulticlassLogisticRegressionOracle(X, y, reg=True)
 
     outer_var = 2 * np.random.rand(n_features)
-    if reg == 'exp':
-        outer_var = np.log(outer_var)
-    inner_var = np.random.randn(n_features)
-    v = np.random.randn(n_features)
+    outer_var = np.log(outer_var)
+
+    inner_var = np.random.randn(n_features * n_classes)
+    v = np.random.randn(n_features * n_classes)
 
     return f, inner_var, outer_var, v
 
 
-@pytest.mark.parametrize('reg', ['exp', 'lin', 'none'])
-@pytest.mark.parametrize('model', ['logreg', 'ridge'])
-def test_oracle_grad_inner(model, reg):
-    n_samples, n_features = 1000, 10
+def test_oracle_grad_inner():
+    n_samples, n_features, n_classes = 1000, 10, 5
 
     f, inner_var, outer_var, v = _make_oracle(
-        model, reg, n_samples, n_features
+        n_samples, n_features, n_classes
     )
 
     res = check_grad(f.get_value, f.get_grad_inner_var, inner_var, outer_var)
@@ -46,13 +40,11 @@ def test_oracle_grad_inner(model, reg):
     assert np.allclose(g_inner_var, g_inner_var_oracle)
 
 
-@pytest.mark.parametrize('reg', ['exp', 'lin', 'none'])
-@pytest.mark.parametrize('model', ['logreg', 'ridge'])
-def test_oracle_grad_outer(model, reg):
-    n_samples, n_features = 1000, 10
+def test_oracle_grad_outer():
+    n_samples, n_features, n_classes = 1000, 10, 5
 
     f, inner_var, outer_var, v = _make_oracle(
-        model, reg, n_samples, n_features
+        n_samples, n_features, n_classes
     )
 
     def func(x):
@@ -70,12 +62,11 @@ def test_oracle_grad_outer(model, reg):
     assert np.allclose(g_outer_var, g_outer_var_oracle)
 
 
-@pytest.mark.parametrize('reg', ['exp', 'lin', 'none'])
-@pytest.mark.parametrize('model', ['logreg', 'ridge'])
-def test_oracle_cross(model, reg):
-    n_samples, n_features = 1000, 10
+def test_oracle_cross():
+    n_samples, n_features, n_classes = 1000, 10, 5
+
     f, inner_var, outer_var, v = _make_oracle(
-        model, reg, n_samples, n_features
+        n_samples, n_features, n_classes
     )
 
     def func(x):
@@ -95,12 +86,11 @@ def test_oracle_cross(model, reg):
     assert np.allclose(cross_v, cross_v_oracle)
 
 
-@pytest.mark.parametrize('reg', ['exp', 'lin', 'none'])
-@pytest.mark.parametrize('model', ['logreg', 'ridge'])
-def test_oracle_hvp(model, reg):
-    n_samples, n_features = 1000, 10
+def test_oracle_hvp():
+    n_samples, n_features, n_classes = 1000, 10, 5
+
     f, inner_var, outer_var, v = _make_oracle(
-        model, reg, n_samples, n_features
+        n_samples, n_features, n_classes
     )
 
     def func(x):
@@ -109,23 +99,22 @@ def test_oracle_hvp(model, reg):
     def grad(x):
         return f.get_hvp(x, outer_var, v)
 
-    hvp = f.get_hvp(inner_var, outer_var, v)
-    res = check_grad(func, grad, outer_var)
+    res = check_grad(func, grad, inner_var)
     assert res < 1e-6
 
     # check that the oracle is correct
+    hvp = f.get_hvp(inner_var, outer_var, v)
     _, _, hvp_oracle, _ = f.get_oracles(
         inner_var, outer_var, v
     )
     assert np.allclose(hvp, hvp_oracle)
 
 
-@pytest.mark.parametrize('reg', ['exp', 'lin', 'none'])
-@pytest.mark.parametrize('model', ['logreg', 'ridge'])
-def test_oracle_inner_var_star(model, reg):
-    n_samples, n_features = 1000, 10
-    f, inner_var, outer_var, *_ = _make_oracle(
-        model, reg, n_samples, n_features
+def test_oracle_inner_var_star():
+    n_samples, n_features, n_classes = 1000, 10, 5
+
+    f, inner_var, outer_var, v = _make_oracle(
+        n_samples, n_features, n_classes
     )
 
     inner_var = f.get_inner_var_star(outer_var)
