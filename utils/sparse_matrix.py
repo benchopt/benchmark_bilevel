@@ -14,6 +14,37 @@ spec = [
 
 @jitclass(spec)
 class CSRMatrix():
+    """Numba class implementing Compressed Sparse Row Matrices.
+
+    Parameters
+    ----------
+    data: vector, shape (nnz, ), dtype float64
+          CSR format data array of the matrix
+
+    indices: vector, shape (nnz, ), dtype int32
+             CSR format index array of the matrix
+
+    ipdptr: vector, shape (n_row, ), dtype int32
+            CSR format index pointer array of the matrix
+
+
+    Attributes
+    ----------
+    data: vector, shape (nnz, )
+        CSR format data array of the matrix
+
+    indices: vector, shape (nnz, )
+             CSR format index array of the matrix
+
+    ipdptr: vector, shape (n_row, )
+            CSR format index pointer array of the matrix
+
+    shape: vector, shape (2, )
+           Shape of the matrix
+
+    nnz: int
+         Number of stored values, including explicit zeros
+    """
 
     def __init__(self, data, indices, indptr, shape):
         self.data = data
@@ -24,6 +55,8 @@ class CSRMatrix():
         self.nnz = np.int32(data.shape[0])
 
     def toarray(self):
+        """Returns a copy of the matrix as a numpy array
+        """
         res = np.zeros((self.shape[0], self.shape[1]), dtype=np.float64)
         n_rows = len(self.indptr)
         for i in range(n_rows):
@@ -34,7 +67,7 @@ class CSRMatrix():
         return res
 
     def dot(self, v):
-        """v is a numpy array"""
+        """Returns the product of the matrix with v."""
         assert v.shape[0] == self.shape[1]
         n_rows = self.shape[0]
 
@@ -73,6 +106,37 @@ class CSRMatrix():
 
 @jitclass(spec)
 class CSCMatrix():
+    """Numba class implementing Compressed Sparse Columns Matrices.
+
+    Parameters
+    ----------
+    data: vector, shape (nnz, ), dtype float64
+          CSR format data array of the matrix
+
+    indices: vector, shape (nnz, ), dtype int32
+             CSR format index array of the matrix
+
+    ipdptr: vector, shape (n_row, ), dtype int32
+            CSR format index pointer array of the matrix
+
+
+    Attributes
+    ----------
+    data: vector, shape (nnz, )
+        CSR format data array of the matrix
+
+    indices: vector, shape (nnz, )
+             CSR format index array of the matrix
+
+    ipdptr: vector, shape (n_row, )
+            CSR format index pointer array of the matrix
+
+    shape: vector, shape (2, )
+           Shape of the matrix
+
+    nnz: int
+         Number of stored values, including explicit zeros
+    """
 
     def __init__(self, data, indices, indptr, shape):
         self.data = data
@@ -83,6 +147,8 @@ class CSCMatrix():
         self.nnz = np.int32(data.shape[0])
 
     def toarray(self):
+        """Returns a copy of the matrix as a numpy array
+        """
         res = np.zeros((self.shape[0], self.shape[1]), dtype=np.float64)
         n_cols = len(self.indptr)
         for i in range(n_cols):
@@ -93,7 +159,7 @@ class CSCMatrix():
         return res
 
     def dot(self, v):
-        """v is a numpy array"""
+        """Returns the product of the matrix with v."""
         assert v.shape[0] == self.shape[1]
         n_rows = self.shape[0]
         n_cols = self.shape[1]
@@ -127,6 +193,7 @@ class CSCMatrix():
 
 
 def scipy_to_csrmatrix(X):
+    """Converts a CSR scipy matrix to a CSR numba matrix."""
     data = X.data
     indices = X.indices
     indptr = X.indptr
@@ -135,6 +202,7 @@ def scipy_to_csrmatrix(X):
 
 
 def scipy_to_cscmatrix(X):
+    """Converts a CSC scipy matrix to a CSC numba matrix."""
     data = X.data
     indices = X.indices
     indptr = X.indptr
@@ -144,6 +212,7 @@ def scipy_to_cscmatrix(X):
 
 @njit
 def _extract_csr_rows(X, row_slice):
+    """Selects the rows of X with the slice row_slice."""
     rows = np.arange(X.shape[0])[row_slice]
     n_rows = rows.shape[0]
     indptr = np.zeros(n_rows + 1, dtype=np.int32)
