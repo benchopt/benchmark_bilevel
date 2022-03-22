@@ -2,8 +2,8 @@ import numpy as np
 from sklearn.preprocessing import OneHotEncoder
 
 from numba import njit
-# from numba import float64, int64, types    # import the types
-# from numba.experimental import jitclass
+from numba import float64, int64, types    # import the types
+from numba.experimental import jitclass
 
 from .base import BaseOracle
 
@@ -105,6 +105,58 @@ def softmax_hvp(z, v):
     """
     prod = z * v
     return prod - z * np.sum(prod, axis=1).reshape(-1, 1)
+
+
+spec = [
+    ('X', float64[:, ::1]),          # an array field
+    ('y', float64[::1]),               # a simple scalar field
+    ('reg', types.boolean),
+    ('n_samples', int64),
+    ('n_features', int64),
+    ('n_classes', int64),
+    ('variables_shape', int64)
+]
+
+
+@jitclass(spec)
+class MulticlassLogisticRegressionOracleNumba():
+    def __init__(self, X, y, reg=True):
+        # Make sure the targets are one hot encoded.
+        if y.ndim == 1:
+            y = OneHotEncoder().fit_transform(y[:, None]).toarray()
+
+        # Store info for other
+        self.X = X
+        self.y = y.astype(np.float64)
+        self.reg = reg
+
+        self.n_samples, self.n_features = X.shape
+        self.n_classes = y.shape[1]
+
+        self.numba_orable = MulticlassLogisticRegressionOracleNumba(
+            self.X, self.y, self.reg
+        )
+
+    def value(self, theta_flat, lmbda, idx):
+        return self.numba_oracle.value(theta_flat, lmbda, idx)
+
+    def grad_inner_var(self, theta_flat, lmbda, idx):
+        return self.numba_oracle.grad_inner_var(theta_flat, lmbda, idx)
+
+    def grad_outer_var(self, theta_flat, lmbda, idx):
+        return self.numba_oracle.grad_outer_var(theta_flat, lmbda, idx)
+
+    def grad(self, theta_flat, lmbda, idx):
+        return self.numba_oracle.grad(theta_flat, lmbda, idx)
+
+    def cross(self, theta, lmbda, v_flat, idx):
+        return self.numba_oracle.cross(theta, lmbda, v_flat, idx)
+
+    def hvp(self, theta_flat, lmbda, v_flat, idx):
+        return self.numba_oracle.hvp(theta_flat, lmbda, v_flat, idx)
+
+    def oracles(self, theta_flat, lmbda, v_flat, idx):
+        return self.numba_oracle.oracles(theta_flat, lmbda, v_flat, idx)
 
 
 class MulticlassLogisticRegressionOracle(BaseOracle):
