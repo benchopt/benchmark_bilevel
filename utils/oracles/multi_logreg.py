@@ -1,8 +1,7 @@
 import numpy as np
-import scipy.special as sc
 from sklearn.preprocessing import OneHotEncoder
 
-# from numba import njit
+from numba import njit
 # from numba import float64, int64, types    # import the types
 # from numba.experimental import jitclass
 
@@ -12,6 +11,24 @@ import warnings
 warnings.filterwarnings('error', category=RuntimeWarning)
 
 
+@njit
+def logsumexp(x):
+    m = np.zeros(x.shape[0])
+    for k in range(x.shape[0]):
+        m[k] = np.max(x[k, :])
+    x = x - m.reshape(-1, 1)
+    e = np.exp(x)
+    sumexp = e.sum(axis=1)
+    lse = np.log(sumexp) + m
+    return lse
+
+
+@njit
+def softmax(x):
+    return np.exp(x - logsumexp(x).reshape(-1, 1))
+
+
+@njit
 def multilogreg_loss(x, y, theta_flat):
     """ Compute the multinomial logistic loss.
     """
@@ -21,11 +38,15 @@ def multilogreg_loss(x, y, theta_flat):
 
     prod = x.dot(theta)
 
-    individual_losses = -prod[y == 1] + sc.logsumexp(prod, axis=1)
+    individual_losses = np.zeros(n_samples, dtype=np.float64)
+    lse = logsumexp(prod)
+    for i in range(y.shape[0]):
+        individual_losses[i] = - prod[i][y[i] == 1][0] + lse[i]
     loss = (individual_losses).sum() / n_samples
     return loss
 
 
+@njit
 def multilogreg_grad(x, y, theta_flat):
     """ Compute gradient of the multinomial logistic loss.
     """
@@ -34,11 +55,12 @@ def multilogreg_grad(x, y, theta_flat):
     theta = theta_flat.reshape(n_features, n_classes)
 
     prod = x.dot(theta)
-    y_proba = sc.softmax(prod, axis=1)
+    y_proba = softmax(prod)
 
     return x.T.dot(y_proba - y).ravel() / n_samples
 
 
+@njit
 def multilogreg_hvp(x, y, theta_flat, v_flat):
     """ Compute the HVP of the multinomial logistic loss with v."""
     n_samples, n_features = x.shape
@@ -48,13 +70,14 @@ def multilogreg_hvp(x, y, theta_flat, v_flat):
     v = v_flat.reshape(n_features, n_classes)
 
     prod = x.dot(theta)
-    y_proba = sc.softmax(prod, axis=1)
+    y_proba = softmax(prod)
     xv = x.dot(v)
     hvp = x.T.dot(softmax_hvp(y_proba, xv)).ravel() / n_samples
 
     return hvp
 
 
+@njit
 def multilogreg_value_grad_hvp(x, y, theta_flat, v_flat):
     n_samples, n_features = x.shape
     _, n_classes = y.shape
@@ -63,22 +86,25 @@ def multilogreg_value_grad_hvp(x, y, theta_flat, v_flat):
     v = v_flat.reshape(n_features, n_classes)
 
     prod = x.dot(theta)
-    y_proba = sc.softmax(prod, axis=1)
+    y_proba = softmax(prod)
     xv = x.dot(v)
 
-    value = np.log(y_proba[y == 1]).sum() / n_samples
+    value = 0
+    for i in range(y.shape[0]):
+        value += np.log(y_proba[i][y[i] == 1][0]) / n_samples
     grad = x.T.dot(y_proba - y).ravel() / n_samples
     hvp = x.T.dot(softmax_hvp(y_proba, xv)).ravel() / n_samples
 
     return value, grad, hvp
 
 
+@njit
 def softmax_hvp(z, v):
     """
     Computes the HVP for the softmax at x times v where z = softmax(x)
     """
     prod = z * v
-    return prod - z * np.sum(prod, axis=1, keepdims=True)
+    return prod - z * np.sum(prod, axis=1).reshape(-1, 1)
 
 
 class MulticlassLogisticRegressionOracle(BaseOracle):
