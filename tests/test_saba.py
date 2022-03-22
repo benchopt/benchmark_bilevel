@@ -16,8 +16,8 @@ def _make_oracle(n_samples, n_features):
     X = np.random.randn(n_samples, n_features)
     y = 2 * (np.random.rand(n_samples) > 0.5) - 1
 
-    oracle = oracles.LogisticRegressionOracle(
-        X, y, reg='exp'
+    oracle = oracles.MulticlassLogisticRegressionOracle(
+        X, y, reg=True
     )
     return oracle
 

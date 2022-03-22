@@ -1,10 +1,6 @@
 import numpy as np
-# from scipy import sparse
 import scipy.special as sc
-# from scipy.sparse.linalg import svds
 from sklearn.preprocessing import OneHotEncoder
-from sklearn.utils.extmath import safe_sparse_dot
-# from scipy.sparse import linalg as splinalg
 
 # from numba import njit
 # from numba import float64, int64, types    # import the types
@@ -23,7 +19,7 @@ def multilogreg_loss(x, y, theta_flat):
     _, n_classes = y.shape
     theta = theta_flat.reshape(n_features, n_classes)
 
-    prod = safe_sparse_dot(x, theta)
+    prod = x.dot(theta)
 
     individual_losses = -prod[y == 1] + sc.logsumexp(prod, axis=1)
     loss = (individual_losses).sum() / n_samples
@@ -37,10 +33,10 @@ def multilogreg_grad(x, y, theta_flat):
     _, n_classes = y.shape
     theta = theta_flat.reshape(n_features, n_classes)
 
-    prod = safe_sparse_dot(x, theta)
+    prod = x.dot(theta)
     y_proba = sc.softmax(prod, axis=1)
 
-    return safe_sparse_dot(x.T, y_proba - y).ravel() / n_samples
+    return x.T.dot(y_proba - y).ravel() / n_samples
 
 
 def multilogreg_hvp(x, y, theta_flat, v_flat):
@@ -51,10 +47,10 @@ def multilogreg_hvp(x, y, theta_flat, v_flat):
     theta = theta_flat.reshape(n_features, n_classes)
     v = v_flat.reshape(n_features, n_classes)
 
-    prod = safe_sparse_dot(x, theta)
+    prod = x.dot(theta)
     y_proba = sc.softmax(prod, axis=1)
-    xv = safe_sparse_dot(x, v)
-    hvp = safe_sparse_dot(x.T, softmax_hvp(y_proba, xv)).ravel() / n_samples
+    xv = x.dot(v)
+    hvp = x.T.dot(softmax_hvp(y_proba, xv)).ravel() / n_samples
 
     return hvp
 
@@ -66,13 +62,13 @@ def multilogreg_value_grad_hvp(x, y, theta_flat, v_flat):
     theta = theta_flat.reshape(n_features, n_classes)
     v = v_flat.reshape(n_features, n_classes)
 
-    prod = safe_sparse_dot(x, theta)
+    prod = x.dot(theta)
     y_proba = sc.softmax(prod, axis=1)
-    xv = safe_sparse_dot(x, v)
+    xv = x.dot(v)
 
     value = np.log(y_proba[y == 1]).sum() / n_samples
-    grad = safe_sparse_dot(x.T, y_proba - y).ravel() / n_samples
-    hvp = safe_sparse_dot(x.T, softmax_hvp(y_proba, xv)).ravel() / n_samples
+    grad = x.T.dot(y_proba - y).ravel() / n_samples
+    hvp = x.T.dot(softmax_hvp(y_proba, xv)).ravel() / n_samples
 
     return value, grad, hvp
 

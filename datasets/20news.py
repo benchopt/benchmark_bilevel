@@ -8,6 +8,9 @@ with safe_import_context() as import_ctx:
     from sklearn.utils import check_random_state
     from sklearn.model_selection import train_test_split
     from sklearn.datasets import fetch_20newsgroups_vectorized
+    scipy_to_csrmatrix = import_ctx.import_from(
+        'sparse_matrix', 'scipy_to_csrmatrix'
+    )
 
 
 class Dataset(BaseDataset):
@@ -29,7 +32,7 @@ class Dataset(BaseDataset):
         )
 
         data = dict(
-            X_train=X_train, y_train=y_train,
-            X_test=X_test, y_test=y_test
+            X_train=scipy_to_csrmatrix(X_train), y_train=y_train,
+            X_test=scipy_to_csrmatrix(X_test), y_test=y_test
         )
         return X.shape[1], data

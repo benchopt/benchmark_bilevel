@@ -8,6 +8,9 @@ with safe_import_context() as import_ctx:
     scipy_to_csrmatrix = import_ctx.import_from(
         'sparse_matrix', 'scipy_to_csrmatrix'
     )
+    scipy_to_cscmatrix = import_ctx.import_from(
+        'sparse_matrix', 'scipy_to_cscmatrix'
+    )
 
 
 class Objective(BaseObjective):
