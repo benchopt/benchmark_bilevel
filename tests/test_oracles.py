@@ -1,15 +1,19 @@
 import numpy as np
+from scipy.sparse import csr_array
 from scipy.optimize import check_grad
 
 from benchopt.utils.safe_import import set_benchmark
 set_benchmark('.')
 
 from objective import oracles  # noqa: E402
+from objective import scipy_to_csrmatrix  # noqa: E402
 
 
 def _make_oracle(n_samples, n_features, n_classes):
     X = np.random.randn(n_samples, n_features)
     y = np.random.randint(0, n_classes, n_samples)
+
+    X = scipy_to_csrmatrix(csr_array(X))
 
     f = oracles.MulticlassLogisticRegressionOracle(X, y, reg=True)
 

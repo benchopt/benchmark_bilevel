@@ -4,13 +4,15 @@ from benchopt import safe_import_context
 with safe_import_context() as import_ctx:
     import numpy as np
     from sklearn.utils import check_random_state
-    oracles = import_ctx.import_from('oracles')
+    # oracles = import_ctx.import_from('oracles')
     scipy_to_csrmatrix = import_ctx.import_from(
         'sparse_matrix', 'scipy_to_csrmatrix'
     )
     scipy_to_cscmatrix = import_ctx.import_from(
         'sparse_matrix', 'scipy_to_cscmatrix'
     )
+
+oracles = safe_import_context().import_from('oracles')
 
 
 class Objective(BaseObjective):

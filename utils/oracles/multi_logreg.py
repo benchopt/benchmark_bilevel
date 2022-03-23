@@ -6,6 +6,7 @@ from numba import float64, int64, types    # import the types
 from numba.experimental import jitclass
 
 from .base import BaseOracle
+from ..sparse_matrix import CSRMatrix
 
 import warnings
 warnings.filterwarnings('error', category=RuntimeWarning)
@@ -108,8 +109,8 @@ def softmax_hvp(z, v):
 
 
 spec = [
-    ('X', float64[:, ::1]),          # an array field
-    ('y', float64[::1]),               # a simple scalar field
+    ('X', CSRMatrix.class_type.instance_type),
+    ('y', float64[:, ::1]),
     ('reg', types.boolean),
     ('n_samples', int64),
     ('n_features', int64),
@@ -121,42 +122,94 @@ spec = [
 @jitclass(spec)
 class MulticlassLogisticRegressionOracleNumba():
     def __init__(self, X, y, reg=True):
-        # Make sure the targets are one hot encoded.
-        if y.ndim == 1:
-            y = OneHotEncoder().fit_transform(y[:, None]).toarray()
 
         # Store info for other
         self.X = X
-        self.y = y.astype(np.float64)
+        self.y = y
         self.reg = reg
 
         self.n_samples, self.n_features = X.shape
         self.n_classes = y.shape[1]
 
-        self.numba_orable = MulticlassLogisticRegressionOracleNumba(
-            self.X, self.y, self.reg
-        )
-
     def value(self, theta_flat, lmbda, idx):
-        return self.numba_oracle.value(theta_flat, lmbda, idx)
+        x = self.X[idx]
+        y = self.y[idx]
+
+        res = multilogreg_loss(x, y, theta_flat)
+
+        if self.reg:
+            theta = theta_flat.reshape(self.n_features, self.n_classes)
+            res += .5 * (np.exp(lmbda).reshape(-1, 1) * (theta ** 2)).sum()
+
+        return res
 
     def grad_inner_var(self, theta_flat, lmbda, idx):
-        return self.numba_oracle.grad_inner_var(theta_flat, lmbda, idx)
+        x = self.X[idx]
+        y = self.y[idx]
+
+        res = multilogreg_grad(x, y, theta_flat)
+
+        if self.reg:
+            theta = theta_flat.reshape(self.n_features, self.n_classes)
+            res += (np.exp(lmbda).reshape(-1, 1) * theta).ravel()
+        return res
 
     def grad_outer_var(self, theta_flat, lmbda, idx):
-        return self.numba_oracle.grad_outer_var(theta_flat, lmbda, idx)
+        if self.reg:
+            theta = theta_flat.reshape(self.n_features, self.n_classes)
+            grad = .5*(np.exp(lmbda).reshape(-1, 1) * (theta ** 2)).sum(axis=1)
+        else:
+            grad = np.zeros(self.n_features)
+        return grad
 
     def grad(self, theta_flat, lmbda, idx):
-        return self.numba_oracle.grad(theta_flat, lmbda, idx)
+        grad_inner = self.grad_inner_var(theta_flat, lmbda, idx)
+        grad_outer = self.grad_outer_var(theta_flat, lmbda, idx)
+        return grad_inner, grad_outer
 
-    def cross(self, theta, lmbda, v_flat, idx):
-        return self.numba_oracle.cross(theta, lmbda, v_flat, idx)
+    def cross(self, theta_flat, lmbda, v_flat, idx):
+        res = np.zeros(lmbda.shape)
+        if self.reg:
+            theta = theta_flat.reshape(self.n_features, self.n_classes)
+            v = v_flat.reshape(self.n_features, self.n_classes)
+            for i in range(self.n_features):
+                res[i] = np.exp(lmbda[i]) * theta[i].dot(v[i])
+        return res
 
     def hvp(self, theta_flat, lmbda, v_flat, idx):
-        return self.numba_oracle.hvp(theta_flat, lmbda, v_flat, idx)
+        x = self.X[idx]
+        y = self.y[idx]
+
+        res = multilogreg_hvp(x, y, theta_flat, v_flat)
+        if self.reg:
+            v = v_flat.reshape(self.n_features, self.n_classes)
+            res += (np.exp(lmbda).reshape(-1, 1) * v).ravel()
+
+        return res
+
+    def prox(self, theta, lmbda):
+        return theta, lmbda
 
     def oracles(self, theta_flat, lmbda, v_flat, idx):
-        return self.numba_oracle.oracles(theta_flat, lmbda, v_flat, idx)
+
+        x = self.X[idx]
+        y = self.y[idx]
+
+        val, grad, hvp = multilogreg_value_grad_hvp(x, y, theta_flat, v_flat)
+        cross = np.zeros(lmbda.shape)
+
+        if self.reg:
+            theta = theta_flat.reshape(self.n_features, self.n_classes)
+            v = v_flat.reshape(self.n_features, self.n_classes)
+
+            val += .5 * (np.exp(lmbda).reshape(-1, 1) * (theta ** 2)).sum()
+            grad += (np.exp(lmbda).reshape(-1, 1) * theta).ravel()
+            hvp += (np.exp(lmbda).reshape(-1, 1) * v).ravel()
+
+            for i in range(self.n_features):
+                cross[i] = np.exp(lmbda[i]) * theta[i].dot(v[i])
+
+        return val, grad, hvp, cross
 
 
 class MulticlassLogisticRegressionOracle(BaseOracle):
@@ -193,74 +246,27 @@ class MulticlassLogisticRegressionOracle(BaseOracle):
             [self.n_features]
         ], dtype=object)
 
+        self.numba_oracle = MulticlassLogisticRegressionOracleNumba(
+            self.X, self.y, self.reg
+        )
+
     def value(self, theta_flat, lmbda, idx):
-        x = self.X[idx]
-        y = self.y[idx]
-
-        res = multilogreg_loss(x, y, theta_flat)
-
-        if self.reg:
-            theta = theta_flat.reshape(self.n_features, self.n_classes)
-            res += .5 * (np.exp(lmbda)[:, None] * (theta ** 2)).sum()
-
-        return res
+        return self.numba_oracle.value(theta_flat, lmbda, idx)
 
     def grad_inner_var(self, theta_flat, lmbda, idx):
-        x = self.X[idx]
-        y = self.y[idx]
-
-        res = multilogreg_grad(x, y, theta_flat)
-
-        if self.reg:
-            theta = theta_flat.reshape(self.n_features, self.n_classes)
-            res += (np.exp(lmbda)[:, None] * theta).ravel()
-        return res
+        return self.numba_oracle.grad_inner_var(theta_flat, lmbda, idx)
 
     def grad_outer_var(self, theta_flat, lmbda, idx):
-        if self.reg:
-            theta = theta_flat.reshape(self.n_features, self.n_classes)
-            grad = .5 * (np.exp(lmbda)[:, None] * (theta ** 2)).sum(axis=1)
-        else:
-            grad = np.zeros(self.n_features)
-        return grad
+        return self.numba_oracle.grad_outer_var(theta_flat, lmbda, idx)
 
-    def cross(self, theta_flat, lmbda, v_flat, idx):
-        res = np.zeros(lmbda.shape)
-        if self.reg:
-            theta = theta_flat.reshape(self.n_features, self.n_classes)
-            v = v_flat.reshape(self.n_features, self.n_classes)
-            for i in range(self.n_features):
-                res[i] = np.exp(lmbda[i]) * theta[i].dot(v[i])
-        return res
+    def grad(self, theta_flat, lmbda, idx):
+        return self.numba_oracle.grad(theta_flat, lmbda, idx)
+
+    def cross(self, theta, lmbda, v_flat, idx):
+        return self.numba_oracle.cross(theta, lmbda, v_flat, idx)
 
     def hvp(self, theta_flat, lmbda, v_flat, idx):
-        x = self.X[idx]
-        y = self.y[idx]
-
-        res = multilogreg_hvp(x, y, theta_flat, v_flat)
-        if self.reg:
-            v = v_flat.reshape(self.n_features, self.n_classes)
-            res += (np.exp(lmbda)[:, None] * v).ravel()
-
-        return res
+        return self.numba_oracle.hvp(theta_flat, lmbda, v_flat, idx)
 
     def oracles(self, theta_flat, lmbda, v_flat, idx):
-
-        x = self.X[idx]
-        y = self.y[idx]
-
-        val, grad, hvp = multilogreg_value_grad_hvp(x, y, theta_flat, v_flat)
-        cross = np.zeros(lmbda.shape)
-
-        if self.reg:
-            theta = theta_flat.reshape(self.n_features, self.n_classes)
-            v = v_flat.reshape(self.n_features, self.n_classes)
-
-            val += .5 * (np.exp(lmbda)[:, None] * (theta ** 2)).sum()
-            grad += (np.exp(lmbda)[:, None] * theta).ravel()
-            hvp += (np.exp(lmbda)[:, None] * v).ravel()
-
-            for i in range(self.n_features):
-                cross[i] = np.exp(lmbda[i]) * theta[i].dot(v[i])
-
-        return val, grad, hvp, cross
+        return self.numba_oracle.oracles(theta_flat, lmbda, v_flat, idx)

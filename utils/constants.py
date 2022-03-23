@@ -8,8 +8,8 @@ OUTER_RATIOS = [1e-1]
 BATCH_SIZES = [64]
 
 # Number of inner loop steps
-N_INNER_STEPS = [10, 50, 100]
-N_HIA_STEPS = [3, 10]
+N_INNER_STEPS = [10]
+N_HIA_STEPS = [10]
 
 # STORM momentum parameter
 ETA = [0.5]

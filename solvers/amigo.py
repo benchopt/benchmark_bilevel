@@ -6,7 +6,7 @@ from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
     import numpy as np
-    # from numba import njit
+    from numba import njit
     constants = import_ctx.import_from('constants')
     sgd_inner = import_ctx.import_from('sgd_inner', 'sgd_inner')
     sgd_v = import_ctx.import_from('hessian_approximation', 'sgd_v')
@@ -97,7 +97,7 @@ class Solver(BaseSolver):
         pass
 
 
-# @njit
+@njit
 def amigo(inner_oracle, outer_oracle, inner_var, outer_var, v,
           inner_sampler, outer_sampler, max_iter, n_inner_step, n_v_step,
           lr_scheduler, seed=None):

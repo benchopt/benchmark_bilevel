@@ -6,7 +6,7 @@ from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
     import numpy as np
-    # from numba import njit
+    from numba import njit
     constants = import_ctx.import_from('constants')
     hia = import_ctx.import_from('hessian_approximation', 'hia')
     sgd_inner = import_ctx.import_from('sgd_inner', 'sgd_inner')
@@ -100,7 +100,7 @@ class Solver(BaseSolver):
         pass
 
 
-# @njit
+@njit
 def bsa(inner_oracle, outer_oracle, inner_var, outer_var,
         max_iter, lr_scheduler, n_inner_step, n_hia_step,
         inner_sampler, outer_sampler, seed=None):

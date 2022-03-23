@@ -5,6 +5,7 @@ from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
     import numpy as np
+    from numba import njit, prange
     constants = import_ctx.import_from('constants')
     MinibatchSampler = import_ctx.import_from(
         'minibatch_sampler', 'MinibatchSampler'
@@ -65,14 +66,14 @@ class Solver(BaseSolver):
 
         # Init memory if needed
         memories = init_memory(
-            self.f_inner, self.f_outer,
+            self.f_inner.numba_oracle, self.f_outer.numba_oracle,
             inner_var, outer_var, v, inner_sampler, outer_sampler
         )
 
         # Start algorithm
         while callback((inner_var, outer_var)):
             inner_var, outer_var, v = saba(
-                self.f_inner, self.f_outer,
+                self.f_inner.numba_oracle, self.f_outer.numba_oracle,
                 inner_var, outer_var, v, eval_freq,
                 inner_sampler, outer_sampler, lr_scheduler, *memories,
                 seed=rng.randint(constants.MAX_SEED)
@@ -85,6 +86,7 @@ class Solver(BaseSolver):
         return self.beta
 
 
+@njit
 def init_memory(inner_oracle, outer_oracle, inner_var, outer_var, v,
                 inner_sampler, outer_sampler):
     n_outer = outer_sampler.n_batches
@@ -95,7 +97,7 @@ def init_memory(inner_oracle, outer_oracle, inner_var, outer_var, v,
     memory_inner_grad = np.zeros((n_inner + 1, n_features * n_classes))
     memory_hvp = np.zeros((n_inner + 1,  n_features * n_classes))
     memory_cross_v = np.zeros((n_inner + 1, n_features))
-    for _ in range(n_inner):
+    for _ in prange(n_inner):
         slice_inner, (id_inner, weight) = inner_sampler.get_batch()
         _, grad_inner_var, hvp, cross_v = inner_oracle.oracles(
             inner_var, outer_var, v, slice_inner
@@ -108,7 +110,7 @@ def init_memory(inner_oracle, outer_oracle, inner_var, outer_var, v,
         memory_cross_v[-1, :] += weight * cross_v
 
     memory_grad_in_outer = np.zeros((n_outer + 1, n_features * n_classes))
-    for id_outer in range(n_outer):
+    for id_outer in prange(n_outer):
         slice_outer, (id_outer, weight) = outer_sampler.get_batch()
         memory_grad_in_outer[id_outer, :] = outer_oracle.grad_inner_var(
             inner_var, outer_var, slice_outer
@@ -118,6 +120,7 @@ def init_memory(inner_oracle, outer_oracle, inner_var, outer_var, v,
     return memory_inner_grad, memory_hvp, memory_cross_v, memory_grad_in_outer
 
 
+@njit
 def variance_reduction(grad, memory, vr_info):
     idx, weigth = vr_info
     diff = grad - memory[idx]
@@ -127,6 +130,7 @@ def variance_reduction(grad, memory, vr_info):
     return direction
 
 
+@njit
 def saba(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
          inner_sampler, outer_sampler, lr_scheduler,
          memory_inner_grad, memory_hvp, memory_cross_v, memory_grad_in_outer,

@@ -8,7 +8,7 @@ from objective import scipy_to_csrmatrix, scipy_to_cscmatrix  # noqa: E402
 
 
 def test_csr_matrix():
-    n_rows, n_cols = 1000, 300
+    n_rows, n_cols = 100, 300
     matrix = np.random.randn(n_rows, n_cols)
 
     scipy_matrix = csr_array(matrix)
@@ -18,7 +18,7 @@ def test_csr_matrix():
 
 
 def test_csr_dot():
-    n_rows, n_cols = 1000, 300
+    n_rows, n_cols = 100, 300
     matrix = np.random.randn(n_rows, n_cols)
     v = np.random.randn(n_cols)
 
@@ -32,7 +32,7 @@ def test_csr_dot():
 
 
 def test_csr_transpose():
-    n_rows, n_cols = 1000, 300
+    n_rows, n_cols = 100, 300
     matrix = np.random.randn(n_rows, n_cols)
 
     scipy_matrix = csr_array(matrix)
@@ -42,7 +42,7 @@ def test_csr_transpose():
 
 
 def test_csr_getitem():
-    n_rows, n_cols = 1000, 300
+    n_rows, n_cols = 100, 300
     matrix = np.random.randn(n_rows, n_cols)
 
     scipy_matrix = csr_array(matrix)
@@ -55,7 +55,7 @@ def test_csr_getitem():
 
 
 def test_csc_matrix():
-    n_rows, n_cols = 1000, 300
+    n_rows, n_cols = 100, 300
     matrix = np.random.randn(n_rows, n_cols)
 
     scipy_matrix = csc_array(matrix)
@@ -65,7 +65,7 @@ def test_csc_matrix():
 
 
 def test_csc_dot():
-    n_rows, n_cols = 1000, 300
+    n_rows, n_cols = 100, 300
     matrix = np.random.randn(n_rows, n_cols)
     v = np.random.randn(n_cols)
 
@@ -79,7 +79,7 @@ def test_csc_dot():
 
 
 def test_csc_transpose():
-    n_rows, n_cols = 1000, 300
+    n_rows, n_cols = 100, 300
     matrix = np.random.randn(n_rows, n_cols)
 
     scipy_matrix = csc_array(matrix)

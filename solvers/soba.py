@@ -5,7 +5,7 @@ from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
     import numpy as np
-    # from numba import njit
+    from numba import njit
     MinibatchSampler = import_ctx.import_from(
         'minibatch_sampler', 'MinibatchSampler'
     )
@@ -82,7 +82,7 @@ class Solver(BaseSolver):
         return self.beta
 
 
-# @njit
+@njit
 def soba(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
          inner_sampler, outer_sampler, lr_scheduler, seed=None):
 
@@ -95,7 +95,7 @@ def soba(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
         # Step.1 - get all gradients and compute the implicit gradient.
         slice_inner, _ = inner_sampler.get_batch()
         _, grad_inner_var, hvp, cross_v = inner_oracle.oracles(
-            inner_var, outer_var, v, slice_inner, inverse='id'
+            inner_var, outer_var, v, slice_inner
         )
 
         slice_outer, _ = outer_sampler.get_batch()
