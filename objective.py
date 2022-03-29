@@ -87,6 +87,7 @@ class Objective(BaseObjective):
             value=np.linalg.norm(grad_value)**2,
             grad_inner=np.linalg.norm(grad_inner),
             grad_star=np.linalg.norm(grad_star),
+            norm_exp_outer_var=np.linalg.norm(np.exp(outer_var))**2
         )
 
     def to_dict(self):
