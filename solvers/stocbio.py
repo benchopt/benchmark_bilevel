@@ -34,6 +34,7 @@ class Solver(BaseSolver):
         'step_size': constants.STEP_SIZES,
         'outer_ratio': constants.OUTER_RATIOS,
         'n_inner_step': constants.N_INNER_STEPS,
+        'n_hia_step': constants.N_HIA_STEPS,
         'batch_size': constants.BATCH_SIZES,
     }
 
@@ -87,7 +88,7 @@ class Solver(BaseSolver):
             inner_var, outer_var = stocbio(
                 self.f_inner.numba_oracle, self.f_outer.numba_oracle,
                 inner_var, outer_var, eval_freq, lr_scheduler,
-                self.n_inner_step, n_shia_step=self.n_inner_step,
+                self.n_inner_step, n_shia_step=self.n_hia_step,
                 inner_sampler=inner_sampler, outer_sampler=outer_sampler,
                 seed=rng.randint(constants.MAX_SEED)
             )
