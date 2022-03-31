@@ -22,7 +22,7 @@ class Dataset(BaseDataset):
     }
 
     def __init__(self, n_samples=10, n_features=50, correlation=0,
-                 sigma_X=.1, sigma_y=.1, random_state=None):
+                 sigma_X=.1, sigma_y=.1, random_state=1):
         # Store the parameters of the dataset
         self.n_samples = n_samples
         self.n_features = n_features
@@ -45,6 +45,9 @@ class Dataset(BaseDataset):
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, random_state=rng
         )
+
+        # print(f"Strong convexity constant: {np.linalg.svd(X_train)[1][-1]}")
+        # print(f"Smoothness constant: {np.linalg.norm(X_train, ord=2)**2}")
 
         data = dict(
             X_train=X_train, y_train=y_train,
