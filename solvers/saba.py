@@ -147,10 +147,10 @@ def saba(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
     for _ in range(max_iter):
         i += 1
         inner_step_size, outer_step_size = lr_scheduler.get_lr()
-        if i >= 5075:
-            inner_oracle.reg = 'lin'
-        if i == 5075:
-            outer_var == np.exp(outer_var)
+        # if i >= 5075:
+        #     inner_oracle.reg = 'lin'
+        # if i == 5075:
+        #     outer_var = np.exp(outer_var)
 
         # Get all gradient for the batch
         slice_outer, vr_outer = outer_sampler.get_batch()
