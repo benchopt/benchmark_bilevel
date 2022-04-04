@@ -20,15 +20,14 @@ class Solver(BaseSolver):
     name = 'SABA'
 
     stopping_criterion = SufficientProgressCriterion(
-        patience=100, strategy='callback'
+        patience=constants.PATIENCE, strategy='callback'
     )
 
     # any parameter defined here is accessible as a class attribute
     parameters = {
-        'step_size': constants.STEP_SIZES,
-        'outer_ratio': constants.OUTER_RATIOS,
+        'step_size': [.1],
+        'outer_ratio': [.01],
         'batch_size': constants.BATCH_SIZES,
-        'vr': ['saga']
     }
 
     @staticmethod
@@ -48,7 +47,14 @@ class Solver(BaseSolver):
         # Init variables
         inner_var = self.inner_var0.copy()
         outer_var = self.outer_var0.copy()
+
+        # inner_var = self.f_inner.get_inner_var_star(outer_var)
+
         v = np.zeros_like(inner_var)
+        # v = np.linalg.solve(
+        #     self.f_inner.X.T.dot(self.f_inner.X)+np.exp(outer_var)*np.eye(self.f_inner.n_features),
+        #     self.f_inner.X.T.dot(self.f_inner.y)
+        # )
 
         # Init sampler and lr scheduler
         inner_sampler = MinibatchSampler(
@@ -65,41 +71,29 @@ class Solver(BaseSolver):
             np.array(step_sizes, dtype=float), exponents
         )
 
-        # Init memory if needed
-        use_saga = self.vr == 'saga'
-        if use_saga:
-            memories = init_memory(
-                self.f_inner.numba_oracle, self.f_outer.numba_oracle,
-                inner_var, outer_var, v, inner_sampler, outer_sampler
-            )
-
-        else:
-            # To be compatible with numba compilation, memories need to always
-            # be of type Array(ndim=2)
-            memories = (
-                np.empty((1, 1)), np.empty((1, 1)), np.empty((1, 1)),
-                np.empty((1, 1))
-            )
+        # Init memory
+        memories = init_memory(
+            self.f_inner.numba_oracle, self.f_outer.numba_oracle,
+            inner_var, outer_var, v, inner_sampler, outer_sampler
+        )
 
         # Start algorithm
+        i = 0
         while callback((inner_var, outer_var)):
-            inner_var, outer_var, v = saba(
+            inner_var, outer_var, v, i = saba(
                 self.f_inner.numba_oracle, self.f_outer.numba_oracle,
                 inner_var, outer_var, v, eval_freq,
                 inner_sampler, outer_sampler, lr_scheduler, *memories,
-                saga_inner=use_saga, saga_v=use_saga, saga_x=use_saga,
-                seed=rng.randint(constants.MAX_SEED)
+                seed=rng.randint(constants.MAX_SEED), i=i
             )
             if np.isnan(outer_var).any():
                 raise ValueError()
         self.beta = (inner_var, outer_var)
-
     def get_result(self):
         return self.beta
 
 
 @njit
-# @njit(parallel=True)
 def init_memory(inner_oracle, outer_oracle, inner_var, outer_var, v,
                 inner_sampler, outer_sampler):
     n_outer = outer_sampler.n_batches
@@ -131,18 +125,6 @@ def init_memory(inner_oracle, outer_oracle, inner_var, outer_var, v,
     return memory_inner_grad, memory_hvp, memory_cross_v, memory_grad_in_outer
 
 
-# def init_memory(inner_oracle, outer_oracle, inner_var, outer_var, v,
-#                 inner_sampler, outer_sampler):
-#     memories = _init_memory(
-#         inner_oracle, outer_oracle, inner_var, outer_var, v,
-#         inner_sampler, outer_sampler
-#     )
-#     for mem in memories:
-#         mem[-1] = mem[:-1].mean(axis=0)
-
-#     return memories
-
-
 @njit
 def variance_reduction(grad, memory, vr_info):
     idx, weigth = vr_info
@@ -157,13 +139,18 @@ def variance_reduction(grad, memory, vr_info):
 def saba(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
          inner_sampler, outer_sampler, lr_scheduler,
          memory_inner_grad, memory_hvp, memory_cross_v, memory_grad_in_outer,
-         saga_inner=True, saga_v=True, saga_x=True, seed=None):
+         seed=None, i=0):
 
     # Set seed for randomness
     np.random.seed(seed)
 
-    for i in range(max_iter):
+    for _ in range(max_iter):
+        i += 1
         inner_step_size, outer_step_size = lr_scheduler.get_lr()
+        if i >= 5075:
+            inner_oracle.reg = 'lin'
+        if i == 5075:
+            outer_var == np.exp(outer_var)
 
         # Get all gradient for the batch
         slice_outer, vr_outer = outer_sampler.get_batch()
@@ -178,28 +165,39 @@ def saba(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
 
         # here memory_*[-1] corresponds to the running average of
         # the gradients
-        if saga_inner:
-            grad_inner_var = variance_reduction(
-                grad_inner_var, memory_inner_grad, vr_inner
-            )
+        grad_inner_var = variance_reduction(
+            grad_inner_var, memory_inner_grad, vr_inner
+        )
+
 
         inner_var -= inner_step_size * grad_inner_var
+        # inner_var = inner_oracle.inner_var_star(outer_var, np.arange(8000))
 
-        if saga_v:
-            hvp = variance_reduction(hvp, memory_hvp, vr_inner)
-            grad_in_outer = variance_reduction(
-                grad_in_outer, memory_grad_in_outer, vr_outer
-            )
+        hvp = variance_reduction(hvp, memory_hvp, vr_inner)
+        grad_in_outer = variance_reduction(
+            grad_in_outer, memory_grad_in_outer, vr_outer
+        )
 
         v -= inner_step_size * (hvp - grad_in_outer)
+        # v = np.linalg.solve(inner_oracle.X.T.dot(inner_oracle.X) + np.exp(outer_var)*np.eye(200), grad_in_outer)
 
-        if saga_x:
-            cross_v = variance_reduction(
-                cross_v, memory_cross_v, vr_inner
-            )
+        cross_v = variance_reduction(
+            cross_v, memory_cross_v, vr_inner
+        )
 
         impl_grad -= cross_v
         outer_var -= outer_step_size * impl_grad
 
+        if i >= 3250 * 2 ** 4:
+            print('----------------')
+            print("i", i)
+            print("dir z", np.linalg.norm(inner_step_size * grad_inner_var))
+            print("z", np.linalg.norm(inner_var))
+            print("dir v", np.linalg.norm(inner_step_size * (hvp - grad_in_outer)))
+            print("v", np.linalg.norm(v))
+            print("dir x", np.linalg.norm(outer_step_size * impl_grad))
+            print("x", np.linalg.norm(outer_var))
+            print("exp(x)", np.linalg.norm(np.exp(outer_var)))
+
         inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)
-    return inner_var, outer_var, v
+    return inner_var, outer_var, v, i

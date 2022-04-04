@@ -28,9 +28,9 @@ class Solver(BaseSolver):
 
     # any parameter defined here is accessible as a class attribute
     parameters = {
-        'step_size': constants.STEP_SIZES,
-        'outer_ratio': constants.OUTER_RATIOS,
-        'n_inner_step': constants.N_INNER_STEPS,
+        'step_size': [.1],
+        'outer_ratio': [.01],
+        'n_inner_step': [10],
         'batch_size': constants.BATCH_SIZES,
     }
 
@@ -84,7 +84,7 @@ class Solver(BaseSolver):
             inner_var, outer_var, v = amigo(
                 self.f_inner.numba_oracle, self.f_outer.numba_oracle,
                 inner_var, outer_var, v, inner_sampler, outer_sampler,
-                eval_freq, self.n_inner_step, 10, lr_scheduler,
+                eval_freq, self.n_inner_step, self.n_inner_step, lr_scheduler,
                 seed=rng.randint(constants.MAX_SEED)
             )
 
@@ -106,7 +106,7 @@ def amigo(inner_oracle, outer_oracle, inner_var, outer_var, v,
     if seed is not None:
         np.random.seed(seed)
 
-    for i in range(max_iter):
+    for _ in range(max_iter):
         inner_step_size, v_step_size, outer_step_size = lr_scheduler.get_lr()
 
         # Get outer gradient
