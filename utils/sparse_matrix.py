@@ -58,7 +58,7 @@ class CSRMatrix():
         """Returns a copy of the matrix as a numpy array
         """
         res = np.zeros((self.shape[0], self.shape[1]), dtype=np.float64)
-        n_rows = len(self.indptr)
+        n_rows = len(self.indptr) - 1
         for i in range(n_rows):
             row_start = self.indptr[i]
             row_end = self.indptr[i+1]
@@ -76,21 +76,16 @@ class CSRMatrix():
             for i in range(n_rows):
                 row_start = self.indptr[i]
                 row_end = self.indptr[i+1]
-
-                cols = self.indices[row_start:row_end]
-                res[i] = np.sum(self.data[row_start:row_end] * v[cols])
+                for col in range(row_start, row_end):
+                    res[i] += self.data[col] * v[self.indices[col]]
         elif v.ndim == 2:
             res = np.zeros((n_rows, v.shape[1]), dtype=np.float64)
             for j in range(v.shape[1]):
                 for i in range(n_rows):
                     row_start = self.indptr[i]
                     row_end = self.indptr[i+1]
-
-                    cols = self.indices[row_start:row_end]
-                    res[i, j] = np.sum(
-                        self.data[row_start:row_end] * v[cols, j]
-                    )
-
+                    for col in range(row_start, row_end):
+                        res[i, j] += self.data[col] * v[self.indices[col], j]
         return res
 
     @property
@@ -150,7 +145,7 @@ class CSCMatrix():
         """Returns a copy of the matrix as a numpy array
         """
         res = np.zeros((self.shape[0], self.shape[1]), dtype=np.float64)
-        n_cols = len(self.indptr)
+        n_cols = len(self.indptr) - 1
         for i in range(n_cols):
             col_start = self.indptr[i]
             col_end = self.indptr[i+1]
@@ -161,17 +156,15 @@ class CSCMatrix():
     def dot(self, v):
         """Returns the product of the matrix with v."""
         assert v.shape[0] == self.shape[1]
-        n_rows = self.shape[0]
-        n_cols = self.shape[1]
+        n_rows, n_cols = self.shape
 
         if v.ndim == 1:
             res = np.zeros(n_rows, dtype=np.float64)
             for i in range(n_cols):
                 col_start = self.indptr[i]
                 col_end = self.indptr[i+1]
-
-                rows = self.indices[col_start:col_end]
-                res[rows] += self.data[col_start:col_end] * v[i]
+                for row in range(col_start, col_end):
+                    res[self.indices[row]] += self.data[row] * v[i]
         elif v.ndim == 2:
             res = np.zeros((n_rows, v.shape[1]), dtype=np.float64)
             for j in range(v.shape[1]):
@@ -179,8 +172,8 @@ class CSCMatrix():
                     col_start = self.indptr[i]
                     col_end = self.indptr[i+1]
 
-                    rows = self.indices[col_start:col_end]
-                    res[rows, j] += self.data[col_start:col_end] * v[i, j]
+                    for row in range(col_start, col_end):
+                        res[self.indices[row], j] += self.data[row] * v[i, j]
 
         return res
 
