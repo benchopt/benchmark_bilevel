@@ -270,3 +270,10 @@ class MulticlassLogisticRegressionOracle(BaseOracle):
 
     def oracles(self, theta_flat, lmbda, v_flat, idx):
         return self.numba_oracle.oracles(theta_flat, lmbda, v_flat, idx)
+
+    def accuracy(self, theta_flat, lmbda, x, y):
+        if y.ndim == 2:
+            y = y.argmax(axis=1)
+        theta = theta_flat.reshape(self.n_features, self.n_classes)
+        prod = x @ theta
+        return np.mean(np.argmax(prod, axis=1) != y)
