@@ -2,11 +2,14 @@ import pytest
 import numpy as np
 from numba import njit
 
+from scipy.sparse import csr_array
+
 from benchopt.utils.safe_import import set_benchmark
 set_benchmark('.')
 
 from objective import oracles  # noqa: E402
 from solvers.saba import init_memory  # noqa: E402
+from objective import scipy_to_csrmatrix  # noqa: E402x
 from solvers.saba import MinibatchSampler  # noqa: E402
 from solvers.saba import variance_reduction  # noqa: E402
 
@@ -14,6 +17,7 @@ from solvers.saba import variance_reduction  # noqa: E402
 def _make_oracle(n_samples, n_features):
 
     X = np.random.randn(n_samples, n_features)
+    X = scipy_to_csrmatrix(csr_array(X))
     y = 2 * (np.random.rand(n_samples) > 0.5) - 1
 
     oracle = oracles.MulticlassLogisticRegressionOracle(
@@ -22,16 +26,17 @@ def _make_oracle(n_samples, n_features):
     return oracle
 
 
-@pytest.mark.parametrize('batch_size', [1, 32, 64])
+@pytest.mark.parametrize('batch_size', [64])
 def test_init_memory(batch_size):
     n_samples = 1024
     n_features = 10
 
     oracle = _make_oracle(n_samples, n_features)
+    n_classes = oracle.n_classes
 
-    theta = np.random.randn(n_features)
+    theta = np.random.randn(n_features * n_classes)
     lmbda = np.random.randn(n_features)
-    v = np.random.randn(n_features)
+    v = np.random.randn(n_features * n_classes)
 
     sampler = MinibatchSampler(
         n_samples, batch_size=batch_size
@@ -47,7 +52,7 @@ def test_init_memory(batch_size):
 
     # check that the average gradients correspond to the true gradient.
     _, grad_inner, hvp, cross_v = oracle.get_oracles(
-        theta, lmbda, v, inverse='id'
+        theta, lmbda, v
     )
 
     assert np.allclose(memory_inner_grad[-1], grad_inner)
@@ -59,7 +64,6 @@ def test_init_memory(batch_size):
     for i in range(sampler.n_batches):
         _, grad_inner, hvp, cross_v = oracle.oracles(
             theta, lmbda, v, slice(i*batch_size, (i+1) * batch_size),
-            inverse='id'
         )
 
         assert np.allclose(memory_inner_grad[i], grad_inner)
@@ -68,14 +72,15 @@ def test_init_memory(batch_size):
         assert np.allclose(memory_grad_in_outer[i], grad_inner)
 
 
-@pytest.mark.parametrize('batch_size', [1, 32, 64])
+@pytest.mark.parametrize('batch_size', [64])
 @pytest.mark.parametrize('n_samples', [1000, 1024])
 def test_vr(n_samples, batch_size):
     n_features = 10
 
     oracle = _make_oracle(n_samples, n_features)
+    n_classes = oracle.n_classes
 
-    theta = np.random.randn(n_features)
+    theta = np.random.randn(n_features * n_classes)
     lmbda = np.random.randn(n_features)
 
     sampler = MinibatchSampler(
@@ -83,7 +88,7 @@ def test_vr(n_samples, batch_size):
     )
 
     # check that variance reduction correctly stores the gradient
-    memory = np.zeros((sampler.n_batches + 1, n_features))
+    memory = np.zeros((sampler.n_batches + 1, n_features * n_classes))
 
     @njit
     def check_mem(oracle, theta, lmbda, memory, sampler):
