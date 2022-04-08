@@ -27,13 +27,15 @@ class Objective(BaseObjective):
 
         self.random_state = random_state
 
-    def set_data(self, X_train, y_train, X_test, y_test):
+    def set_data(self, X_train, y_train, X_test, y_test, X_val, y_val):
         self.f_train = self.oracle(
             X_train, y_train, reg=True
         )
         self.f_test = self.oracle(
             X_test, y_test, reg=False
         )
+        self.X_val = X_val
+        self.y_val = y_val
 
         rng = check_random_state(self.random_state)
         inner_shape, outer_shape = self.f_train.variables_shape
@@ -46,7 +48,9 @@ class Objective(BaseObjective):
 
         if np.isnan(outer_var).any():
             raise ValueError
-
+        acc = self.f_test.accuracy(
+            inner_var, outer_var, self.X_val, self.y_val
+        )
         # inner_star = self.f_train.get_inner_var_star(outer_var)
         # value_function = self.f_test.get_value(inner_star, outer_var)
         # inner_value = self.f_train.get_value(inner_var, outer_var)
@@ -76,9 +80,9 @@ class Objective(BaseObjective):
         #     grad_star=np.linalg.norm(grad_star),
         # )
         return dict(
+            value=acc,
             train_loss=self.f_train.get_value(inner_var, outer_var),
-            value=self.f_test.get_value(inner_var, outer_var),
-            norm_inner=np.linalg.norm(inner_var)
+            outer_loss=self.f_test.get_value(inner_var, outer_var),
         )
 
     def to_dict(self):
