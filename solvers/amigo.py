@@ -84,7 +84,7 @@ class Solver(BaseSolver):
             inner_var, outer_var, v = amigo(
                 self.f_inner.numba_oracle, self.f_outer.numba_oracle,
                 inner_var, outer_var, v, inner_sampler, outer_sampler,
-                eval_freq, self.n_inner_step, 10, lr_scheduler,
+                eval_freq, self.n_inner_step, self.n_inner_step, lr_scheduler,
                 seed=rng.randint(constants.MAX_SEED)
             )
 
