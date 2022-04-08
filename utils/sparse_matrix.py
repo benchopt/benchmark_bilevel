@@ -80,12 +80,11 @@ class CSRMatrix():
                     res[i] += self.data[col] * v[self.indices[col]]
         elif v.ndim == 2:
             res = np.zeros((n_rows, v.shape[1]), dtype=np.float64)
-            for j in range(v.shape[1]):
-                for i in range(n_rows):
-                    row_start = self.indptr[i]
-                    row_end = self.indptr[i+1]
-                    for col in range(row_start, row_end):
-                        res[i, j] += self.data[col] * v[self.indices[col], j]
+            for i in range(n_rows):
+                row_start = self.indptr[i]
+                row_end = self.indptr[i+1]
+                for col in range(row_start, row_end):
+                    res[i] += self.data[col] * v[self.indices[col]]
         return res
 
     @property
