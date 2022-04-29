@@ -6,7 +6,7 @@ with safe_import_context() as import_ctx:
     joint_shia = import_ctx.import_from('hessian_approximation', 'joint_shia')
 
 
-@njit
+# @njit
 def sgd_inner(inner_oracle, inner_var, outer_var, step_size, inner_sampler,
               n_inner_step):
 
@@ -20,7 +20,7 @@ def sgd_inner(inner_oracle, inner_var, outer_var, step_size, inner_sampler,
     return inner_var
 
 
-@njit
+# @njit
 def sgd_inner_vrbo(inner_oracle, outer_oracle, inner_var, outer_var, inner_lr,
                    inner_sampler, outer_sampler, n_inner_step, memory_inner,
                    memory_outer, n_hia_step, hia_lr):

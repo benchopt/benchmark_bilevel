@@ -93,7 +93,7 @@ class Solver(BaseSolver):
         return self.beta
 
 
-@njit
+# @njit
 def init_memory(inner_oracle, outer_oracle, inner_var, outer_var, v,
                 inner_sampler, outer_sampler):
     n_outer = outer_sampler.n_batches
@@ -125,7 +125,7 @@ def init_memory(inner_oracle, outer_oracle, inner_var, outer_var, v,
     return memory_inner_grad, memory_hvp, memory_cross_v, memory_grad_in_outer
 
 
-@njit
+# @njit
 def variance_reduction(grad, memory, vr_info):
     idx, weigth = vr_info
     diff = grad - memory[idx]
@@ -135,7 +135,7 @@ def variance_reduction(grad, memory, vr_info):
     return direction
 
 
-@njit
+# @njit
 def saba(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
          inner_sampler, outer_sampler, lr_scheduler,
          memory_inner_grad, memory_hvp, memory_cross_v, memory_grad_in_outer,
@@ -188,16 +188,16 @@ def saba(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
         impl_grad -= cross_v
         outer_var -= outer_step_size * impl_grad
 
-        if i >= 3250 * 2 ** 4:
-            print('----------------')
-            print("i", i)
-            print("dir z", np.linalg.norm(inner_step_size * grad_inner_var))
-            print("z", np.linalg.norm(inner_var))
-            print("dir v", np.linalg.norm(inner_step_size * (hvp - grad_in_outer)))
-            print("v", np.linalg.norm(v))
-            print("dir x", np.linalg.norm(outer_step_size * impl_grad))
-            print("x", np.linalg.norm(outer_var))
-            print("exp(x)", np.linalg.norm(np.exp(outer_var)))
+        # if i >= 3250 * 2 ** 4:
+        #     print('----------------')
+        #     print("i", i)
+        #     print("dir z", np.linalg.norm(inner_step_size * grad_inner_var))
+        #     print("z", np.linalg.norm(inner_var))
+        #     print("dir v", np.linalg.norm(inner_step_size * (hvp - grad_in_outer)))
+        #     print("v", np.linalg.norm(v))
+        #     print("dir x", np.linalg.norm(outer_step_size * impl_grad))
+        #     print("x", np.linalg.norm(outer_var))
+        #     print("exp(x)", np.linalg.norm(np.exp(outer_var)))
 
         inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)
     return inner_var, outer_var, v, i

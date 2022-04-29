@@ -5,6 +5,7 @@ __cache__
 *.egg-info
 .coverage
 **/outputs
+**/figures
 joblib/
 
 # IDE specific folders

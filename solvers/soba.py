@@ -5,7 +5,7 @@ from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
     import numpy as np
-    from numba import njit
+    # from numba import njit
     MinibatchSampler = import_ctx.import_from(
         'minibatch_sampler', 'MinibatchSampler'
     )
@@ -25,8 +25,8 @@ class Solver(BaseSolver):
 
     # any parameter defined here is accessible as a class attribute
     parameters = {
-        'step_size': constants.STEP_SIZES,
-        'outer_ratio': constants.OUTER_RATIOS,
+        'step_size': [.1],
+        'outer_ratio': [.01],
         'batch_size': constants.BATCH_SIZES
     }
 
@@ -59,9 +59,10 @@ class Solver(BaseSolver):
         step_sizes = np.array(
             [self.step_size, self.step_size / self.outer_ratio]
         )
-        exponents = np.array(
-            [.4, .6]
-        )
+        # exponents = np.array(
+        #     [.4, .6]
+        # )
+        exponents = np.zeros(2)
         lr_scheduler = LearningRateScheduler(
             np.array(step_sizes, dtype=float), exponents
         )
@@ -82,7 +83,7 @@ class Solver(BaseSolver):
         return self.beta
 
 
-@njit
+# @njit
 def soba(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
          inner_sampler, outer_sampler, lr_scheduler, seed=None):
 

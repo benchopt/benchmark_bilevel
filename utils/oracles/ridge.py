@@ -3,7 +3,7 @@ from scipy.sparse.linalg import svds
 
 # from numba import generated_jit
 from numba import float64, int64, types    # import the types
-from numba.experimental import jitclass
+# from numba.experimental import jitclass
 
 from .base import BaseOracle
 
@@ -17,7 +17,7 @@ spec = [
 ]
 
 
-@jitclass(spec)
+# @jitclass(spec)
 class RidgeRegressionOracleNumba():
     """Class defining the oracles for the L^2 regularized least squares
     loss."""

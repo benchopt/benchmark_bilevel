@@ -70,7 +70,7 @@ class Solver(BaseSolver):
         step_sizes = np.array(
             [self.step_size, self.step_size, self.step_size / self.outer_ratio]
         )
-        exponents = np.zeros(2)
+        exponents = np.zeros(3)
         lr_scheduler = LearningRateScheduler(
             np.array(step_sizes, dtype=float), exponents
         )
@@ -97,7 +97,7 @@ class Solver(BaseSolver):
         pass
 
 
-@njit
+# @njit
 def amigo(inner_oracle, outer_oracle, inner_var, outer_var, v,
           inner_sampler, outer_sampler, max_iter, n_inner_step, n_v_step,
           lr_scheduler, seed=None):

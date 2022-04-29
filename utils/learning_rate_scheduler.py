@@ -9,7 +9,7 @@ spec = [
 ]
 
 
-@jitclass(spec)
+# @jitclass(spec)
 class LearningRateScheduler():
     """Scheduler for learning rates, either constant or decreasing.
 
