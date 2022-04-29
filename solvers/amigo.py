@@ -28,9 +28,9 @@ class Solver(BaseSolver):
 
     # any parameter defined here is accessible as a class attribute
     parameters = {
-        'step_size': [.1],
-        'outer_ratio': [.01],
-        'n_inner_step': [10],
+        'step_size': constants.STEP_SIZES,
+        'outer_ratio': constants.OUTER_RATIOS,
+        'n_inner_step': constants.N_INNER_STEPS,
         'batch_size': constants.BATCH_SIZES,
     }
 
