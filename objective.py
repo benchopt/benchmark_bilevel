@@ -98,6 +98,7 @@ class Objective(BaseObjective):
             value=value_function,
             inner_value=inner_value,
             outer_value=outer_value,
+            d_inner=np.linalg.norm(inner_var - inner_star),
             # inv_lips_inner=1 / L
         )
 

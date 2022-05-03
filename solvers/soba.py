@@ -110,14 +110,15 @@ def soba(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
         impl_grad -= cross_v
 
         # Step.2 - update inner variable with SGD.
-        inner_var -= inner_step_size * grad_inner_var
+        # inner_var -= inner_step_size * grad_inner_var
+        inner_var = inner_oracle.inner_var_star(outer_var, slice_inner)
 
         # Step.3 - update auxillary variable v with SGD
-        # v -= inner_step_size * (hvp - grad_in_outer)
-        v = inner_oracle.inverse_hvp(
-            inner_var, outer_var, grad_in_outer,
-            np.arange(inner_oracle.n_samples), 'cg'
-        )
+        v -= inner_step_size * (hvp - grad_in_outer)
+        # v = inner_oracle.inverse_hvp(
+        #     inner_var, outer_var, grad_in_outer,
+        #     slice_inner, 'cg'
+        # )
 
         # Step.4 - update outer_variable with SGD
         # if i >= 25142 * 2 - 1:
