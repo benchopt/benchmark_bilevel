@@ -71,7 +71,7 @@ class Objective(BaseObjective):
 
     def compute(self, beta):
 
-        inner_var, outer_var = beta
+        inner_var, outer_var, v = beta
 
         if np.isnan(outer_var).any():
             raise ValueError
@@ -82,14 +82,13 @@ class Objective(BaseObjective):
         outer_value = self.f_test.get_value(inner_var, outer_var)
         # d_inner = np.linalg.norm(inner_var - inner_star)
         # d_value = outer_value - value_function
-        # grad_f_test_inner, grad_f_test_outer = self.f_test.get_grad(
-        #     inner_star, outer_var
-        # )
-        # grad_value = grad_f_test_outer
-        # v = self.f_train.get_inverse_hvp(
-        #     inner_star, outer_var,
-        #     grad_f_test_inner
-        # )
+        grad_f_test_inner = self.f_test.get_grad_inner_var(
+            inner_star, outer_var
+        )
+        v_star = self.f_train.get_inverse_hvp(
+            inner_star, outer_var,
+            grad_f_test_inner
+        )
         # grad_value -= self.f_train.get_cross(inner_star, outer_var, v)
         # grad_inner = self.f_train.get_grad_inner_var(inner_var, outer_var)
         # grad_star = self.f_train.get_grad_inner_var(inner_star, outer_var)
@@ -99,6 +98,7 @@ class Objective(BaseObjective):
             inner_value=inner_value,
             outer_value=outer_value,
             d_inner=np.linalg.norm(inner_var - inner_star),
+            d_v=np.linalg.norm(v - v_star),
             # inv_lips_inner=1 / L
         )
 

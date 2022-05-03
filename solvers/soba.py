@@ -69,7 +69,7 @@ class Solver(BaseSolver):
         i = 0
         inner_list, outer_list, v_list = [], [], []
         # Start algorithm
-        while callback((inner_var, outer_var)):
+        while callback((inner_var, outer_var, v)):
             inner_var, outer_var, v, i, inner_list, outer_list, v_list = soba(
                 self.f_inner, self.f_outer,
                 inner_var, outer_var, v, eval_freq,
@@ -79,7 +79,7 @@ class Solver(BaseSolver):
             )
             if np.isnan(outer_var).any():
                 raise ValueError()
-        self.beta = (inner_var, outer_var)
+        self.beta = (inner_var, outer_var, v)
 
     def get_result(self):
         return self.beta
@@ -110,8 +110,8 @@ def soba(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
         impl_grad -= cross_v
 
         # Step.2 - update inner variable with SGD.
-        # inner_var -= inner_step_size * grad_inner_var
-        inner_var = inner_oracle.inner_var_star(outer_var, slice_inner)
+        inner_var -= inner_step_size * grad_inner_var
+        # inner_var = inner_oracle.inner_var_star(outer_var, slice_inner)
 
         # Step.3 - update auxillary variable v with SGD
         v -= inner_step_size * (hvp - grad_in_outer)
@@ -134,7 +134,7 @@ def soba(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
         outer_list.append(outer_var.copy())
         v_list.append(v.copy())
 
-        # if i == 2 * 25156 :
+        # if i == 2 * 25155 :
         #     import ipdb; ipdb.set_trace()
 
     return inner_var, outer_var, v, i, inner_list, outer_list, v_list

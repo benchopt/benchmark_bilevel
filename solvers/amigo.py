@@ -81,15 +81,18 @@ class Solver(BaseSolver):
         #     self.f_inner.numba_oracle, inner_var, outer_var, self.step_size,
         #     inner_sampler=inner_sampler, n_inner_step=self.n_inner_step,
         # )
-        while callback((inner_var, outer_var)):
-            inner_var, outer_var, v = amigo(
-                self.f_inner.numba_oracle, self.f_outer.numba_oracle,
+        inner_list, v_list, outer_list = [], [], []
+        i = 0
+        while callback((inner_var, outer_var, v)):
+            inner_var, outer_var, v, i, inner_list, v_list, outer_list = amigo(
+                self.f_inner, self.f_outer,
                 inner_var, outer_var, v, inner_sampler, outer_sampler,
                 eval_freq, self.n_inner_step, self.n_v_step, lr_scheduler,
-                seed=rng.randint(constants.MAX_SEED)
+                seed=rng.randint(constants.MAX_SEED), inner_list=inner_list, v_list=v_list, outer_list=outer_list,
+                i=i
             )
 
-        self.beta = (inner_var, outer_var)
+        self.beta = (inner_var, outer_var, v)
 
     def get_result(self):
         return self.beta
@@ -101,13 +104,14 @@ class Solver(BaseSolver):
 # @njit
 def amigo(inner_oracle, outer_oracle, inner_var, outer_var, v,
           inner_sampler, outer_sampler, max_iter, n_inner_step, n_v_step,
-          lr_scheduler, seed=None):
+          lr_scheduler, seed=None, inner_list=None, v_list=None, outer_list=None, i=0):
 
     # Set seed for randomness
     if seed is not None:
         np.random.seed(seed)
 
     for _ in range(max_iter):
+        i += 1
         inner_step_size, v_step_size, outer_step_size = lr_scheduler.get_lr()
 
         inner_var = sgd_inner(
@@ -132,4 +136,11 @@ def amigo(inner_oracle, outer_oracle, inner_var, outer_var, v,
         outer_var -= outer_step_size * implicit_grad
         inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)
 
-    return inner_var, outer_var, v
+        inner_list.append(inner_var.copy())
+        v_list.append(v.copy())
+        outer_list.append(outer_var.copy())
+
+        # if i == 4 * 25100:
+        #     import ipdb; ipdb.set_trace()
+
+    return inner_var, outer_var, v, i, inner_list,  v_list, outer_list
