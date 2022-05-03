@@ -76,8 +76,8 @@ class Objective(BaseObjective):
         if np.isnan(outer_var).any():
             raise ValueError
 
-        # inner_star = self.f_train.get_inner_var_star(outer_var)
-        # value_function = self.f_test.get_value(inner_star, outer_var)
+        inner_star = self.f_train.get_inner_var_star(outer_var)
+        value_function = self.f_test.get_value(inner_star, outer_var)
         inner_value = self.f_train.get_value(inner_var, outer_var)
         outer_value = self.f_test.get_value(inner_var, outer_var)
         # d_inner = np.linalg.norm(inner_var - inner_star)
@@ -93,11 +93,12 @@ class Objective(BaseObjective):
         # grad_value -= self.f_train.get_cross(inner_star, outer_var, v)
         # grad_inner = self.f_train.get_grad_inner_var(inner_var, outer_var)
         # grad_star = self.f_train.get_grad_inner_var(inner_star, outer_var)
-
+        # L = self.f_train.lipschitz_inner(inner_var, outer_var)[0]
         return dict(
-            # value=value_function,
+            value=value_function,
             inner_value=inner_value,
-            value=outer_value,
+            outer_value=outer_value,
+            # inv_lips_inner=1 / L
         )
 
     def to_dict(self):

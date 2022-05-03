@@ -31,6 +31,7 @@ class Solver(BaseSolver):
         'step_size': constants.STEP_SIZES,
         'outer_ratio': constants.OUTER_RATIOS,
         'n_inner_step': constants.N_INNER_STEPS,
+        'n_v_step': constants.N_V_STEPS,
         'batch_size': constants.BATCH_SIZES,
     }
 
@@ -58,7 +59,7 @@ class Solver(BaseSolver):
         # Init variables
         inner_var = self.inner_var0.copy()
         outer_var = self.outer_var0.copy()
-        v = self.f_outer.grad_inner_var(inner_var, outer_var, np.array([0]))
+        v = np.zeros_like(inner_var)
 
         # Init sampler and lr scheduler
         inner_sampler = MinibatchSampler(
@@ -76,15 +77,15 @@ class Solver(BaseSolver):
         )
 
         # Start algorithm
-        inner_var = sgd_inner(
-            self.f_inner.numba_oracle, inner_var, outer_var, self.step_size,
-            inner_sampler=inner_sampler, n_inner_step=self.n_inner_step,
-        )
+        # inner_var = sgd_inner(
+        #     self.f_inner.numba_oracle, inner_var, outer_var, self.step_size,
+        #     inner_sampler=inner_sampler, n_inner_step=self.n_inner_step,
+        # )
         while callback((inner_var, outer_var)):
             inner_var, outer_var, v = amigo(
                 self.f_inner.numba_oracle, self.f_outer.numba_oracle,
                 inner_var, outer_var, v, inner_sampler, outer_sampler,
-                eval_freq, self.n_inner_step, self.n_inner_step, lr_scheduler,
+                eval_freq, self.n_inner_step, self.n_v_step, lr_scheduler,
                 seed=rng.randint(constants.MAX_SEED)
             )
 
@@ -109,6 +110,11 @@ def amigo(inner_oracle, outer_oracle, inner_var, outer_var, v,
     for _ in range(max_iter):
         inner_step_size, v_step_size, outer_step_size = lr_scheduler.get_lr()
 
+        inner_var = sgd_inner(
+            inner_oracle, inner_var, outer_var, inner_step_size,
+            inner_sampler=inner_sampler, n_inner_step=n_inner_step
+        )
+
         # Get outer gradient
         outer_slice, _ = outer_sampler.get_batch()
         grad_in, grad_out = outer_oracle.grad(
@@ -126,8 +132,4 @@ def amigo(inner_oracle, outer_oracle, inner_var, outer_var, v,
         outer_var -= outer_step_size * implicit_grad
         inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)
 
-        inner_var = sgd_inner(
-            inner_oracle, inner_var, outer_var, inner_step_size,
-            inner_sampler=inner_sampler, n_inner_step=n_inner_step
-        )
     return inner_var, outer_var, v

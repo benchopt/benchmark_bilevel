@@ -66,14 +66,16 @@ class Solver(BaseSolver):
         lr_scheduler = LearningRateScheduler(
             np.array(step_sizes, dtype=float), exponents
         )
-
+        i = 0
+        inner_list, outer_list, v_list = [], [], []
         # Start algorithm
         while callback((inner_var, outer_var)):
-            inner_var, outer_var, v = soba(
-                self.f_inner.numba_oracle, self.f_outer.numba_oracle,
+            inner_var, outer_var, v, i, inner_list, outer_list, v_list = soba(
+                self.f_inner, self.f_outer,
                 inner_var, outer_var, v, eval_freq,
                 inner_sampler, outer_sampler, lr_scheduler,
-                seed=rng.randint(constants.MAX_SEED)
+                seed=rng.randint(constants.MAX_SEED), i=i, 
+                inner_list=inner_list, outer_list=outer_list, v_list=v_list
             )
             if np.isnan(outer_var).any():
                 raise ValueError()
@@ -85,12 +87,14 @@ class Solver(BaseSolver):
 
 # @njit
 def soba(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
-         inner_sampler, outer_sampler, lr_scheduler, seed=None):
+         inner_sampler, outer_sampler, lr_scheduler, seed=None, i=0,
+         inner_list=None, outer_list=None, v_list=None):
 
     # Set seed for randomness
     np.random.seed(seed)
 
-    for i in range(max_iter):
+    for _ in range(max_iter):
+        i += 1
         inner_step_size, outer_step_size = lr_scheduler.get_lr()
 
         # Step.1 - get all gradients and compute the implicit gradient.
@@ -109,12 +113,27 @@ def soba(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
         inner_var -= inner_step_size * grad_inner_var
 
         # Step.3 - update auxillary variable v with SGD
-        v -= inner_step_size * (hvp - grad_in_outer)
+        # v -= inner_step_size * (hvp - grad_in_outer)
+        v = inner_oracle.inverse_hvp(
+            inner_var, outer_var, grad_in_outer,
+            np.arange(inner_oracle.n_samples), 'cg'
+        )
 
         # Step.4 - update outer_variable with SGD
+        # if i >= 25142 * 2 - 1:
+        # #     print("L = ", inner_oracle.lipschitz_inner(inner_var, outer_var))
+        # #     print("1 / L = ", 1 / inner_oracle.lipschitz_inner(inner_var, outer_var))
+        # #     print("gamma = ", inner_step_size)
+        #     outer_step_size = 0
         outer_var -= outer_step_size * impl_grad
 
         # Use prox to make sure we do not diverge
         inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)
+        inner_list.append(inner_var.copy())
+        outer_list.append(outer_var.copy())
+        v_list.append(v.copy())
 
-    return inner_var, outer_var, v
+        # if i == 2 * 25156 :
+        #     import ipdb; ipdb.set_trace()
+
+    return inner_var, outer_var, v, i, inner_list, outer_list, v_list
