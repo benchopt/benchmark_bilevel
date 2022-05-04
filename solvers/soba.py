@@ -74,7 +74,7 @@ class Solver(BaseSolver):
                 self.f_inner, self.f_outer,
                 inner_var, outer_var, v, eval_freq,
                 inner_sampler, outer_sampler, lr_scheduler,
-                seed=rng.randint(constants.MAX_SEED), i=i, 
+                seed=rng.randint(constants.MAX_SEED), i=i,
                 inner_list=inner_list, outer_list=outer_list, v_list=v_list
             )
             if np.isnan(outer_var).any():
@@ -134,7 +134,7 @@ def soba(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
         outer_list.append(outer_var.copy())
         v_list.append(v.copy())
 
-        # if i == 2 * 25155 :
+        # if i == 2 * 25149 :
         #     import ipdb; ipdb.set_trace()
 
     return inner_var, outer_var, v, i, inner_list, outer_list, v_list

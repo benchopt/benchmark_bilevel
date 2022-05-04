@@ -133,6 +133,8 @@ def amigo(inner_oracle, outer_oracle, inner_var, outer_var, v,
         cross_hvp = inner_oracle.cross(inner_var, outer_var, v, inner_slice)
         implicit_grad = grad_out - cross_hvp
 
+        # if i >= 2**4 * 12000:
+        #     outer_step_size = 0
         outer_var -= outer_step_size * implicit_grad
         inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)
 

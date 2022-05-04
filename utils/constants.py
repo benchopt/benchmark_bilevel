@@ -1,6 +1,6 @@
 import numpy as np
 
-EVAL_FREQ = 2 ** 3
+EVAL_FREQ = 2 ** 1
 PATIENCE = 400000
 
 STEP_SIZES = [1]
@@ -9,7 +9,7 @@ BATCH_SIZES = ['full']
 
 # Number of inner loop steps
 N_INNER_STEPS = [1]
-N_V_STEPS = [100]
+N_V_STEPS = [1]
 N_HIA_STEPS = [3]
 
 # STORM momentum parameter
