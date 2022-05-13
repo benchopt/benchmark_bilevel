@@ -1,6 +1,6 @@
 import numpy as np
 
-EVAL_FREQ = 2 ** 1
+EVAL_FREQ = 2 ** 0
 PATIENCE = 400000
 
 STEP_SIZES = [1]

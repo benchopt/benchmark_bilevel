@@ -68,17 +68,27 @@ class Solver(BaseSolver):
         )
         i = 0
         inner_list, outer_list, v_list = [], [], []
+        grad_in_list, impl_grad_list = [], []
         # Start algorithm
         while callback((inner_var, outer_var, v)):
-            inner_var, outer_var, v, i, inner_list, outer_list, v_list = soba(
+            inner_var, outer_var, v, i, inner_list, outer_list, v_list, \
+                grad_in_list, impl_grad_list = soba(
                 self.f_inner, self.f_outer,
                 inner_var, outer_var, v, eval_freq,
                 inner_sampler, outer_sampler, lr_scheduler,
                 seed=rng.randint(constants.MAX_SEED), i=i,
-                inner_list=inner_list, outer_list=outer_list, v_list=v_list
+                inner_list=inner_list, outer_list=outer_list, v_list=v_list,
+                grad_in_list=grad_in_list, impl_grad_list=impl_grad_list,
             )
             if np.isnan(outer_var).any():
                 raise ValueError()
+
+        np.save('inner_list.npy', np.array(inner_list))
+        np.save('outer_list.npy', np.array(outer_list))
+        np.save('v_list.npy', np.array(v_list))
+        np.save('grad_in_list.npy', np.array(grad_in_list))
+        np.save('impl_grad_list.npy', np.array(impl_grad_list))
+
         self.beta = (inner_var, outer_var, v)
 
     def get_result(self):
@@ -88,7 +98,7 @@ class Solver(BaseSolver):
 # @njit
 def soba(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
          inner_sampler, outer_sampler, lr_scheduler, seed=None, i=0,
-         inner_list=None, outer_list=None, v_list=None):
+         inner_list=None, outer_list=None, v_list=None, grad_in_list=None, impl_grad_list=None):
 
     # Set seed for randomness
     np.random.seed(seed)
@@ -102,6 +112,7 @@ def soba(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
         _, grad_inner_var, hvp, cross_v = inner_oracle.oracles(
             inner_var, outer_var, v, slice_inner, inverse='id'
         )
+        grad_in_list.append(grad_inner_var)
 
         slice_outer, _ = outer_sampler.get_batch()
         grad_in_outer, impl_grad = outer_oracle.grad(
@@ -114,11 +125,11 @@ def soba(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
         # inner_var = inner_oracle.inner_var_star(outer_var, slice_inner)
 
         # Step.3 - update auxillary variable v with SGD
-        v -= inner_step_size * (hvp - grad_in_outer)
-        # v = inner_oracle.inverse_hvp(
-        #     inner_var, outer_var, grad_in_outer,
-        #     slice_inner, 'cg'
-        # )
+        # v -= inner_step_size * (hvp - grad_in_outer)
+        v = inner_oracle.inverse_hvp(
+            inner_var, outer_var, grad_in_outer,
+            slice_inner, 'cg'
+        )
 
         # Step.4 - update outer_variable with SGD
         # if i >= 25142 * 2 - 1:
@@ -126,15 +137,21 @@ def soba(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
         # #     print("1 / L = ", 1 / inner_oracle.lipschitz_inner(inner_var, outer_var))
         # #     print("gamma = ", inner_step_size)
         #     outer_step_size = 0
+        # print("test", outer_var - outer_step_size * impl_grad)
         outer_var -= outer_step_size * impl_grad
+        # print("outer_var", outer_var)
+        # print(inner_var, v, outer_var)
 
         # Use prox to make sure we do not diverge
-        inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)
+        # inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)
         inner_list.append(inner_var.copy())
         outer_list.append(outer_var.copy())
         v_list.append(v.copy())
+        impl_grad_list.append(outer_step_size * impl_grad.copy())
+        print(outer_var, inner_var, v)
 
         # if i == 2 * 25149 :
         #     import ipdb; ipdb.set_trace()
+        # import ipdb; ipdb.set_trace()
 
-    return inner_var, outer_var, v, i, inner_list, outer_list, v_list
+    return inner_var, outer_var, v, i, inner_list, outer_list, v_list, grad_in_list, impl_grad_list
