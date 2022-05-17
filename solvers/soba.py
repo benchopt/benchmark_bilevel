@@ -27,7 +27,7 @@ class Solver(BaseSolver):
     parameters = {
         'step_size': constants.STEP_SIZES,
         'outer_ratio': constants.OUTER_RATIOS,
-        'batch_size': constants.BATCH_SIZES
+        'batch_size': ["full"]
     }
 
     @staticmethod
@@ -50,18 +50,31 @@ class Solver(BaseSolver):
         v = np.zeros_like(inner_var)
 
         # Init sampler and lr scheduler
-        inner_sampler = MinibatchSampler(
-            self.f_inner.n_samples, batch_size=self.batch_size
-        )
-        outer_sampler = MinibatchSampler(
-            self.f_outer.n_samples, batch_size=self.batch_size
-        )
+        if self.batch_size == "full":
+            inner_sampler = MinibatchSampler(
+                self.f_inner.n_samples, batch_size=self.f_inner.n_samples
+            )
+        else:
+            inner_sampler = MinibatchSampler(
+                self.f_inner.n_samples, batch_size=self.batch_size
+            )
+        if self.batch_size == "full":
+            outer_sampler = MinibatchSampler(
+                self.f_outer.n_samples, batch_size=self.f_outer.n_samples
+            )
+        else:
+            outer_sampler = MinibatchSampler(
+                self.f_outer.n_samples, batch_size=self.batch_size
+            )
         step_sizes = np.array(
             [self.step_size, self.step_size / self.outer_ratio]
         )
-        exponents = np.array(
-            [.4, .6]
-        )
+        if self.batch_size == 'full':
+            exponents = np.zeros(2)
+        else:
+            exponents = np.array(
+                [.4, .6]
+            )
         lr_scheduler = LearningRateScheduler(
             np.array(step_sizes, dtype=float), exponents
         )
