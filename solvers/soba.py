@@ -54,27 +54,23 @@ class Solver(BaseSolver):
             inner_sampler = MinibatchSampler(
                 self.f_inner.n_samples, batch_size=self.f_inner.n_samples
             )
+            outer_sampler = MinibatchSampler(
+                self.f_outer.n_samples, batch_size=self.f_outer.n_samples
+            )
+            exponents = np.zeros(2)
         else:
             inner_sampler = MinibatchSampler(
                 self.f_inner.n_samples, batch_size=self.batch_size
             )
-        if self.batch_size == "full":
-            outer_sampler = MinibatchSampler(
-                self.f_outer.n_samples, batch_size=self.f_outer.n_samples
-            )
-        else:
             outer_sampler = MinibatchSampler(
                 self.f_outer.n_samples, batch_size=self.batch_size
+            )
+            exponents = np.array(
+                [.4, .6]
             )
         step_sizes = np.array(
             [self.step_size, self.step_size / self.outer_ratio]
         )
-        if self.batch_size == 'full':
-            exponents = np.zeros(2)
-        else:
-            exponents = np.array(
-                [.4, .6]
-            )
         lr_scheduler = LearningRateScheduler(
             np.array(step_sizes, dtype=float), exponents
         )
