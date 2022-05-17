@@ -1,6 +1,6 @@
 import numpy as np
 
-EVAL_FREQ = 2 ** 7
+EVAL_FREQ = 2 ** 10
 PATIENCE = 50_000
 
 STEP_SIZES = np.logspace(-5, 3, 9, base=2)
