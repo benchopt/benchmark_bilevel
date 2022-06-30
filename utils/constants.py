@@ -1,7 +1,7 @@
 import numpy as np
 
-EVAL_FREQ = 2 ** 10
-PATIENCE = 50_000
+EVAL_FREQ = 2 ** 17
+PATIENCE = 50
 
 STEP_SIZES = np.logspace(-5, 3, 9, base=2)
 OUTER_RATIOS = np.logspace(-2, 1, 7)

@@ -27,7 +27,7 @@ class Solver(BaseSolver):
     parameters = {
         'step_size': constants.STEP_SIZES,
         'outer_ratio': constants.OUTER_RATIOS,
-        'batch_size': ["full"]
+        'batch_size': constants.BATCH_SIZE
     }
 
     @staticmethod
@@ -66,7 +66,7 @@ class Solver(BaseSolver):
                 self.f_outer.n_samples, batch_size=self.batch_size
             )
             exponents = np.array(
-                [.4, .6]
+                [.5, .5]
             )
         step_sizes = np.array(
             [self.step_size, self.step_size / self.outer_ratio]
