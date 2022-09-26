@@ -92,8 +92,8 @@ class DataCleaningOracle(BaseOracle):
         prod = x @ theta
         weights = sc.expit(lbda)
         individual_losses = -prod[y == 1] + sc.logsumexp(prod, axis=1)
-        regul = np.dot(theta_flat, theta_flat)
-        return (individual_losses * weights).sum() / n_samples + self.reg * regul
+        regul = self.reg * np.dot(theta_flat, theta_flat)
+        return (individual_losses * weights).sum() / n_samples + regul
 
     def grad_inner_var(self, theta_flat, lmbda, idx):
         theta = theta_flat.reshape(self.n_features, self.n_classes)
@@ -183,7 +183,8 @@ class DataCleaningOracle(BaseOracle):
         def compute_hvp(v_flat):
             v = v_flat.reshape(n_features, n_classes)
             xv = x @ v
-            hvp = x.T @ (softmax_hvp(Y_proba, xv) * weights[:, None]) / n_samples
+            hvp = x.T @ (softmax_hvp(Y_proba, xv) * weights[:, None])
+            hvp /= n_samples
             return hvp.ravel() + 2 * self.reg * v_flat
 
         Hop = splinalg.LinearOperator(
