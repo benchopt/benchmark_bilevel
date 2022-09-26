@@ -89,4 +89,4 @@ class Dataset(BaseDataset):
             X_val=X_val,
             y_val=y_val
         )
-        return X_train.shape[1], data
+        return data

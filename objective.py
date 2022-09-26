@@ -17,6 +17,7 @@ class Objective(BaseObjective):
             ('classif', 'logreg', 'full', 'lin'),
             ('classif', 'logreg', 1, 'exp'),
             ('classif', 'logreg', 1, 'lin'),
+            ('classif', 'multilogreg', None, None),
             ('classif', 'ridge', 'full', 'exp'),
             ('classif', 'ridge', 'full', 'lin'),
             ('classif', 'ridge', 1, 'exp'),
@@ -35,6 +36,11 @@ class Objective(BaseObjective):
             elif model == 'logreg':
                 self.inner_oracle = oracles.LogisticRegressionOracle
                 self.outer_oracle = oracles.LogisticRegressionOracle
+            elif model == 'multilogreg':
+                self.get_inner_oracle = oracles.MultiLogRegOracle
+                self.get_outer_oracle = (
+                    lambda X, y: oracles.MultiLogRegOracle(X, y, reg='none')
+                )
             else:
                 raise ValueError(
                     f"model should be 'ridge' or 'logreg'. Got '{model}'."
@@ -48,7 +54,12 @@ class Objective(BaseObjective):
                 f"task should be 'classif' or 'datacleaning'. Got '{task}'"
             )
         self.task = task
+        self.model = model
         self.random_state = random_state
+
+    def get_one_solution(self):
+        inner_shape, outer_shape = self.f_train.variables_shape
+        return np.zeros(*inner_shape), np.zeros(*outer_shape)
 
     def set_data(self, X_train, y_train, X_test, y_test,
                  X_val=None, y_val=None):
@@ -87,7 +98,7 @@ class Objective(BaseObjective):
         if np.isnan(outer_var).any():
             raise ValueError
 
-        if self.task == 'classif':
+        if self.task == 'classif' and self.model == 'logreg':
             inner_star = self.f_train.get_inner_var_star(outer_var)
             value_function = self.f_test.get_value(inner_star, outer_var)
             inner_value = self.f_train.get_value(inner_var, outer_var)
@@ -116,7 +127,7 @@ class Objective(BaseObjective):
                 grad_inner=np.linalg.norm(grad_inner),
                 grad_star=np.linalg.norm(grad_star),
             )
-        elif self.task == 'datacleaning':
+        elif self.task == 'datacleaning' or self.model == 'multilogreg':
             acc = self.f_test.accuracy(
                 inner_var, outer_var, self.X_val, self.y_val
             )
