@@ -1,8 +1,4 @@
 import numpy as np
-from scipy import sparse
-from scipy.sparse.linalg import svds
-from sklearn.utils.multiclass import type_of_target
-from sklearn.utils.extmath import safe_sparse_dot
 from sklearn.preprocessing import OneHotEncoder
 
 from scipy.sparse import linalg as splinalg
@@ -159,7 +155,6 @@ class DataCleaningOracle(BaseOracle):
         theta = theta_flat.reshape(self.n_features, self.n_classes)
         v = v_flat.reshape(self.n_features, self.n_classes)
         x = self.X[idx]
-        y = self.y[idx]
         lbda = lmbda[idx]
         n_samples, n_features = x.shape
         Y_proba = sc.softmax(x @ theta, axis=1)
@@ -179,7 +174,6 @@ class DataCleaningOracle(BaseOracle):
         if approx != "cg":
             raise NotImplementedError
         x = self.X[idx]
-        y = self.y[idx]
         lbda = lmbda[idx]
         Y_proba = sc.softmax(x @ theta, axis=1)
         weights = sc.expit(lbda)
