@@ -2,12 +2,11 @@ from benchopt import BaseDataset
 
 from benchopt import safe_import_context
 
-
 with safe_import_context() as import_ctx:
-    import gzip
     import pickle
-    import numpy as np
     from urllib import request
+    import gzip
+    import numpy as np
     from sklearn.preprocessing import StandardScaler
     from sklearn.model_selection import train_test_split
 
@@ -18,6 +17,10 @@ class Dataset(BaseDataset):
 
     install_cmd = "conda"
     requirements = ["scikit-learn"]
+
+    parameters = {
+        'ratio': [0.5, 0.7, 0.9]
+    }
 
     def __init__(self, ratio=.7, random_state=32):
         # Store the parameters of the dataset
@@ -50,9 +53,8 @@ class Dataset(BaseDataset):
                     ).reshape(-1, 28 * 28)
             for name in filename[-2:]:
                 with gzip.open(name[1], "rb") as f:
-                    mnist[name[0]] = np.frombuffer(
-                        f.read(), np.uint8, offset=8
-                    )
+                    mnist[name[0]] = np.frombuffer(f.read(), np.uint8,
+                                                   offset=8)
             with open("mnist.pkl", "wb") as f:
                 pickle.dump(mnist, f)
             print("Save complete.")
@@ -67,10 +69,10 @@ class Dataset(BaseDataset):
         )
         n_train = 20000
         n_val = 5000
-        X_train, X_test, y_train, y_test = train_test_split(
-            X_train, y_train, test_size=n_val, train_size=n_train,
-            random_state=rng
-        )
+        X_train, X_test, y_train, y_test = train_test_split(X_train, y_train,
+                                                            test_size=n_val,
+                                                            train_size=n_train,
+                                                            random_state=rng)
 
         corrupted = rng.rand(n_train) < ratio
         y_train[corrupted] = rng.randint(0, 10, np.sum(corrupted))
@@ -81,12 +83,6 @@ class Dataset(BaseDataset):
         # pca = PCA(30, whiten=True)
         # X_train = pca.fit_transform(X_train)
         # X_test = pca.transform(X_test)
-        data = dict(
-            X_train=X_train,
-            y_train=y_train,
-            X_test=X_test,
-            y_test=y_test,
-            X_val=X_val,
-            y_val=y_val
-        )
+        data = dict(X_train=X_train, y_train=y_train, X_test=X_test,
+                    y_test=y_test, X_val=X_val, y_val=y_val)
         return data

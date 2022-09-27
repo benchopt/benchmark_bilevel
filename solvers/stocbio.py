@@ -6,7 +6,8 @@ from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
     import numpy as np
-    from numba import njit
+    from numba import njit, int64, float64
+    from numba.experimental import jitclass
     constants = import_ctx.import_from('constants')
     sgd_inner = import_ctx.import_from('sgd_inner', 'sgd_inner')
     shia = import_ctx.import_from('hessian_approximation', 'shia')
@@ -35,24 +36,50 @@ class Solver(BaseSolver):
         'outer_ratio': constants.OUTER_RATIOS,
         'n_inner_step': constants.N_INNER_STEPS,
         'batch_size': constants.BATCH_SIZES,
+        'n_shia_steps': constants.N_HIA_STEPS
     }
 
     @staticmethod
     def get_next(stop_val):
         return stop_val + 1
 
-    def set_objective(self, f_train, f_test, inner_var0, outer_var0):
-        self.f_inner = f_train
-        self.f_outer = f_test
+    def set_objective(self, f_train, f_test, inner_var0, outer_var0, numba):
+        if numba:
+            self.f_inner = f_train.numba_oracle
+            self.f_outer = f_test.numba_oracle
+            self.sgd_inner = njit(sgd_inner)
+            self.shia = njit(shia)
+
+            spec_minibatch_sampler = [
+                ('n_samples', int64),
+                ('batch_size', int64),
+                ('i_batch', int64),
+                ('n_batches', int64),
+                ('batch_order', int64[:]),
+            ]
+            self.MinibatchSampler = jitclass(MinibatchSampler,
+                                             spec_minibatch_sampler)
+
+            spec_scheduler = [
+                ('i_step', int64),
+                ('constants', float64[:]),
+                ('exponents', float64[:])
+            ]
+            self.LearningRateScheduler = jitclass(LearningRateScheduler,
+                                                  spec_scheduler)
+            self.stocbio = njit(stocbio(self.sgd_inner, self.shia))
+        else:
+            self.f_inner = f_train
+            self.f_outer = f_test
+            self.sgd_inner = sgd_inner
+            self.shia = shia
+            self.MinibatchSampler = MinibatchSampler
+            self.LearningRateScheduler = LearningRateScheduler
+            self.stocbio = stocbio(self.sgd_inner, self.shia)
+
         self.inner_var0 = inner_var0
         self.outer_var0 = outer_var0
-
-        if self.batch_size == 'all':
-            self.inner_batch_size = self.f_inner.n_samples
-            self.outer_batch_size = self.f_outer.n_samples
-        else:
-            self.inner_batch_size = self.batch_size
-            self.outer_batch_size = self.batch_size
+        self.numba = numba
 
     def run(self, callback):
         eval_freq = constants.EVAL_FREQ  # // self.batch_size
@@ -63,32 +90,32 @@ class Solver(BaseSolver):
         inner_var = self.inner_var0.copy()
 
         # Init sampler and lr
-        inner_sampler = MinibatchSampler(
-            self.f_inner.n_samples, self.inner_batch_size
+        inner_sampler = self.MinibatchSampler(
+            self.f_inner.n_samples, self.batch_size
         )
-        outer_sampler = MinibatchSampler(
-            self.f_outer.n_samples, self.outer_batch_size
+        outer_sampler = self.MinibatchSampler(
+            self.f_outer.n_samples, self.batch_size
         )
         step_sizes = np.array(
             [self.step_size, self.step_size, self.step_size / self.outer_ratio]
         )
         exponents = np.zeros(3)
-        lr_scheduler = LearningRateScheduler(
+        lr_scheduler = self.LearningRateScheduler(
             np.array(step_sizes, dtype=float), exponents
         )
 
         # Start algorithm
         inner_var = sgd_inner(
-            self.f_inner.numba_oracle, inner_var, outer_var,
+            self.f_inner, inner_var, outer_var,
             step_size=self.step_size,
             inner_sampler=inner_sampler, n_inner_step=self.n_inner_step
         )
         while callback((inner_var, outer_var)):
-            inner_var, outer_var = stocbio(
-                self.f_inner.numba_oracle, self.f_outer.numba_oracle,
+            inner_var, outer_var = self.stocbio(
+                self.f_inner, self.f_outer,
                 inner_var, outer_var, eval_freq, lr_scheduler,
-                self.n_inner_step, n_shia_step=self.n_inner_step,
-                inner_sampler=inner_sampler, outer_sampler=outer_sampler,
+                self.n_inner_step, self.n_shia_steps,
+                inner_sampler, outer_sampler,
                 seed=rng.randint(constants.MAX_SEED)
             )
 
@@ -101,10 +128,9 @@ class Solver(BaseSolver):
         pass
 
 
-@njit
-def stocbio(inner_oracle, outer_oracle, inner_var, outer_var,
-            max_iter, lr_scheduler, n_inner_step, n_shia_step,
-            inner_sampler, outer_sampler, seed=None):
+def _stocbio(sgd_inner, shia, inner_oracle, outer_oracle, inner_var, outer_var,
+             max_iter, lr_scheduler, n_inner_step, n_shia_step,
+             inner_sampler, outer_sampler, seed=None):
     """Numba compatible stocBiO algorithm.
 
     Parameters
@@ -160,3 +186,9 @@ def stocbio(inner_oracle, outer_oracle, inner_var, outer_var,
             inner_sampler=inner_sampler, n_inner_step=n_inner_step
         )
     return inner_var, outer_var
+
+
+def stocbio(sgd_inner, shia):
+    def f(*args, **kwargs):
+        return _stocbio(sgd_inner, shia, *args, **kwargs)
+    return f

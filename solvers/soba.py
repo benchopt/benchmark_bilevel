@@ -5,7 +5,8 @@ from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
     import numpy as np
-    from numba import njit
+    from numba import njit, int64, float64
+    from numba.experimental import jitclass
     MinibatchSampler = import_ctx.import_from(
         'minibatch_sampler', 'MinibatchSampler'
     )
@@ -34,11 +35,37 @@ class Solver(BaseSolver):
     def get_next(stop_val):
         return stop_val + 1
 
-    def set_objective(self, f_train, f_test, inner_var0, outer_var0):
-        self.f_inner = f_train
-        self.f_outer = f_test
+    def set_objective(self, f_train, f_test, inner_var0, outer_var0, numba):
+        if numba:
+            self.f_inner = f_train.numba_oracle
+            self.f_outer = f_test.numba_oracle
+            spec_minibatch_sampler = [
+                ('n_samples', int64),
+                ('batch_size', int64),
+                ('i_batch', int64),
+                ('n_batches', int64),
+                ('batch_order', int64[:]),
+            ]
+            self.MinibatchSampler = jitclass(MinibatchSampler,
+                                             spec_minibatch_sampler)
+
+            spec_scheduler = [
+                ('i_step', int64),
+                ('constants', float64[:]),
+                ('exponents', float64[:])
+            ]
+            self.LearningRateScheduler = jitclass(LearningRateScheduler,
+                                                  spec_scheduler)
+            self.soba = njit(soba)
+        else:
+            self.f_inner = f_train
+            self.f_outer = f_test
+            self.soba = soba
+            self.MinibatchSampler = MinibatchSampler
+            self.LearningRateScheduler = LearningRateScheduler
         self.inner_var0 = inner_var0
         self.outer_var0 = outer_var0
+        self.numba = numba
 
     def run(self, callback):
         eval_freq = constants.EVAL_FREQ  # // self.batch_size
@@ -50,26 +77,26 @@ class Solver(BaseSolver):
         v = np.zeros_like(inner_var)
 
         # Init sampler and lr scheduler
-        inner_sampler = MinibatchSampler(
+        inner_sampler = self.MinibatchSampler(
             self.f_inner.n_samples, batch_size=self.batch_size
         )
-        outer_sampler = MinibatchSampler(
+        outer_sampler = self.MinibatchSampler(
             self.f_outer.n_samples, batch_size=self.batch_size
         )
         step_sizes = np.array(
             [self.step_size, self.step_size / self.outer_ratio]
         )
         exponents = np.array(
-            [.4, .6]
+            [.5, .5]
         )
-        lr_scheduler = LearningRateScheduler(
+        lr_scheduler = self.LearningRateScheduler(
             np.array(step_sizes, dtype=float), exponents
         )
 
         # Start algorithm
         while callback((inner_var, outer_var)):
             inner_var, outer_var, v = soba(
-                self.f_inner.numba_oracle, self.f_outer.numba_oracle,
+                self.f_inner, self.f_outer,
                 inner_var, outer_var, v, eval_freq,
                 inner_sampler, outer_sampler, lr_scheduler,
                 seed=rng.randint(constants.MAX_SEED)
@@ -82,7 +109,6 @@ class Solver(BaseSolver):
         return self.beta
 
 
-@njit
 def soba(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
          inner_sampler, outer_sampler, lr_scheduler, seed=None):
 

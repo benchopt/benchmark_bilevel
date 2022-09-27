@@ -33,22 +33,27 @@ class Objective(BaseObjective):
             if model == 'ridge':
                 self.inner_oracle = oracles.RidgeRegressionOracle
                 self.outer_oracle = oracles.RidgeRegressionOracle
+                self.numba = True
             elif model == 'logreg':
                 self.inner_oracle = oracles.LogisticRegressionOracle
                 self.outer_oracle = oracles.LogisticRegressionOracle
+                self.numba = True
             elif model == 'multilogreg':
                 self.get_inner_oracle = oracles.MultiLogRegOracle
                 self.get_outer_oracle = (
                     lambda X, y: oracles.MultiLogRegOracle(X, y, reg='none')
                 )
+                self.numba = False
             else:
                 raise ValueError(
-                    f"model should be 'ridge' or 'logreg'. Got '{model}'."
+                    f"model should be 'ridge', 'logreg' or 'multilogreg'. \
+                    Got '{model}'."
                 )
         elif task == 'datacleaning':
             self.reg = 2e-1
             self.inner_oracle = oracles.DataCleaningOracle
             self.outer_oracle = oracles.MultinomialLogRegOracle
+            self.numba = False
         else:
             raise ValueError(
                 f"task should be 'classif' or 'datacleaning'. Got '{task}'"
@@ -68,7 +73,7 @@ class Objective(BaseObjective):
         )
         if self.task == 'datacleaning':
             self.f_test = self.outer_oracle(
-                X_test, y_test, reg=0.
+                X_test, y_test
             )
             self.X_val, self.y_val = X_val, y_val
         else:
@@ -140,5 +145,6 @@ class Objective(BaseObjective):
             f_train=self.f_train,
             f_test=self.f_test,
             inner_var0=self.inner_var0,
-            outer_var0=self.outer_var0
+            outer_var0=self.outer_var0,
+            numba=self.numba
         )
