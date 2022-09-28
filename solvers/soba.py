@@ -28,7 +28,7 @@ class Solver(BaseSolver):
     parameters = {
         'step_size': constants.STEP_SIZES,
         'outer_ratio': constants.OUTER_RATIOS,
-        'batch_size': constants.BATCH_SIZES
+        'batch_size': constants.BATCH_SIZES + ['full']
     }
 
     @staticmethod
