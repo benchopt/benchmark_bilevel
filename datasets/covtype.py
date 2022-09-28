@@ -17,18 +17,13 @@ class Dataset(BaseDataset):
     install_cmd = "conda"
     requirements = ["scikit-learn"]
 
-    parameters = {
-        'ratio': [0.5, 0.7, 0.9]
-    }
-
-    def __init__(self, ratio=.7, random_state=32):
+    def __init__(self, random_state=32):
         # Store the parameters of the dataset
         self.random_state = random_state
         self.ratio = ratio
 
     def get_data(self):
         rng = np.random.RandomState(self.random_state)
-        ratio = self.ratio
         X, y = fetch_covtype(return_X_y=True, download_if_missing=True)
         y -= 1
 
@@ -39,9 +34,6 @@ class Dataset(BaseDataset):
         X_train, X_test, y_train, y_test = train_test_split(X_train, y_train,
                                                             test_size=.2,
                                                             random_state=rng)
-        n_train = y_train.shape[0]
-        corrupted = rng.rand(n_train) < ratio
-        y_train[corrupted] = rng.randint(0, 7, np.sum(corrupted))
         scaler = StandardScaler()
         X_train = scaler.fit_transform(X_train)
         X_test = scaler.transform(X_test)
