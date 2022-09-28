@@ -28,8 +28,6 @@ class MinibatchSampler():
 
         # Batch size
         self.n_samples = n_samples
-        if batch_size == "full":
-            batch_size = n_samples
         self.batch_size = batch_size
 
         # Internal batch information
