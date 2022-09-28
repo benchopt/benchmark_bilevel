@@ -48,7 +48,6 @@ class Solver(BaseSolver):
             ]
             self.MinibatchSampler = jitclass(MinibatchSampler,
                                              spec_minibatch_sampler)
-            # self.MinibatchSampler = MinibatchSampler
 
             spec_scheduler = [
                 ('i_step', int64),
@@ -58,8 +57,7 @@ class Solver(BaseSolver):
             self.LearningRateScheduler = jitclass(LearningRateScheduler,
                                                   spec_scheduler)
 
-            # self.soba = njit(soba)
-            self.soba = soba
+            self.soba = njit(soba)
         else:
             self.f_inner = f_train
             self.f_outer = f_test
@@ -92,7 +90,6 @@ class Solver(BaseSolver):
         outer_sampler = self.MinibatchSampler(
             self.f_outer.n_samples, batch_size=batch_size_outer
         )
-        import ipdb; ipdb.set_trace()
         step_sizes = np.array(
             [self.step_size, self.step_size / self.outer_ratio]
         )
@@ -104,7 +101,7 @@ class Solver(BaseSolver):
         )
         # Start algorithm
         while callback((inner_var, outer_var)):
-            inner_var, outer_var, v = soba(
+            inner_var, outer_var, v = self.soba(
                 self.f_inner, self.f_outer,
                 inner_var, outer_var, v, eval_freq,
                 inner_sampler, outer_sampler, lr_scheduler,
@@ -130,7 +127,7 @@ def soba(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
         # Step.1 - get all gradients and compute the implicit gradient.
         slice_inner, _ = inner_sampler.get_batch()
         _, grad_inner_var, hvp, cross_v = inner_oracle.oracles(
-            inner_var, outer_var, v, slice_inner
+            inner_var, outer_var, v, slice_inner, inverse='id'
         )
 
         slice_outer, _ = outer_sampler.get_batch()
