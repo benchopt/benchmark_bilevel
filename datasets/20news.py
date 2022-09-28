@@ -33,4 +33,4 @@ class Dataset(BaseDataset):
             X_train=X_train, y_train=2 * y_train - 1,
             X_test=X_test, y_test=2 * y_test - 1
         )
-        return X.shape[1], data
+        return data

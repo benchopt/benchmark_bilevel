@@ -47,4 +47,4 @@ class Dataset(BaseDataset):
             X_test=X_test, y_test=y_test
         )
 
-        return self.n_features, data
+        return data
