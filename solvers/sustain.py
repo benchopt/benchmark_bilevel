@@ -61,10 +61,21 @@ class Solver(BaseSolver):
             ]
             self.LearningRateScheduler = jitclass(LearningRateScheduler,
                                                   spec_scheduler)
-            self.sustain = njit(sustain(njit(joint_hia)))
+
+            def sustain(joint_hia):
+                def f(*args, **kwargs):
+                    return njit(_sustain)(joint_hia, *args, **kwargs)
+                return f
+            self.sustain = sustain(njit(joint_hia))
         else:
             self.f_inner = f_train
             self.f_outer = f_test
+
+            def sustain(joint_hia):
+                def f(*args, **kwargs):
+                    return _sustain(joint_hia, *args, **kwargs)
+                return f
+
             self.sustain = sustain(joint_hia)
             self.MinibatchSampler = MinibatchSampler
             self.LearningRateScheduler = LearningRateScheduler
@@ -83,11 +94,17 @@ class Solver(BaseSolver):
         memory_outer = np.zeros((2, *outer_var.shape), outer_var.dtype)
 
         # Init sampler and lr scheduler
+        if self.batch_size == 'full':
+            batch_size_inner = self.f_inner.n_samples
+            batch_size_outer = self.f_outer.n_samples
+        else:
+            batch_size_inner = self.batch_size
+            batch_size_outer = self.batch_size
         inner_sampler = self.MinibatchSampler(
-            self.f_inner.n_samples, batch_size=self.batch_size
+            self.f_inner.n_samples, batch_size=batch_size_inner
         )
         outer_sampler = self.MinibatchSampler(
-            self.f_outer.n_samples, batch_size=self.batch_size
+            self.f_outer.n_samples, batch_size=batch_size_outer
         )
         step_sizes = np.array(  # (inner_ss, hia_lr, eta, outer_ss)
             [
@@ -175,9 +192,3 @@ def _sustain(joint_hia, inner_oracle, outer_oracle, inner_var, outer_var,
         # Step.6 - project back to the constraint set
         inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)
     return inner_var, outer_var, memory_inner, memory_outer
-
-
-def sustain(joint_hia):
-    def f(*args, **kwargs):
-        return _sustain(joint_hia, *args, **kwargs)
-    return f

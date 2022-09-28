@@ -59,10 +59,20 @@ class Solver(BaseSolver):
             ]
             self.LearningRateScheduler = jitclass(LearningRateScheduler,
                                                   spec_scheduler)
-            self.saba = njit(saba(njit(variance_reduction)))
+
+            def saba(variance_reduction):
+                def f(*args, **kwargs):
+                    return njit(_saba)(variance_reduction, *args, **kwargs)
+                return f
+            self.saba = saba(njit(variance_reduction))
         else:
             self.f_inner = f_train
             self.f_outer = f_test
+
+            def saba(variance_reduction):
+                def f(*args, **kwargs):
+                    return _saba(variance_reduction, *args, **kwargs)
+                return f
             self.saba = saba(variance_reduction)
             self.init_memory = _init_memory
             self.MinibatchSampler = MinibatchSampler
@@ -81,11 +91,17 @@ class Solver(BaseSolver):
         v = np.zeros_like(inner_var)
 
         # Init sampler and lr scheduler
+        if self.batch_size == 'full':
+            batch_size_inner = self.f_inner.n_samples
+            batch_size_outer = self.f_outer.n_samples
+        else:
+            batch_size_inner = self.batch_size
+            batch_size_outer = self.batch_size
         inner_sampler = self.MinibatchSampler(
-            self.f_inner.n_samples, batch_size=self.batch_size
+            self.f_inner.n_samples, batch_size=batch_size_inner
         )
         outer_sampler = self.MinibatchSampler(
-            self.f_outer.n_samples, batch_size=self.batch_size
+            self.f_outer.n_samples, batch_size=batch_size_outer
         )
         step_sizes = np.array(
             [self.step_size, self.step_size / self.outer_ratio]
@@ -220,9 +236,3 @@ def _saba(variance_reduction, inner_oracle, outer_oracle, inner_var, outer_var,
 
         inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)
     return inner_var, outer_var, v
-
-
-def saba(variance_reduction):
-    def f(*args, **kwargs):
-        return _saba(variance_reduction, *args, **kwargs)
-    return f

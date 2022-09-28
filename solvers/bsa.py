@@ -64,7 +64,12 @@ class Solver(BaseSolver):
             ]
             self.LearningRateScheduler = jitclass(LearningRateScheduler,
                                                   spec_scheduler)
-            self.bsa = njit(bsa(self.sgd_inner, self.hia))
+
+            def bsa(sgd_inner, hia):
+                def f(*args, **kwargs):
+                    return njit(_bsa)(sgd_inner, hia, *args, **kwargs)
+                return f
+            self.bsa = bsa(self.sgd_inner, self.hia)
         else:
             self.f_inner = f_train
             self.f_outer = f_test
@@ -72,6 +77,11 @@ class Solver(BaseSolver):
             self.hia = hia
             self.MinibatchSampler = MinibatchSampler
             self.LearningRateScheduler = LearningRateScheduler
+
+            def bsa(sgd_inner, hia):
+                def f(*args, **kwargs):
+                    return _bsa(sgd_inner, hia, *args, **kwargs)
+                return f
             self.bsa = bsa(self.sgd_inner, self.hia)
 
         self.inner_var0 = inner_var0
@@ -86,12 +96,18 @@ class Solver(BaseSolver):
         outer_var = self.outer_var0.copy()
         inner_var = self.inner_var0.copy()
 
-        # Init sampler and lr
+        # Init sampler and lr scheduler
+        if self.batch_size == 'full':
+            batch_size_inner = self.f_inner.n_samples
+            batch_size_outer = self.f_outer.n_samples
+        else:
+            batch_size_inner = self.batch_size
+            batch_size_outer = self.batch_size
         inner_sampler = self.MinibatchSampler(
-            self.f_inner.n_samples, self.inner_batch_size
+            self.f_inner.n_samples, batch_size=batch_size_inner
         )
         outer_sampler = self.MinibatchSampler(
-            self.f_outer.n_samples, self.outer_batch_size
+            self.f_outer.n_samples, batch_size=batch_size_outer
         )
         step_sizes = np.array(
             [self.step_size, self.step_size, self.step_size / self.outer_ratio]
@@ -103,13 +119,13 @@ class Solver(BaseSolver):
 
         # Start algorithm
         callback((inner_var, outer_var))
-        inner_var = sgd_inner(
+        inner_var = self.sgd_inner(
             self.f_inner, inner_var, outer_var,
             step_size=self.step_size, inner_sampler=inner_sampler,
             n_inner_step=self.n_inner_step
         )
         while callback((inner_var, outer_var)):
-            inner_var, outer_var = bsa(
+            inner_var, outer_var = self.bsa(
                 self.f_inner, self.f_outer,
                 inner_var, outer_var, eval_freq, lr_scheduler,
                 self.n_inner_step, n_hia_step=self.n_hia_step,
@@ -182,9 +198,3 @@ def _bsa(sgd_inner, hia, inner_oracle, outer_oracle, inner_var, outer_var,
             inner_sampler=inner_sampler, n_inner_step=n_inner_step
         )
     return inner_var, outer_var
-
-
-def bsa(sgd_inner, hia):
-    def f(*args, **kwargs):
-        return _bsa(sgd_inner, hia, *args, **kwargs)
-    return f

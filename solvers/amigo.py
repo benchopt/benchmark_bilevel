@@ -63,7 +63,12 @@ class Solver(BaseSolver):
             ]
             self.LearningRateScheduler = jitclass(LearningRateScheduler,
                                                   spec_scheduler)
-            self.amigo = njit(amigo(self.sgd_inner, self.sgd_v))
+
+            def amigo(sgd_inner, sgd_v):
+                def f(*args, seed=None):
+                    return njit(_amigo)(sgd_inner, sgd_v, *args, seed=seed)
+                return f
+            self.amigo = amigo(self.sgd_inner, self.sgd_v)
         else:
             self.f_inner = f_train
             self.f_outer = f_test
@@ -71,6 +76,11 @@ class Solver(BaseSolver):
             self.sgd_v = sgd_v
             self.MinibatchSampler = MinibatchSampler
             self.LearningRateScheduler = LearningRateScheduler
+
+            def amigo(sgd_inner, sgd_v):
+                def f(*args, seed=None):
+                    return _amigo(sgd_inner, sgd_v, *args, seed=seed)
+                return f
             self.amigo = amigo(self.sgd_inner, self.sgd_v)
 
         self.inner_var0 = inner_var0
@@ -87,22 +97,28 @@ class Solver(BaseSolver):
         v = self.f_outer.grad_inner_var(inner_var, outer_var, np.array([0]))
 
         # Init sampler and lr scheduler
-        inner_sampler = MinibatchSampler(
-            self.f_inner.n_samples, batch_size=self.batch_size
+        if self.batch_size == 'full':
+            batch_size_inner = self.f_inner.n_samples
+            batch_size_outer = self.f_outer.n_samples
+        else:
+            batch_size_inner = self.batch_size
+            batch_size_outer = self.batch_size
+        inner_sampler = self.MinibatchSampler(
+            self.f_inner.n_samples, batch_size=batch_size_inner
         )
-        outer_sampler = MinibatchSampler(
-            self.f_outer.n_samples, batch_size=self.batch_size
+        outer_sampler = self.MinibatchSampler(
+            self.f_outer.n_samples, batch_size=batch_size_outer
         )
         step_sizes = np.array(
             [self.step_size, self.step_size, self.step_size / self.outer_ratio]
         )
         exponents = np.zeros(3)
-        lr_scheduler = LearningRateScheduler(
+        lr_scheduler = self.LearningRateScheduler(
             np.array(step_sizes, dtype=float), exponents
         )
 
         # Start algorithm
-        inner_var = sgd_inner(
+        inner_var = self.sgd_inner(
             self.f_inner, inner_var, outer_var, self.step_size,
             inner_sampler=inner_sampler, n_inner_step=self.n_inner_step,
         )
@@ -153,9 +169,3 @@ def _amigo(sgd_inner, sgd_v, inner_oracle, outer_oracle, inner_var, outer_var,
             inner_sampler=inner_sampler, n_inner_step=n_inner_step
         )
     return inner_var, outer_var, v
-
-
-def amigo(sgd_inner, sgd_v):
-    def f(*args, **kwargs):
-        return _amigo(sgd_inner, sgd_v, *args, **kwargs)
-    return f

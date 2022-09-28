@@ -59,10 +59,20 @@ class Solver(BaseSolver):
             ]
             self.LearningRateScheduler = jitclass(LearningRateScheduler,
                                                   spec_scheduler)
-            self.mrbo = njit(mrbo(njit(joint_shia)))
+
+            def mrbo(variance_reduction):
+                def f(*args, **kwargs):
+                    return njit(_mrbo)(variance_reduction, *args, **kwargs)
+                return f
+            self.mrbo = mrbo(njit(joint_shia))
         else:
             self.f_inner = f_train
             self.f_outer = f_test
+
+            def mrbo(variance_reduction):
+                def f(*args, **kwargs):
+                    return njit(_mrbo(variance_reduction, *args, **kwargs))
+                return f
             self.mrbo = mrbo(joint_shia)
             self.MinibatchSampler = MinibatchSampler
             self.LearningRateScheduler = LearningRateScheduler
@@ -81,11 +91,17 @@ class Solver(BaseSolver):
         memory_outer = np.zeros((2, *outer_var.shape), outer_var.dtype)
 
         # Init sampler and lr scheduler
+        if self.batch_size == 'full':
+            batch_size_inner = self.f_inner.n_samples
+            batch_size_outer = self.f_outer.n_samples
+        else:
+            batch_size_inner = self.batch_size
+            batch_size_outer = self.batch_size
         inner_sampler = self.MinibatchSampler(
-            self.f_inner.n_samples, batch_size=self.batch_size
+            self.f_inner.n_samples, batch_size=batch_size_inner
         )
         outer_sampler = self.MinibatchSampler(
-            self.f_outer.n_samples, batch_size=self.batch_size
+            self.f_outer.n_samples, batch_size=batch_size_outer
         )
         step_sizes = np.array(  # (inner_ss, hia_lr, eta, outer_ss)
             [
@@ -175,9 +191,3 @@ def _mrbo(joint_shia, inner_oracle, outer_oracle, inner_var, outer_var,
         # Step.6 - project back to the constraint set
         inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)
     return inner_var, outer_var, memory_inner, memory_outer
-
-
-def mrbo(joint_shia):
-    def f(*args, **kwargs):
-        return _mrbo(joint_shia, *args, **kwargs)
-    return f

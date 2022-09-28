@@ -79,11 +79,17 @@ class Solver(BaseSolver):
         memory_outer = np.zeros((2, *outer_var.shape))
 
         # Init sampler and lr scheduler
+        if self.batch_size == 'full':
+            batch_size_inner = self.f_inner.n_samples
+            batch_size_outer = self.f_outer.n_samples
+        else:
+            batch_size_inner = self.batch_size
+            batch_size_outer = self.batch_size
         inner_sampler = self.MinibatchSampler(
-            self.f_inner.n_samples, batch_size=self.batch_size
+            self.f_inner.n_samples, batch_size=batch_size_inner
         )
         outer_sampler = self.MinibatchSampler(
-            self.f_outer.n_samples, batch_size=self.batch_size
+            self.f_outer.n_samples, batch_size=batch_size_outer
         )
         step_sizes = np.array(
             [self.step_size, self.step_size, self.step_size / self.outer_ratio]
