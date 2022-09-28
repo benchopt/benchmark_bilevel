@@ -20,7 +20,6 @@ class Dataset(BaseDataset):
     def __init__(self, random_state=32):
         # Store the parameters of the dataset
         self.random_state = random_state
-        self.ratio = ratio
 
     def get_data(self):
         rng = np.random.RandomState(self.random_state)
