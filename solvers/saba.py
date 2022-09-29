@@ -21,15 +21,15 @@ class Solver(BaseSolver):
     name = 'SABA'
 
     stopping_criterion = SufficientProgressCriterion(
-        patience=100, strategy='callback'
+        patience=constants.PATIENCE, strategy='callback'
     )
 
     # any parameter defined here is accessible as a class attribute
     parameters = {
-        'step_size': constants.STEP_SIZES,
-        'outer_ratio': constants.OUTER_RATIOS,
-        'batch_size': constants.BATCH_SIZES,
-        'vr': ['saga']
+        'step_size': [.1],
+        'outer_ratio': [1.],
+        'batch_size': [64],
+        'eval_freq': [1],
     }
 
     @staticmethod
@@ -82,7 +82,7 @@ class Solver(BaseSolver):
         self.numba = numba
 
     def run(self, callback):
-        eval_freq = constants.EVAL_FREQ  # // self.batch_size
+        eval_freq = self.eval_freq  # // self.batch_size
         rng = np.random.RandomState(constants.RANDOM_STATE)
 
         # Init variables
@@ -112,22 +112,11 @@ class Solver(BaseSolver):
         )
 
         # Init memory if needed
-        use_saga = self.vr == 'saga'
-        if use_saga:
-            memory_inner_grad, memory_hvp, memory_cross_v, \
-                memory_grad_in_outer = self.init_memory(
-                    self.f_inner, self.f_outer,
-                    inner_var, outer_var, v, inner_sampler, outer_sampler
-                )
-
-        else:
-            # To be compatible with numba compilation, memories need to always
-            # be of type Array(ndim=2)
-            memory_inner_grad, memory_hvp, memory_cross_v, \
-                memory_grad_in_outer = (
-                    np.empty((1, 1)), np.empty((1, 1)), np.empty((1, 1)),
-                    np.empty((1, 1))
-                )
+        memory_inner_grad, memory_hvp, memory_cross_v, \
+            memory_grad_in_outer = self.init_memory(
+                self.f_inner, self.f_outer,
+                inner_var, outer_var, v, inner_sampler, outer_sampler
+            )
 
         # Start algorithm
         while callback((inner_var, outer_var)):
@@ -136,7 +125,6 @@ class Solver(BaseSolver):
                 inner_var, outer_var, v, eval_freq,
                 inner_sampler, outer_sampler, lr_scheduler, memory_inner_grad,
                 memory_hvp, memory_cross_v, memory_grad_in_outer,
-                saga_inner=use_saga, saga_v=use_saga, saga_x=use_saga,
                 seed=rng.randint(constants.MAX_SEED)
             )
             if np.isnan(outer_var).any():
@@ -190,7 +178,7 @@ def variance_reduction(grad, memory, vr_info):
 def _saba(variance_reduction, inner_oracle, outer_oracle, inner_var, outer_var,
           v, max_iter, inner_sampler, outer_sampler, lr_scheduler,
           memory_inner_grad, memory_hvp, memory_cross_v, memory_grad_in_outer,
-          saga_inner=True, saga_v=True, saga_x=True, seed=None):
+          seed=None):
 
     # Set seed for randomness
     np.random.seed(seed)
@@ -211,25 +199,23 @@ def _saba(variance_reduction, inner_oracle, outer_oracle, inner_var, outer_var,
 
         # here memory_*[-1] corresponds to the running average of
         # the gradients
-        if saga_inner:
-            grad_inner_var = variance_reduction(
-                grad_inner_var, memory_inner_grad, vr_inner
-            )
+
+        grad_inner_var = variance_reduction(
+            grad_inner_var, memory_inner_grad, vr_inner
+        )
         # import ipdb; ipdb.set_trace()
         inner_var -= inner_step_size * grad_inner_var
 
-        if saga_v:
-            hvp = variance_reduction(hvp, memory_hvp, vr_inner)
-            grad_in_outer = variance_reduction(
-                grad_in_outer, memory_grad_in_outer, vr_outer
-            )
+        hvp = variance_reduction(hvp, memory_hvp, vr_inner)
+        grad_in_outer = variance_reduction(
+            grad_in_outer, memory_grad_in_outer, vr_outer
+        )
 
         v -= inner_step_size * (hvp - grad_in_outer)
 
-        if saga_x:
-            cross_v = variance_reduction(
-                cross_v, memory_cross_v, vr_inner
-            )
+        cross_v = variance_reduction(
+            cross_v, memory_cross_v, vr_inner
+        )
         impl_grad -= cross_v
 
         outer_var -= outer_step_size * impl_grad

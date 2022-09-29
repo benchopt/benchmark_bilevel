@@ -14,14 +14,7 @@ class Objective(BaseObjective):
         'task, model, n_reg, reg': [
             ('datacleaning', None, None, None),
             ('classif', 'logreg', 'full', 'exp'),
-            ('classif', 'logreg', 'full', 'lin'),
-            ('classif', 'logreg', 1, 'exp'),
-            ('classif', 'logreg', 1, 'lin'),
             ('classif', 'multilogreg', None, None),
-            ('classif', 'ridge', 'full', 'exp'),
-            ('classif', 'ridge', 'full', 'lin'),
-            ('classif', 'ridge', 1, 'exp'),
-            ('classif', 'ridge', 1, 'lin'),
         ],
     }
 

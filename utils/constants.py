@@ -1,20 +1,6 @@
 import numpy as np
 
-EVAL_FREQ = 2 ** 5
 PATIENCE = 12_800
-
-STEP_SIZES = [10**-1.5]
-OUTER_RATIOS = [10**-4]
-# STEP_SIZES = np.logspace(-5, 3, 9, base=2)
-# OUTER_RATIOS = np.logspace(-2, 1, 7)
-BATCH_SIZES = [64]
-
-# Number of inner loop steps
-N_INNER_STEPS = [10]
-N_HIA_STEPS = [10]
-
-# STORM momentum parameter
-ETA = [0.5]
 
 # Get a random seed
 MAX_SEED = 2 ** 32 - 1

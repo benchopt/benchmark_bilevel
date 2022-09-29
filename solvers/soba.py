@@ -26,9 +26,10 @@ class Solver(BaseSolver):
 
     # any parameter defined here is accessible as a class attribute
     parameters = {
-        'step_size': constants.STEP_SIZES,
-        'outer_ratio': constants.OUTER_RATIOS,
-        'batch_size': constants.BATCH_SIZES + ['full']
+        'step_size': [.1],
+        'outer_ratio': [1.],
+        'batch_size': [64],
+        'eval_freq': [1],
     }
 
     @staticmethod
@@ -69,7 +70,7 @@ class Solver(BaseSolver):
         self.numba = numba
 
     def run(self, callback):
-        eval_freq = constants.EVAL_FREQ  # // self.batch_size
+        eval_freq = self.eval_freq  # // self.batch_size
         rng = np.random.RandomState(constants.RANDOM_STATE)
 
         # Init variables
