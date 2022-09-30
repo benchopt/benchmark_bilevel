@@ -112,8 +112,6 @@ class Solver(BaseSolver):
             np.array(step_sizes, dtype=float), exponents
         )
 
-        # Start algorithm
-        eval_freq = constants.EVAL_FREQ
         while callback((inner_var, outer_var)):
             inner_var, outer_var, = self.ttsa(
                 self.f_inner, self.f_outer,

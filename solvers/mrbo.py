@@ -82,7 +82,7 @@ class Solver(BaseSolver):
         self.numba = numba
 
     def run(self, callback):
-        eval_freq = self.eval_freq  # // self.batch_size
+        eval_freq = self.eval_freq
         rng = np.random.RandomState(constants.RANDOM_STATE)
 
         # Init variables
@@ -117,7 +117,6 @@ class Solver(BaseSolver):
             np.array(step_sizes, dtype=float), exponents
         )
 
-        eval_freq = constants.EVAL_FREQ
         # Start algorithm
         while callback((inner_var, outer_var)):
             inner_var, outer_var, memory_inner, memory_outer = self.mrbo(
