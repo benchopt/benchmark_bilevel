@@ -99,9 +99,31 @@ class Objective(BaseObjective):
         if self.task == 'classif' and self.model == 'logreg':
             inner_star = self.f_train.get_inner_var_star(outer_var)
             value_function = self.f_test.get_value(inner_star, outer_var)
+            inner_value = self.f_train.get_value(inner_var, outer_var)
+            outer_value = self.f_test.get_value(inner_var, outer_var)
+            d_inner = np.linalg.norm(inner_var - inner_star)
+            d_value = outer_value - value_function
+            grad_f_test_inner, grad_f_test_outer = self.f_test.get_grad(
+                inner_star, outer_var
+            )
+            grad_value = grad_f_test_outer
+            v = self.f_train.get_inverse_hvp(
+                inner_star, outer_var,
+                grad_f_test_inner
+            )
+            grad_value -= self.f_train.get_cross(inner_star, outer_var, v)
+            grad_inner = self.f_train.get_grad_inner_var(inner_var, outer_var)
+            grad_star = self.f_train.get_grad_inner_var(inner_star, outer_var)
 
             return dict(
                 value_func=value_function,
+                inner_value=inner_value,
+                outer_value=outer_value,
+                d_inner=d_inner,
+                d_value=d_value,
+                value=np.linalg.norm(grad_value)**2,
+                grad_inner=np.linalg.norm(grad_inner),
+                grad_star=np.linalg.norm(grad_star),
             )
         elif self.task == 'datacleaning' or self.model == 'multilogreg':
             acc = self.f_test.accuracy(
