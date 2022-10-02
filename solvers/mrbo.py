@@ -72,7 +72,7 @@ class Solver(BaseSolver):
 
             def mrbo(variance_reduction):
                 def f(*args, **kwargs):
-                    return njit(_mrbo(variance_reduction, *args, **kwargs))
+                    return _mrbo(variance_reduction, *args, **kwargs)
                 return f
             self.mrbo = mrbo(joint_shia)
             self.MinibatchSampler = MinibatchSampler

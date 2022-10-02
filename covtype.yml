@@ -1,5 +1,5 @@
 objective:
-  - Bilevel Optimization[model=None,n_reg=full,reg=exp,task=classif]
+  - Bilevel Optimization[model=multilogreg,n_reg=full,reg=exp,task=classif]
 dataset:
   - covtype
 solver:
@@ -636,3 +636,4 @@ solver:
 n-repetitions: 10
 max-runs: 64000
 timeout: 3000
+output: covtype
