@@ -40,7 +40,12 @@ class Solver(BaseSolver):
         if numba:
             self.f_inner = f_train.numba_oracle
             self.f_outer = f_test.numba_oracle
-            self.init_memory = njit(_init_memory)
+
+            def init_memory(init_memory_fb):
+                def f(*args, **kwargs):
+                    return njit(_init_memory)(init_memory_fb, *args, **kwargs)
+                return f
+            self.init_memory = init_memory(njit(_init_memory_fb))
 
             spec_minibatch_sampler = [
                 ('n_samples', int64),
@@ -69,12 +74,17 @@ class Solver(BaseSolver):
             self.f_inner = f_train
             self.f_outer = f_test
 
+            def init_memory(init_memory_fb):
+                def f(*args, **kwargs):
+                    return _init_memory(init_memory_fb, *args, **kwargs)
+                return f
+
             def saba(variance_reduction):
                 def f(*args, **kwargs):
                     return _saba(variance_reduction, *args, **kwargs)
                 return f
             self.saba = saba(variance_reduction)
-            self.init_memory = _init_memory
+            self.init_memory = init_memory(_init_memory_fb)
             self.MinibatchSampler = MinibatchSampler
             self.LearningRateScheduler = LearningRateScheduler
         self.inner_var0 = inner_var0
@@ -135,8 +145,44 @@ class Solver(BaseSolver):
         return self.beta
 
 
-def _init_memory(inner_oracle, outer_oracle, inner_var, outer_var, v,
-                 inner_sampler, outer_sampler):
+def _init_memory(
+    _init_memory_fb,
+    inner_oracle,
+    outer_oracle,
+    inner_var,
+    outer_var,
+    v,
+    inner_sampler,
+    outer_sampler,
+    mode="zero",
+):
+    if mode == "full":
+        memories = _init_memory_fb(
+            inner_oracle,
+            outer_oracle,
+            inner_var,
+            outer_var,
+            v,
+            inner_sampler,
+            outer_sampler,
+        )
+        for mem in memories:
+            mem[-1] = mem[:-1].sum(axis=0) / mem[:-1].shape[0]
+    else:
+        n_outer = outer_sampler.n_batches
+        n_inner = inner_sampler.n_batches
+        inner_size, outer_size = inner_oracle.variables_shape
+        memories = (
+            np.zeros((n_inner + 1, inner_size[0])),
+            np.zeros((n_inner + 1, inner_size[0])),
+            np.zeros((n_inner + 1, outer_size[0])),
+            np.zeros((n_outer + 1, inner_size[0])),
+        )
+    return memories
+
+
+def _init_memory_fb(inner_oracle, outer_oracle, inner_var, outer_var, v,
+                    inner_sampler, outer_sampler):
     n_outer = outer_sampler.n_batches
     n_inner = inner_sampler.n_batches
     inner_var_shape, outer_var_shape = inner_oracle.variables_shape.ravel()
