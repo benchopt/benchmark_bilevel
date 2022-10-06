@@ -93,12 +93,12 @@ if __name__ == "__main__":
 
     BENCHMARKS = dict(
         ijcnn1=("ijcnn1.parquet", 'objective_value_func',
-                ((1, 480), (0, 2e9)), 1e-4, r'Optimality ~$h(x^t) -h^*$', 
+                ((1, 480), (0, 2e9)), 1e-4, r'Optimality ~$h(x^t) -h^*$',
                 'log', ('linear', 'linear'), None, 64, 2**17, 49_990, 91_701),
-        datacleaning0_5=("datacleaning0_5.parquet", 'objective_value', 
+        datacleaning0_5=("datacleaning0_5.parquet", 'objective_value',
                          ((.1, 120), (2e4, 5e7)), None, 'Test error', 'log',
                          ('log', 'log'), (None, 40), 64, 2**5, 20_000, 5_000),
-        datacleaning0_7=("datacleaning0_7.parquet", 'objective_value', 
+        datacleaning0_7=("datacleaning0_7.parquet", 'objective_value',
                          ((.1, 120), (8e3, 4e7)), None, 'Test error', 'log',
                          ('log', 'log'), (None, 40), 64, 2**5, 20_000, 5_000),
         datacleaning0_9=("datacleaning0_9.parquet", 'objective_value',
@@ -109,7 +109,8 @@ if __name__ == "__main__":
                  (27, 40), 512, 2**5, 371_847, 92_962),
     )
 
-    fname, metric, xlim, eps, yname, yscaling, xscaling, ylim, batch_size, eval_freq, n_inner_samples, n_outer_samples = BENCHMARKS[BENCHMARK]
+    fname, metric, xlim, eps, yname, yscaling, xscaling, ylim, batch_size, \
+        eval_freq, n_inner_samples, n_outer_samples = BENCHMARKS[BENCHMARK]
     xlim = xlim[0] if X_AXIS == 'time' else xlim[1]
     xscaling = xscaling[0] if X_AXIS == 'time' else xscaling[1]
 
@@ -123,15 +124,14 @@ if __name__ == "__main__":
         lambda x: x.split('[')[0].lower()
     )
 
-    df['solver'].loc[
-        df['solver_name'].apply(lambda x: 'full' in x)
+    df.loc[
+        df['solver_name'].apply(lambda x: 'full' in x), 'solver'
     ] = 'soba full batch'
 
     # Select curve that reach the lowest point
     # import ipdb; ipdb.set_trace()
     to_plot = (
-        df  # .query('stop_val <= 100')
-        # .groupby(['solver', 'solver_name', 'idx_rep']).head(3)
+        df.query('stop_val <= 100')
         .groupby(['solver', 'solver_name', 'stop_val'])
         .median()
         .reset_index().sort_values(metric)
@@ -171,8 +171,8 @@ if __name__ == "__main__":
         solver = df_solver.iloc[0, -1]
         style = STYLES['*'].copy()
         style.update(STYLES[solver])
-        curves = [data[['time', metric]].values 
-                    for _, data in df_solver.groupby('idx_rep')]
+        curves = [data[['time', metric]].values
+                  for _, data in df_solver.groupby('idx_rep')]
         vals = [c[:, 1] for c in curves]
         if X_AXIS == 'time':
             times = [c[:, 0] for c in curves]
@@ -182,6 +182,7 @@ if __name__ == "__main__":
             time_grid = np.linspace(np.log(tmin), np.log(xlim[1] + 1),
                                     N_POINTS)
             interp_vals = np.zeros((len(times), N_POINTS))
+            # import ipdb; ipdb.set_trace()
             for i, (t, val) in enumerate(zip(times, vals)):
                 interp_vals[i] = np.exp(np.interp(time_grid, np.log(t),
                                         np.log(val)))
@@ -218,15 +219,15 @@ if __name__ == "__main__":
                 (n_inner_calls + n_outer_calls) * eval_freq
                 for c in curves
             ]
-            # We first translate the calls grid to the right to avoid 
+            # We first translate the calls grid to the right to avoid
             # calls[i][0] = 0 in the logarithmic interpolation
             nmin = np.min([np.min(n) for n in calls])
             nmax = np.max([np.max(n) for n in calls])
             calls_grid = np.linspace(np.log(nmin),
-                                        np.log(xlim[1] +
-                                        (n_inner_calls + n_outer_calls)
-                                        * 2**17),
-                                        N_POINTS)
+                                     np.log(xlim[1] +
+                                     (n_inner_calls + n_outer_calls)
+                                     * 2**17),
+                                     N_POINTS)
             interp_vals = np.zeros((len(calls), N_POINTS))
             for i, (t, val) in enumerate(zip(calls, vals)):
                 interp_vals[i] = np.exp(np.interp(calls_grid, np.log(t),
@@ -244,7 +245,7 @@ if __name__ == "__main__":
                 df_solver.groupby('stop_val').quantile([0.2, 0.5, 0.8])
                 .unstack()
             )
-            
+
             lines.append(ax.semilogy(
                 calls_grid,
                 medval - c_star,
@@ -256,28 +257,8 @@ if __name__ == "__main__":
                 q2 - c_star,
                 color=style['color'], alpha=0.3
             )
-            # t_lim = 11
-            # idx_min = np.argmin(time_grid < t_lim)
-            # if metric == 'objective_value':
-            #     axins.plot(time_grid[idx_min:], medval[idx_min:], **style)
+
         print(f"Min score ({solver}):", df_solver[metric].min())
-            # lines.append(ax.semilogy(
-            #     med_curve['time'], med_curve[metric],  # - c_star,
-            #     **style
-            # )[0])
-            # med_idx = mode(
-            #     df_solver.groupby('stop_val')[['time', 'idx_rep']]
-            #     .apply(
-            #         lambda x: None if len(x) <= 5 else
-            #         x.sort_values('time').iloc[4]['idx_rep']
-            #     )
-            # ).mode
-            # med_curve = df_solver.query("idx_rep == @med_idx")
-            # plt.fill_betweenx(
-            #     curve[(metric, 0.5)] - c_star,
-            #     curve[('time', 0.2)], curve[('time', 0.8)],
-            #     color=style['color'], alpha=0.3
-            # )
 
     print("Min score:", df[metric].min())
     if X_AXIS == 'time':

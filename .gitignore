@@ -15,3 +15,10 @@ benchopt.ini
 
 .DS_Store
 coverage.xml
+
+figures/
+*.gz
+*.ipynb
+*.npy
+*.csv
+*.pkl
