@@ -37,6 +37,8 @@ class Solver(BaseSolver):
         return stop_val + 1
 
     def set_objective(self, f_train, f_test, inner_var0, outer_var0, numba):
+        if self.batch_size == 'full':
+            numba = False
         if numba:
             self.f_inner = f_train.numba_oracle
             self.f_outer = f_test.numba_oracle
@@ -227,7 +229,8 @@ def _saba(variance_reduction, inner_oracle, outer_oracle, inner_var, outer_var,
           seed=None):
 
     # Set seed for randomness
-    np.random.seed(seed)
+    if seed is not None:
+        np.random.seed(seed)
 
     for i in range(max_iter):
         inner_step_size, outer_step_size = lr_scheduler.get_lr()

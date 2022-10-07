@@ -11,13 +11,12 @@ from numba import float64, int64, types    # import the types
 from numba.experimental import jitclass
 
 from .base import BaseOracle
-from .special import expit, logsig
+from .special import expit, logsig, expit_njit, logsig_njit
 
 import warnings
 warnings.filterwarnings('error', category=RuntimeWarning)
 
 
-@njit
 def grad_theta_log_loss(x, y, theta):
     """Returns the gradient of the logistic loss."""
     n_samples, n_features = x.shape
@@ -30,6 +29,17 @@ def grad_theta_log_loss(x, y, theta):
 
 
 @njit
+def grad_theta_log_loss_njit(x, y, theta):
+    """Returns the gradient of the logistic loss."""
+    n_samples, n_features = x.shape
+    tmp = y * (x @ theta)
+    tmp2 = expit_njit(-tmp)
+
+    grad = -(x.T @ (y * tmp2)) / n_samples
+
+    return grad
+
+
 def hvp_log_loss(x, y, theta, v):
     """Returns an hessian-vector product for the logistic loss and a vector v.
     """
@@ -41,6 +51,25 @@ def hvp_log_loss(x, y, theta, v):
     tmp[idx1] = np.exp(tmp2[idx1]) * expit(- tmp2[idx1])**2
     idx2 = tmp2 >= 0
     tmp[idx2] = np.exp(- tmp2[idx2]) * expit(tmp2[idx2])**2
+
+    xv = (x @ v)
+
+    hvp = (x.T @ (xv * tmp)) / n_samples
+    return hvp
+
+
+@njit
+def hvp_log_loss_njit(x, y, theta, v):
+    """Returns an hessian-vector product for the logistic loss and a vector v.
+    """
+    n_samples, n_features = x.shape
+    tmp = np.zeros_like(y)
+    tmp2 = y * (x @ theta)
+
+    idx1 = tmp2 < 0
+    tmp[idx1] = np.exp(tmp2[idx1]) * expit_njit(- tmp2[idx1])**2
+    idx2 = tmp2 >= 0
+    tmp[idx2] = np.exp(- tmp2[idx2]) * expit_njit(tmp2[idx2])**2
 
     xv = (x @ v)
 
@@ -151,7 +180,7 @@ class LogisticRegressionOracleNumba():
     def value(self, theta, lmbda, idx):
         x = self.X[idx]
         y = self.y[idx]
-        tmp = - logsig(y * (x @ theta)).mean()
+        tmp = - logsig_njit(y * (x @ theta)).mean()
         if self.reg == 'exp':
             tmp += .5 * theta.dot(np.exp(lmbda) * theta)
         elif self.reg == 'lin':
@@ -159,7 +188,7 @@ class LogisticRegressionOracleNumba():
         return tmp
 
     def grad_inner_var(self, theta, lmbda, idx):
-        tmp = grad_theta_log_loss(self.X[idx], self.y[idx], theta)
+        tmp = grad_theta_log_loss_njit(self.X[idx], self.y[idx], theta)
         if self.reg == 'exp':
             tmp += np.exp(lmbda) * theta
         elif self.reg == 'lin':
@@ -178,7 +207,7 @@ class LogisticRegressionOracleNumba():
         return grad
 
     def grad(self, theta, lmbda, idx):
-        grad_theta = grad_theta_log_loss(self.X[idx], self.y[idx], theta)
+        grad_theta = grad_theta_log_loss_njit(self.X[idx], self.y[idx], theta)
         if self.reg == 'exp':
             alpha = np.exp(lmbda)
             grad_theta += alpha * theta
@@ -204,7 +233,7 @@ class LogisticRegressionOracleNumba():
         return res
 
     def hvp(self, theta, lmbda, v, idx):
-        tmp = hvp_log_loss(self.X[idx], self.y[idx], theta, v)
+        tmp = hvp_log_loss_njit(self.X[idx], self.y[idx], theta, v)
         if self.reg == 'exp':
             tmp += np.exp(lmbda) * v
         elif self.reg == 'lin':
@@ -218,15 +247,15 @@ class LogisticRegressionOracleNumba():
         y = self.y[idx]
         n_samples = x.shape[0]
         tmp = y * (x @ theta)
-        val = - logsig(tmp).mean()
+        val = - logsig_njit(tmp).mean()
 
-        tmp2 = expit(-tmp)
+        tmp2 = expit_njit(-tmp)
         grad = -(x.T @ (y * tmp2)) / n_samples
 
         idx1 = tmp < 0
         tmp2[idx1] = np.exp(tmp[idx1]) * tmp2[idx1]**2
         idx2 = ~idx1
-        tmp2[idx2] = np.exp(- tmp[idx2]) * expit(tmp[idx2])**2
+        tmp2[idx2] = np.exp(- tmp[idx2]) * expit_njit(tmp[idx2])**2
 
         hvp = (x.T @ ((x @ v) * tmp2)) / n_samples
 
@@ -307,25 +336,75 @@ class LogisticRegressionOracle(BaseOracle):
         ])
 
     def value(self, theta, lmbda, idx):
-        return self.numba_oracle.value(theta, lmbda, idx)
+        x = self.X[idx]
+        y = self.y[idx]
+        tmp = - logsig(y * (x @ theta)).mean()
+        if self.reg == 'exp':
+            tmp += .5 * theta.dot(np.exp(lmbda) * theta)
+        elif self.reg == 'lin':
+            tmp += .5 * theta.dot(lmbda * theta)
+        return tmp
 
     def grad_inner_var(self, theta, lmbda, idx):
-        return self.numba_oracle.grad_inner_var(theta, lmbda, idx)
+        tmp = grad_theta_log_loss(self.X[idx], self.y[idx], theta)
+        if self.reg == 'exp':
+            tmp += np.exp(lmbda) * theta
+        elif self.reg == 'lin':
+            tmp += lmbda * theta
+        return tmp
 
     def grad_outer_var(self, theta, lmbda, idx):
-        return self.numba_oracle.grad_outer_var(theta, lmbda, idx)
+        if self.reg == 'exp':
+            grad = .5 * np.exp(lmbda) * theta ** 2
+        elif self.reg == 'lin':
+            grad = .5 * theta ** 2
+        else:
+            grad = np.zeros_like(lmbda)
+        if lmbda.shape[0] == 1:
+            grad = grad.sum() * np.ones((1,))
+        return grad
 
     def grad(self, theta, lmbda, idx):
-        return self.numba_oracle.grad(theta, lmbda, idx)
+        grad_theta = grad_theta_log_loss(self.X[idx], self.y[idx], theta)
+        if self.reg == 'exp':
+            alpha = np.exp(lmbda)
+            grad_theta += alpha * theta
+            grad_lmbda = .5 * alpha * theta ** 2
+        elif self.reg == 'lin':
+            grad_theta += lmbda * theta
+            grad_lmbda = .5 * theta ** 2
+        else:
+            grad_lmbda = np.zeros_like(lmbda)
+        if lmbda.shape[0] == 1:
+            grad_lmbda = grad_lmbda.sum() * np.ones((1,))
+        return grad_theta, grad_lmbda
 
     def cross(self, theta, lmbda, v, idx):
-        return self.numba_oracle.cross(theta, lmbda, v, idx)
+        if self.reg == 'exp':
+            res = np.exp(lmbda) * theta * v
+        elif self.reg == 'lin':
+            res = theta * v
+        else:
+            res = np.zeros_like(lmbda)
+        if lmbda.shape[0] == 1:
+            res = res.sum() * np.ones((1,))
+        return res
 
     def hvp(self, theta, lmbda, v, idx):
-        return self.numba_oracle.hvp(theta, lmbda, v, idx)
+        tmp = hvp_log_loss(self.X[idx], self.y[idx], theta, v)
+        if self.reg == 'exp':
+            tmp += np.exp(lmbda) * v
+        elif self.reg == 'lin':
+            tmp += lmbda * v
+        return tmp
 
     def prox(self, theta, lmbda):
-        return self.numba_oracle.prox(theta, lmbda)
+        if self.reg == 'exp':
+            lmbda[lmbda < -12] = -12
+            lmbda[lmbda > 12] = 12
+        elif self.reg == 'lin':
+            lmbda = np.maximum(lmbda, 0)
+        return theta, lmbda
 
     def inverse_hvp(self, theta, lmbda, v, idx, approx='cg'):
         if approx == 'id':

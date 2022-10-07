@@ -173,6 +173,8 @@ for benchmark in BENCH_DICT:
                       for values in product(*temp_dict.values())]
         for param_dict in param_list:
             f.write(f'  - {param_dict["name"]}[')
+            if param_dict['batch_size'] == "full":
+                param_dict['eval_freq'] = 4
             for i, param in enumerate(param_dict):
                 if param != 'name':
                     f.write(f'{param}={param_dict[param]}')

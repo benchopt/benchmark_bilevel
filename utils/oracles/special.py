@@ -7,7 +7,6 @@ with safe_import_context() as import_ctx:
     np_max = import_ctx.import_from('numba_utils', 'np_max')
 
 
-@njit
 def logsig(x):
     """Computes the log-sigmoid function component-wise.
 
@@ -28,7 +27,9 @@ def logsig(x):
     return out
 
 
-@njit
+logsig_njit = njit(logsig)
+
+
 def expit(t):
     """Computes the sigmoid function component-wise.
 
@@ -43,6 +44,9 @@ def expit(t):
     tmp = np.exp(t[idx2])
     out[idx2] = tmp / (1 + tmp)
     return out
+
+
+expit_njit = njit(expit)
 
 
 @njit
