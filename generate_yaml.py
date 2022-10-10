@@ -60,7 +60,7 @@ BENCH_DICT = dict(
         PATIENCE=50,
         step_size=np.logspace(-5, 3, 9, base=2),
         # step_size=[1e-4],
-        outer_ratio=np.logspace(-2, 1, ),
+        outer_ratio=np.logspace(-2, 1, 7),
         # outer_ratio=[1.],
         dataset='ijcnn1',
         model='logreg',
@@ -68,7 +68,7 @@ BENCH_DICT = dict(
         reg='exp',
         task='classif',
         n=1500,
-        timeout=6000
+        timeout=7200
     ),
     covtype=dict(
         eval_freq=[2**5],
@@ -95,7 +95,7 @@ BENCH_DICT = dict(
         reg='exp',
         task='datacleaning',
         n=64000,
-        timeout=3200
+        timeout=6000
     ),
     datacleaning0_7=dict(
         eval_freq=[2**5],
@@ -109,7 +109,7 @@ BENCH_DICT = dict(
         reg='exp',
         task='datacleaning',
         n=64000,
-        timeout=3200
+        timeout=6000
     ),
     datacleaning0_9=dict(
         eval_freq=[2**5],
@@ -123,7 +123,7 @@ BENCH_DICT = dict(
         reg='exp',
         task='datacleaning',
         n=64000,
-        timeout=2200
+        timeout=6000
     )
 )
 

@@ -131,7 +131,7 @@ if __name__ == "__main__":
     # Select curve that reach the lowest point
     # import ipdb; ipdb.set_trace()
     to_plot = (
-        df.query('stop_val <= 100')
+        df  # .query('stop_val <= 100')
         .groupby(['solver', 'solver_name', 'stop_val'])
         .median()
         .reset_index().sort_values(metric)
