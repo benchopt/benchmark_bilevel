@@ -1,7 +1,18 @@
 import numpy as np
 from itertools import product
 
-N_REP = 10
+import argparse
+
+
+parser = argparse.ArgumentParser(
+        description='Plot benchmarks results for bilevel optimization.'
+    )
+parser.add_argument('--n-repetitions', '-r', type=int, default=10,
+                    help='# of repetitions.')
+
+args = parser.parse_args()
+
+N_REP = args.n_repetitions
 
 # Store solver specific parameters
 SOLVER_DICT = dict(
@@ -68,7 +79,7 @@ BENCH_DICT = dict(
         reg='exp',
         task='classif',
         n=1500,
-        timeout=7200
+        timeout=800
     ),
     covtype=dict(
         eval_freq=[2**5],
@@ -81,7 +92,7 @@ BENCH_DICT = dict(
         reg='exp',
         task='classif',
         n=64000,
-        timeout=3000
+        timeout=300
     ),
     datacleaning0_5=dict(
         eval_freq=[2**5],
@@ -95,7 +106,7 @@ BENCH_DICT = dict(
         reg='exp',
         task='datacleaning',
         n=64000,
-        timeout=6000
+        timeout=600
     ),
     datacleaning0_7=dict(
         eval_freq=[2**5],
@@ -109,7 +120,7 @@ BENCH_DICT = dict(
         reg='exp',
         task='datacleaning',
         n=64000,
-        timeout=6000
+        timeout=600
     ),
     datacleaning0_9=dict(
         eval_freq=[2**5],
@@ -123,7 +134,7 @@ BENCH_DICT = dict(
         reg='exp',
         task='datacleaning',
         n=64000,
-        timeout=6000
+        timeout=600
     )
 )
 
@@ -186,5 +197,5 @@ for benchmark in BENCH_DICT:
     # f.write(f'PATIENCE: {BENCH_DICT[benchmark]["PATIENCE"]}\n')
     f.write(f'n-repetitions: {N_REP}\n')
     f.write(f'max-runs: {BENCH_DICT[benchmark]["n"]}\n')
-    f.write(f'timeout: {BENCH_DICT[benchmark]["timeout"]}\n')
+    f.write(f'timeout: {BENCH_DICT[benchmark]["timeout"] * N_REP}\n')
     f.write(f'output: {benchmark}\n')

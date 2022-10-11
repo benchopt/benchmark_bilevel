@@ -161,7 +161,10 @@ if __name__ == "__main__":
     ax = fig.add_subplot(gs[1, :])
     c_star = 0
     if eps is not None:
-        c_star = df[metric].min() - eps
+        c_star = (
+            df.groupby(['solver', 'stop_val'])
+            .median().loc[:, metric].min() - eps
+        )
 
     # if metric == 'objective_value':
     #     axins = ax.inset_axes([0.5, 0.5, 0.47, 0.47])

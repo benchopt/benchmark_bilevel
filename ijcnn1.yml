@@ -635,5 +635,5 @@ solver:
   - TTSA[batch_size=64,n_hia_step=10,eval_freq=131072,step_size=8.0,outer_ratio=10.0]
 n-repetitions: 10
 max-runs: 1500
-timeout: 7200
+timeout: 8000
 output: ijcnn1

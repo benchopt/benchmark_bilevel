@@ -76,15 +76,16 @@ class Objective(BaseObjective):
 
         rng = check_random_state(self.random_state)
         inner_shape, outer_shape = self.f_train.variables_shape
-        self.inner_var0 = rng.randn(*inner_shape)
-        if self.task == "classif":
+        if self.model == "logreg":
+            self.inner_var0 = rng.randn(*inner_shape)
             self.outer_var0 = rng.rand(*outer_shape)
-        elif self.task == "datacleaning":
-            self.outer_var0 = np.ones(*outer_shape)
-        if self.reg == 'exp':
-            self.outer_var0 = np.log(self.outer_var0)
-        if self.n_reg == 1:
-            self.outer_var0 = self.outer_var0[:1]
+            if self.reg == 'exp':
+                self.outer_var0 = np.log(self.outer_var0)
+            if self.n_reg == 1:
+                self.outer_var0 = self.outer_var0[:1]
+        elif self.task == "datacleaning" or self.model == "multilogreg":
+            self.inner_var0 = np.zeros(*inner_shape)
+            self.outer_var0 = -2 * np.ones(*outer_shape)
         self.inner_var0, self.outer_var0 = self.f_train.prox(
             self.inner_var0, self.outer_var0
         )
