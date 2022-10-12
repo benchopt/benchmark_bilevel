@@ -187,10 +187,10 @@ def _init_memory_fb(inner_oracle, outer_oracle, inner_var, outer_var, v,
                     inner_sampler, outer_sampler):
     n_outer = outer_sampler.n_batches
     n_inner = inner_sampler.n_batches
-    inner_var_shape, outer_var_shape = inner_oracle.variables_shape.ravel()
-    memory_inner_grad = np.zeros((n_inner + 1, inner_var_shape))
-    memory_hvp = np.zeros((n_inner + 1, inner_var_shape))
-    memory_cross_v = np.zeros((n_inner + 1, outer_var_shape))
+    inner_var_shape, outer_var_shape = inner_oracle.variables_shape
+    memory_inner_grad = np.zeros((n_inner + 1, *inner_var_shape))
+    memory_hvp = np.zeros((n_inner + 1, *inner_var_shape))
+    memory_cross_v = np.zeros((n_inner + 1, *outer_var_shape))
     for _ in prange(n_inner):
         slice_inner, (id_inner, weight) = inner_sampler.get_batch()
         _, grad_inner_var, hvp, cross_v = inner_oracle.oracles(
@@ -203,7 +203,7 @@ def _init_memory_fb(inner_oracle, outer_oracle, inner_var, outer_var, v,
         memory_cross_v[id_inner, :] = cross_v
         memory_cross_v[-1, :] += weight * cross_v
 
-    memory_grad_in_outer = np.zeros((n_outer + 1, inner_var_shape))
+    memory_grad_in_outer = np.zeros((n_outer + 1, *inner_var_shape))
     for id_outer in prange(n_outer):
         slice_outer, (id_outer, weight) = outer_sampler.get_batch()
         memory_grad_in_outer[id_outer, :] = outer_oracle.grad_inner_var(

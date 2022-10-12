@@ -1215,5 +1215,5 @@ solver:
   - TTSA[batch_size=64,n_hia_step=10,eval_freq=32,step_size=100.0,outer_ratio=1.0]
 n-repetitions: 10
 max-runs: 64000
-timeout: 6000
+timeout: 7200
 output: datacleaning0_7

@@ -106,7 +106,7 @@ BENCH_DICT = dict(
         reg='exp',
         task='datacleaning',
         n=64000,
-        timeout=600
+        timeout=720
     ),
     datacleaning0_7=dict(
         eval_freq=[2**5],
@@ -120,7 +120,7 @@ BENCH_DICT = dict(
         reg='exp',
         task='datacleaning',
         n=64000,
-        timeout=600
+        timeout=720
     ),
     datacleaning0_9=dict(
         eval_freq=[2**5],
@@ -134,7 +134,7 @@ BENCH_DICT = dict(
         reg='exp',
         task='datacleaning',
         n=64000,
-        timeout=600
+        timeout=720
     )
 )
 

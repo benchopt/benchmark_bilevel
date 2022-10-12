@@ -10,7 +10,7 @@ import argparse
 parser = argparse.ArgumentParser(
         description='Plot benchmarks results for bilevel optimization.'
     )
-parser.add_argument('--n-points', '-n', type=int, default=10_000,
+parser.add_argument('--n-points', '-n', type=int, default=1_000,
                     help='# of points in the grid for interpolation.')
 parser.add_argument('--x-axis', '-x', type=str, default='time',
                     choices=['time', 'calls'],
