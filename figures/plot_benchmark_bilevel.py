@@ -10,7 +10,7 @@ import argparse
 parser = argparse.ArgumentParser(
         description='Plot benchmarks results for bilevel optimization.'
     )
-parser.add_argument('--n-points', '-n', type=int, default=1_000,
+parser.add_argument('--n-points', '-n', type=int, default=500,
                     help='# of points in the grid for interpolation.')
 parser.add_argument('--x-axis', '-x', type=str, default='time',
                     choices=['time', 'calls'],
@@ -131,7 +131,7 @@ if __name__ == "__main__":
     # Select curve that reach the lowest point
     # import ipdb; ipdb.set_trace()
     to_plot = (
-        df  # .query('stop_val <= 100')
+        df.query('stop_val <= 100')
         .groupby(['solver', 'solver_name', 'stop_val'])
         .median()
         .reset_index().sort_values(metric)
