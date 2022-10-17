@@ -7,26 +7,6 @@ import matplotlib.pyplot as plt
 
 import argparse
 
-parser = argparse.ArgumentParser(
-        description='Plot benchmarks results for bilevel optimization.'
-    )
-parser.add_argument('--n-points', '-n', type=int, default=500,
-                    help='# of points in the grid for interpolation.')
-parser.add_argument('--x-axis', '-x', type=str, default='time',
-                    choices=['time', 'calls'],
-                    help='Plot in time or number of calls to oracles.')
-parser.add_argument('--benchmark', '-b', type=str, default='ijcnn1',
-                    choices=['ijcnn1', 'datacleaning0_5', 'datacleaning0_7',
-                             'datacleaning0_9', 'covtype'],
-                    help='Choose the benchmark to plot.')
-args = parser.parse_args()
-
-X_AXIS = args.x_axis  # 'calls' or 'time'
-
-N_POINTS = args.n_points
-
-BENCHMARK = args.benchmark
-
 mpl.rc('text', usetex=True)
 
 FILE_NAME = Path(__file__).with_suffix('')
@@ -90,8 +70,27 @@ DEFAULT_HEIGHT = 2.
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description='Plot benchmarks results for bilevel optimization.'
+    )
+    parser.add_argument('--n-points', '-n', type=int, default=500,
+                        help='# of points in the grid for interpolation.')
+    parser.add_argument('--x-axis', '-x', type=str, default='time',
+                        choices=['time', 'calls'],
+                        help='Plot in time or number of calls to oracles.')
+    parser.add_argument('--benchmark', '-b', type=str, default='ijcnn1',
+                        choices=['ijcnn1', 'datacleaning0_5', 'datacleaning0_7',
+                                'datacleaning0_9', 'covtype'],
+                        help='Choose the benchmark to plot.')
+    args = parser.parse_args()
 
-    BENCHMARKS = dict(
+    x_axis = args.x_axis  # 'calls' or 'time'
+
+    n_points = args.n_points
+
+    bench = args.benchmark
+
+    BENCHMARKS_CONFIG = dict(
         ijcnn1=("ijcnn1.parquet", 'objective_value_func',
                 ((1, 480), (0, 2e9)), 1e-4, r'Optimality ~$h(x^t) -h^*$',
                 'log', ('linear', 'linear'), None, 64, 2**17, 49_990, 91_701),
@@ -110,12 +109,12 @@ if __name__ == "__main__":
     )
 
     fname, metric, xlim, eps, yname, yscaling, xscaling, ylim, batch_size, \
-        eval_freq, n_inner_samples, n_outer_samples = BENCHMARKS[BENCHMARK]
-    xlim = xlim[0] if X_AXIS == 'time' else xlim[1]
-    xscaling = xscaling[0] if X_AXIS == 'time' else xscaling[1]
+        eval_freq, n_inner_samples, n_outer_samples = BENCHMARKS_CONFIG[bench]
+    xlim = xlim[0] if x_axis == 'time' else xlim[1]
+    xscaling = xscaling[0] if x_axis == 'time' else xscaling[1]
 
     fname = FILE_NAME.parent / fname
-    print(fname.stem)
+    print(fname)
 
     df = pd.read_parquet(fname)
 
@@ -139,6 +138,7 @@ if __name__ == "__main__":
     )
     to_plot = [to_plot[p] for p in STYLES if p in to_plot]
     df = df.query("solver_name in @to_plot")
+    df.to_parquet(f'{fname.stem}_best_param.parquet')
 
     solvers = [s for s in STYLES if s in df['solver'].values]
     print(solvers)
@@ -177,14 +177,14 @@ if __name__ == "__main__":
         curves = [data[['time', metric]].values
                   for _, data in df_solver.groupby('idx_rep')]
         vals = [c[:, 1] for c in curves]
-        if X_AXIS == 'time':
+        if x_axis == 'time':
             times = [c[:, 0] for c in curves]
             tmin = np.min([np.min(t) for t in times])
             tmax = np.max([np.max(t) for t in times])
-            # time_grid = np.geomspace(tmin, xlim[1] + 1, N_POINTS)
+            # time_grid = np.geomspace(tmin, xlim[1] + 1, n_points)
             time_grid = np.linspace(np.log(tmin), np.log(xlim[1] + 1),
-                                    N_POINTS)
-            interp_vals = np.zeros((len(times), N_POINTS))
+                                    n_points)
+            interp_vals = np.zeros((len(times), n_points))
             # import ipdb; ipdb.set_trace()
             for i, (t, val) in enumerate(zip(times, vals)):
                 interp_vals[i] = np.exp(np.interp(time_grid, np.log(t),
@@ -209,7 +209,7 @@ if __name__ == "__main__":
                 q2 - c_star,
                 color=style['color'], alpha=0.3
             )
-        elif X_AXIS == 'calls':
+        elif x_axis == 'calls':
             n_inner_calls, n_outer_calls = N_CALLS[solver]
             if 'full' in solver:
                 n_inner_calls *= n_inner_samples
@@ -230,8 +230,8 @@ if __name__ == "__main__":
                                      np.log(xlim[1] +
                                      (n_inner_calls + n_outer_calls)
                                      * 2**17),
-                                     N_POINTS)
-            interp_vals = np.zeros((len(calls), N_POINTS))
+                                     n_points)
+            interp_vals = np.zeros((len(calls), n_points))
             for i, (t, val) in enumerate(zip(calls, vals)):
                 interp_vals[i] = np.exp(np.interp(calls_grid, np.log(t),
                                         np.log(val)))
@@ -264,9 +264,9 @@ if __name__ == "__main__":
         print(f"Min score ({solver}):", df_solver[metric].min())
 
     print("Min score:", df[metric].min())
-    if X_AXIS == 'time':
+    if x_axis == 'time':
         x_ = ax.set_xlabel('Time [sec]')
-    elif X_AXIS == 'calls':
+    elif x_axis == 'calls':
         x_ = ax.set_xlabel('Number of calls to oracles')
     ax.set_xlim(xlim)
     if ylim is not None:
@@ -302,12 +302,12 @@ if __name__ == "__main__":
     #     axins.set_yticklabels([])
     #     ax.indicate_inset_zoom(axins, edgecolor="black")
 
-    if X_AXIS == 'time':
+    if x_axis == 'time':
         fig.savefig(
             fname.with_suffix('.pdf'), bbox_extra_artists=[x_, y_, l_],
             bbox_inches='tight'
         )
-    elif X_AXIS == 'calls':
+    elif x_axis == 'calls':
 
         fig.savefig(
             Path(fname.stem + '_calls').with_suffix('.pdf'),
