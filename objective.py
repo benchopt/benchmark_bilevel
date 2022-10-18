@@ -33,9 +33,7 @@ class Objective(BaseObjective):
                 self.numba = True
             elif model == 'multilogreg':
                 self.inner_oracle = oracles.MultiLogRegOracle
-                self.outer_oracle = (
-                    lambda X, y: oracles.MultiLogRegOracle(X, y, reg='none')
-                )
+                self.outer_oracle = oracles.MultiLogRegOracle
                 self.numba = False
             else:
                 raise ValueError(
@@ -64,15 +62,17 @@ class Objective(BaseObjective):
         self.f_train = self.inner_oracle(
             X_train, y_train, reg=self.reg
         )
-        if self.task == 'datacleaning' or self.model == 'multilogreg':
+        if self.task == 'datacleaning':
             self.f_test = self.outer_oracle(
                 X_test, y_test
             )
-            self.X_val, self.y_val = X_val, y_val
         else:
             self.f_test = self.outer_oracle(
                 X_test, y_test, reg='none'
             )
+
+        if self.task == 'datacleaning' or self.model == 'multilogreg':
+            self.X_val, self.y_val = X_val, y_val
 
         rng = check_random_state(self.random_state)
         inner_shape, outer_shape = self.f_train.variables_shape
