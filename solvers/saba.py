@@ -5,14 +5,20 @@ from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
     import numpy as np
-    from numba import njit, prange, int64, float64
+    from numba import njit, prange
     from numba.experimental import jitclass
     constants = import_ctx.import_from('constants')
     MinibatchSampler = import_ctx.import_from(
         'minibatch_sampler', 'MinibatchSampler'
     )
+    spec_minibatch_sampler = import_ctx.import_from(
+        'minibatch_sampler', 'spec'
+    )
     LearningRateScheduler = import_ctx.import_from(
         'learning_rate_scheduler', 'LearningRateScheduler'
+    )
+    spec_scheduler = import_ctx.import_from(
+        'learning_rate_scheduler', 'spec'
     )
 
 
@@ -48,22 +54,9 @@ class Solver(BaseSolver):
                     return njit(_init_memory)(init_memory_fb, *args, **kwargs)
                 return f
             self.init_memory = init_memory(njit(_init_memory_fb))
-
-            spec_minibatch_sampler = [
-                ('n_samples', int64),
-                ('batch_size', int64),
-                ('i_batch', int64),
-                ('n_batches', int64),
-                ('batch_order', int64[:]),
-            ]
             self.MinibatchSampler = jitclass(MinibatchSampler,
                                              spec_minibatch_sampler)
 
-            spec_scheduler = [
-                ('i_step', int64),
-                ('constants', float64[:]),
-                ('exponents', float64[:])
-            ]
             self.LearningRateScheduler = jitclass(LearningRateScheduler,
                                                   spec_scheduler)
 

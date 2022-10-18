@@ -1,4 +1,14 @@
 import numpy as np
+from numba import int64
+
+
+spec = [  # specifications for numba class
+    ('n_samples', int64),
+    ('batch_size', int64),
+    ('i_batch', int64),
+    ('n_batches', int64),
+    ('batch_order', int64[:]),
+]
 
 
 class MinibatchSampler():

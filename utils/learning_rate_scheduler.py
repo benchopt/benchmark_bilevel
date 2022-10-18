@@ -1,3 +1,12 @@
+from numba import int64, float64
+
+spec = [  # specifications for numba class
+    ('i_step', int64),
+    ('constants', float64[:]),
+    ('exponents', float64[:])
+]
+
+
 class LearningRateScheduler():
     """Scheduler for learning rates, either constant or decreasing.
 

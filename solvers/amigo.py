@@ -6,7 +6,7 @@ from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
     import numpy as np
-    from numba import njit, int64, float64
+    from numba import njit
     from numba.experimental import jitclass
     constants = import_ctx.import_from('constants')
     sgd_inner = import_ctx.import_from('sgd_inner', 'sgd_inner')
@@ -14,8 +14,14 @@ with safe_import_context() as import_ctx:
     MinibatchSampler = import_ctx.import_from(
         'minibatch_sampler', 'MinibatchSampler'
     )
+    spec_minibatch_sampler = import_ctx.import_from(
+        'minibatch_sampler', 'spec'
+    )
     LearningRateScheduler = import_ctx.import_from(
         'learning_rate_scheduler', 'LearningRateScheduler'
+    )
+    spec_scheduler = import_ctx.import_from(
+        'learning_rate_scheduler', 'spec'
     )
 
 
@@ -49,21 +55,9 @@ class Solver(BaseSolver):
             self.sgd_inner = njit(sgd_inner)
             self.sgd_v = njit(sgd_v)
 
-            spec_minibatch_sampler = [
-                ('n_samples', int64),
-                ('batch_size', int64),
-                ('i_batch', int64),
-                ('n_batches', int64),
-                ('batch_order', int64[:]),
-            ]
             self.MinibatchSampler = jitclass(MinibatchSampler,
                                              spec_minibatch_sampler)
 
-            spec_scheduler = [
-                ('i_step', int64),
-                ('constants', float64[:]),
-                ('exponents', float64[:])
-            ]
             self.LearningRateScheduler = jitclass(LearningRateScheduler,
                                                   spec_scheduler)
 
