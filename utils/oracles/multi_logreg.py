@@ -52,7 +52,7 @@ class MultiLogRegOracle(BaseOracle):
             y = OneHotEncoder().fit_transform(y[:, None]).toarray()
 
         # Store info for other
-        self.X = X
+        self.X = np.ascontiguousarray(X)
         self.y = y.astype(np.float64)
         self.reg = reg
 
