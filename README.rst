@@ -4,7 +4,7 @@ Bilevel Optimization Benchmark
 
 BenchOpt is a package to simplify and make more transparent and
 reproducible the comparisons of optimization algorithms.
-This benchmark is dedicated to solver for bi-Zlevel optimization:
+This benchmark is dedicated to solver for bilevel optimization:
 
 .. math::
 
@@ -37,11 +37,6 @@ where `X.yml` is a config file. See https://benchopt.github.io/index.html#run-a-
 
 Use `benchopt run -h` for more details about these options, or visit https://benchopt.github.io/api.html.
 
-.. |Build Status| image:: https://github.com/benchopt/benchmark_bilevel/workflows/Tests/badge.svg
-   :target: https://github.com/benchopt/benchmark_bilevel/actions
-.. |Python 3.6+| image:: https://img.shields.io/badge/python-3.6%2B-blue
-   :target: https://www.python.org/downloads/release/python-360/
-
 If you use this benchmark in your research project, please cite the following paper:
 
 .. code-block::
@@ -53,3 +48,8 @@ If you use this benchmark in your research project, please cite the following pa
       year = {2022}
    }
 
+
+.. |Build Status| image:: https://github.com/benchopt/benchmark_bilevel/workflows/Tests/badge.svg
+   :target: https://github.com/benchopt/benchmark_bilevel/actions
+.. |Python 3.6+| image:: https://img.shields.io/badge/python-3.6%2B-blue
+   :target: https://www.python.org/downloads/release/python-360/
