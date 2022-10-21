@@ -199,3 +199,4 @@ for benchmark in BENCH_DICT:
     f.write(f'max-runs: {BENCH_DICT[benchmark]["n"]}\n')
     f.write(f'timeout: {BENCH_DICT[benchmark]["timeout"] * N_REP}\n')
     f.write(f'output: {benchmark}\n')
+f.close()
