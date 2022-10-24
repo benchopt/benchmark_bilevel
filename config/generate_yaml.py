@@ -156,43 +156,44 @@ DATASET_DICT = dict(
 )
 
 for benchmark in BENCH_DICT:
-    f = open(f"{benchmark}.yml", "x")
-    f.write("objective:\n")
-    f.write("  - Bilevel Optimization[")
-    for key in ['model', 'n_reg', 'reg', 'task']:
-        f.write(f"{key}={OBJECTIVE_DICT[benchmark][key]}")
-        if key != 'task':
-            f.write(',')
-    f.write("]\n")
+    with open(f"{benchmark}.yml", "x") as f:
+        f.write("objective:\n")
+        f.write("  - Bilevel Optimization[")
+        for key in ['model', 'n_reg', 'reg', 'task']:
+            f.write(f"{key}={OBJECTIVE_DICT[benchmark][key]}")
+            if key != 'task':
+                f.write(',')
+        f.write("]\n")
 
-    f.write("dataset:\n")
-    for d in DATASET_DICT[benchmark]:
-        f.write(f"  - {d}\n")
+        f.write("dataset:\n")
+        for d in DATASET_DICT[benchmark]:
+            f.write(f"  - {d}\n")
 
-    f.write('solver:\n')
-    for s in SOLVER_DICT:
-        temp_dict = SOLVER_DICT[s]
-        temp_dict.update(dict(eval_freq=BENCH_DICT[benchmark]['eval_freq']))
-        temp_dict.update(dict(
-            step_size=list(BENCH_DICT[benchmark]['step_size'])
+        f.write('solver:\n')
+        for s in SOLVER_DICT:
+            temp_dict = SOLVER_DICT[s]
+            temp_dict.update(
+                dict(eval_freq=BENCH_DICT[benchmark]['eval_freq'])
             )
-        )
-        temp_dict.update(dict(
-            outer_ratio=list(BENCH_DICT[benchmark]['outer_ratio'])
+            temp_dict.update(dict(
+                step_size=list(BENCH_DICT[benchmark]['step_size'])
+                )
             )
-        )
-        f.write(f'  - {temp_dict["name"][0]}[')
-        for i, param in enumerate(temp_dict):
-            if param != 'name':
-                f.write(f'{param}={temp_dict[param]}')
-                if i != len(temp_dict) - 1:
-                    f.write(',')
-                else:
-                    f.write(']\n')
+            temp_dict.update(dict(
+                outer_ratio=list(BENCH_DICT[benchmark]['outer_ratio'])
+                )
+            )
+            f.write(f'  - {temp_dict["name"][0]}[')
+            for i, param in enumerate(temp_dict):
+                if param != 'name':
+                    f.write(f'{param}={temp_dict[param]}')
+                    if i != len(temp_dict) - 1:
+                        f.write(',')
+                    else:
+                        f.write(']\n')
 
-    # f.write(f'PATIENCE: {BENCH_DICT[benchmark]["PATIENCE"]}\n')
-    f.write(f'n-repetitions: {N_REP}\n')
-    f.write(f'max-runs: {BENCH_DICT[benchmark]["n"]}\n')
-    f.write(f'timeout: {BENCH_DICT[benchmark]["timeout"] * N_REP}\n')
-    f.write(f'output: {benchmark}\n')
-f.close()
+        # f.write(f'PATIENCE: {BENCH_DICT[benchmark]["PATIENCE"]}\n')
+        f.write(f'n-repetitions: {N_REP}\n')
+        f.write(f'max-runs: {BENCH_DICT[benchmark]["n"]}\n')
+        f.write(f'timeout: {BENCH_DICT[benchmark]["timeout"] * N_REP}\n')
+        f.write(f'output: {benchmark}\n')
