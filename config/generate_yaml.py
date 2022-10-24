@@ -17,48 +17,48 @@ N_REP = args.n_repetitions
 SOLVER_DICT = dict(
     amigo=dict(
         name=['AmIGO'],
-        batch_size=['64'],
+        batch_size=[64],
         n_inner_step=[10]
     ),
     bsa=dict(
         name=['BSA'],
-        batch_size=['64'],
+        batch_size=[64],
         n_inner_step=[10],
         n_hia_step=[10]
     ),
     fsla=dict(
         name=['FSLA'],
-        batch_size=['64']
+        batch_size=[64]
     ),
     mrbo=dict(
         name=['MRBO'],
-        batch_size=['64'],
+        batch_size=[64],
         n_hia_step=[10],
         eta=[.5]
     ),
     saba=dict(
         name=['SABA'],
-        batch_size=['64']
+        batch_size=[64]
     ),
     soba=dict(
         name=['SOBA'],
-        batch_size=['64', 'full']
+        batch_size=[64, 'full']
     ),
     stocbio=dict(
         name=['StocBiO'],
-        batch_size=['64'],
+        batch_size=[64],
         n_inner_step=[10],
         n_shia_steps=[10]
     ),
     sustain=dict(
         name=['SUSTAIN'],
-        batch_size=['64'],
+        batch_size=[64],
         n_hia_step=[10],
         eta=[.5]
     ),
     ttsa=dict(
         name=['TTSA'],
-        batch_size=['64'],
+        batch_size=[64],
         n_hia_step=[10]
     ),
 )
