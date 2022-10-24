@@ -43,7 +43,7 @@ class Objective(BaseObjective):
         elif task == 'datacleaning':
             self.reg = 2e-1
             self.inner_oracle = oracles.DataCleaningOracle
-            self.outer_oracle = oracles.MultinomialLogRegOracle
+            self.outer_oracle = oracles.MultiLogRegOracle
             self.numba = False
         else:
             raise ValueError(
@@ -64,7 +64,7 @@ class Objective(BaseObjective):
         )
         if self.task == 'datacleaning':
             self.f_test = self.outer_oracle(
-                X_test, y_test
+                X_test, y_test, reg="none"
             )
         else:
             self.f_test = self.outer_oracle(
