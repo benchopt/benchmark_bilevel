@@ -52,7 +52,6 @@ def datacleaning_oracle(X, Y, theta, Lbda, v, idx):
 
 class DataCleaningOracle(BaseOracle):
     """Class defining the oracles for datacleaning
-    **NOTE:** This class is taylored for the binary logreg.
 
     Parameters
     ----------
@@ -60,8 +59,8 @@ class DataCleaningOracle(BaseOracle):
         Input data for the model.
     y : ndarray, shape (n_samples,)
         Targets for the logistic regression. Must be binary targets.
-    reg : bool
-        Whether or not to apply regularisation.
+    reg : float
+        Regularization parameter.
     """
 
     def __init__(self, X, y, reg=2e-1):

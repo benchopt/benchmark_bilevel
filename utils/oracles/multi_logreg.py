@@ -31,8 +31,7 @@ def softmax_hvp(z, v):
 
 
 class MultiLogRegOracle(BaseOracle):
-    """Class defining the oracles for datacleaning
-    **NOTE:** This class is taylored for the binary logreg.
+    """Class defining the oracles for multiclass logistic regression
 
     Parameters
     ----------
@@ -40,8 +39,11 @@ class MultiLogRegOracle(BaseOracle):
         Input data for the model.
     y : ndarray, shape (n_samples,)
         Targets for the logistic regression. Must be binary targets.
-    reg : bool
-        Whether or not to apply regularisation.
+    reg : {'exp', ‘lin’, ‘none’}, default='none',
+        Parametrization of the regularization parameter
+        - 'exp' the parametrization is exponential
+        - 'lin' the parametrization is linear
+        - 'none' no regularization
     """
 
     def __init__(self, X, y, reg='exp'):

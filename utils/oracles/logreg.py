@@ -147,9 +147,7 @@ spec = [
 
 @jitclass(spec)
 class LogisticRegressionOracleNumba():
-    """Class defining the oracles for the L^2 regularized logistic loss.
-
-    **NOTE:** This class is taylored for the binary logreg.
+    """Numba class defining the oracles for the L^2 regularized logistic loss.
 
     Parameters
     ----------
@@ -157,10 +155,13 @@ class LogisticRegressionOracleNumba():
         Input data for the model.
     y : ndarray, shape (n_samples,)
         Targets for the logistic regression. Must be binary targets.
-    reg : bool
-        Whether or not to apply regularisation.
+    reg : {'exp', ‘lin’, ‘none’}, default='none',
+        Parametrization of the regularization parameter
+        - 'exp' the parametrization is exponential
+        - 'lin' the parametrization is linear
+        - 'none' no regularization
     """
-    def __init__(self, X, y, reg=False):
+    def __init__(self, X, y, reg='none'):
 
         self.X = X
         self.y = y
@@ -301,8 +302,11 @@ class LogisticRegressionOracle(BaseOracle):
         Input data for the model.
     y : ndarray, shape (n_samples,)
         Targets for the logistic regression. Must be binary targets.
-    reg : bool
-        Whether or not to apply regularisation.
+    reg : {'exp', ‘lin’, ‘none’}, default='none',
+        Parametrization of the regularization parameter
+        - 'exp' the parametrization is exponential
+        - 'lin' the parametrization is linear
+        - 'none' no regularization
     """
     def __init__(self, X, y, reg='none'):
         super().__init__()
