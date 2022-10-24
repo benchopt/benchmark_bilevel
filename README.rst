@@ -31,7 +31,7 @@ You can also use config files to setup the benchmark run:
 
 .. code-block::
 
-   $ benchopt run benchmark_bilevel --config X.yml
+   $ benchopt run benchmark_bilevel --config config/X.yml
 
 where `X.yml` is a config file. See https://benchopt.github.io/index.html#run-a-benchmark for an example of config file.
 
