@@ -174,25 +174,22 @@ for benchmark in BENCH_DICT:
     for s in SOLVER_DICT:
         temp_dict = SOLVER_DICT[s]
         temp_dict.update(dict(eval_freq=BENCH_DICT[benchmark]['eval_freq']))
-        temp_dict.update(dict(step_size=BENCH_DICT[benchmark]['step_size']))
         temp_dict.update(dict(
-            outer_ratio=BENCH_DICT[benchmark]['outer_ratio']
+            step_size=list(BENCH_DICT[benchmark]['step_size'])
             )
         )
-
-        param_list = [dict(zip(temp_dict.keys(), values))
-                      for values in product(*temp_dict.values())]
-        for param_dict in param_list:
-            f.write(f'  - {param_dict["name"]}[')
-            if param_dict['batch_size'] == "full":
-                param_dict['eval_freq'] = 4
-            for i, param in enumerate(param_dict):
-                if param != 'name':
-                    f.write(f'{param}={param_dict[param]}')
-                    if i != len(param_dict) - 1:
-                        f.write(',')
-                    else:
-                        f.write(']\n')
+        temp_dict.update(dict(
+            outer_ratio=list(BENCH_DICT[benchmark]['outer_ratio'])
+            )
+        )
+        f.write(f'  - {temp_dict["name"][0]}[')
+        for i, param in enumerate(temp_dict):
+            if param != 'name':
+                f.write(f'{param}={temp_dict[param]}')
+                if i != len(temp_dict) - 1:
+                    f.write(',')
+                else:
+                    f.write(']\n')
 
     # f.write(f'PATIENCE: {BENCH_DICT[benchmark]["PATIENCE"]}\n')
     f.write(f'n-repetitions: {N_REP}\n')

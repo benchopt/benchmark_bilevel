@@ -79,8 +79,9 @@ if __name__ == "__main__":
                         choices=['time', 'calls'],
                         help='Plot in time or number of calls to oracles.')
     parser.add_argument('--benchmark', '-b', type=str, default='ijcnn1',
-                        choices=['ijcnn1', 'datacleaning0_5', 'datacleaning0_7',
-                                'datacleaning0_9', 'covtype'],
+                        choices=['ijcnn1', 'datacleaning0_5',
+                                 'datacleaning0_7', 'datacleaning0_9',
+                                 'covtype'],
                         help='Choose the benchmark to plot.')
     args = parser.parse_args()
 
