@@ -62,14 +62,10 @@ class Objective(BaseObjective):
         self.f_train = self.inner_oracle(
             X_train, y_train, reg=self.reg
         )
-        if self.task == 'datacleaning':
-            self.f_test = self.outer_oracle(
-                X_test, y_test, reg="none"
-            )
-        else:
-            self.f_test = self.outer_oracle(
+
+        self.f_test = self.outer_oracle(
                 X_test, y_test, reg='none'
-            )
+        )
 
         if self.task == 'datacleaning' or self.model == 'multilogreg':
             self.X_val, self.y_val = X_val, y_val
