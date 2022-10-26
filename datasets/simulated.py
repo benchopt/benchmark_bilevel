@@ -4,7 +4,7 @@ from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
     import numpy as np
-    from benchopt.datasets import make_correlated_data
+    from sklearn.utils import check_random_state
     from sklearn.model_selection import train_test_split
 
 
@@ -16,33 +16,31 @@ class Dataset(BaseDataset):
     # the cross product for each key in the dictionary.
     parameters = {
         'n_samples, n_features': [
-            (1000, 10),
+            (10_000, 200),
         ],
         'correlation': [0, .5, 1 - 1e-10, 1 - 1e-15]
-
     }
 
     def __init__(self, n_samples=10, n_features=50, correlation=0,
-                 sigma=.1, random_state=None):
+                 sigma_X=.1, sigma_y=.1, random_state=None):
         # Store the parameters of the dataset
         self.n_samples = n_samples
         self.n_features = n_features
         self.random_state = random_state
         self.correlation = correlation
-        self.sigma = sigma
+        self.sigma_X = sigma_X
+        self.sigma_y = sigma_y
 
     def get_data(self):
 
-        rng = np.random.RandomState(self.random_state)
+        rng = check_random_state(self.random_state)
         # Create design matrix with correlated columns
-        X_T, _, _ = make_correlated_data(
-            n_samples=self.n_features,
-            n_features=self.n_samples,
-            rho=self.correlation,
-        )
-        X = X_T.T
+        u = rng.randn(self.n_samples, 1)
+        u /= np.linalg.norm(u)
+        X = u + self.sigma_X * rng.randn(self.n_samples, self.n_features)
+
         theta = rng.randn(self.n_features)
-        y = X@theta + self.sigma * rng.randn(self.n_samples)
+        y = X@theta + self.sigma_y * rng.randn(self.n_samples)
 
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, random_state=rng
