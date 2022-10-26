@@ -6,13 +6,20 @@ from benchopt import safe_import_context
 with safe_import_context() as import_ctx:
     import numpy as np
     from numba import njit
+    from numba.experimental import jitclass
+    constants = import_ctx.import_from('constants')
     MinibatchSampler = import_ctx.import_from(
         'minibatch_sampler', 'MinibatchSampler'
+    )
+    spec_minibatch_sampler = import_ctx.import_from(
+        'minibatch_sampler', 'spec'
     )
     LearningRateScheduler = import_ctx.import_from(
         'learning_rate_scheduler', 'LearningRateScheduler'
     )
-    constants = import_ctx.import_from('constants')
+    spec_scheduler = import_ctx.import_from(
+        'learning_rate_scheduler', 'spec'
+    )
 
 
 class Solver(BaseSolver):
@@ -25,23 +32,41 @@ class Solver(BaseSolver):
 
     # any parameter defined here is accessible as a class attribute
     parameters = {
-        'step_size': constants.STEP_SIZES,
-        'outer_ratio': constants.OUTER_RATIOS,
-        'batch_size': constants.BATCH_SIZES
+        'step_size': [.1],
+        'outer_ratio': [1.],
+        'batch_size': [64],
+        'eval_freq': [1],
     }
 
     @staticmethod
     def get_next(stop_val):
         return stop_val + 1
 
-    def set_objective(self, f_train, f_test, inner_var0, outer_var0):
-        self.f_inner = f_train
-        self.f_outer = f_test
+    def set_objective(self, f_train, f_test, inner_var0, outer_var0, numba):
+        if self.batch_size == 'full':
+            numba = False
+        if numba:
+            self.f_inner = f_train.numba_oracle
+            self.f_outer = f_test.numba_oracle
+            self.MinibatchSampler = jitclass(MinibatchSampler,
+                                             spec_minibatch_sampler)
+
+            self.LearningRateScheduler = jitclass(LearningRateScheduler,
+                                                  spec_scheduler)
+
+            self.soba = njit(soba)
+        else:
+            self.f_inner = f_train
+            self.f_outer = f_test
+            self.soba = soba
+            self.MinibatchSampler = MinibatchSampler
+            self.LearningRateScheduler = LearningRateScheduler
         self.inner_var0 = inner_var0
         self.outer_var0 = outer_var0
+        self.numba = numba
 
     def run(self, callback):
-        eval_freq = constants.EVAL_FREQ  # // self.batch_size
+        eval_freq = self.eval_freq  # // self.batch_size
         rng = np.random.RandomState(constants.RANDOM_STATE)
 
         # Init variables
@@ -50,35 +75,31 @@ class Solver(BaseSolver):
         v = np.zeros_like(inner_var)
 
         # Init sampler and lr scheduler
-        if self.batch_size == "full":
-            inner_sampler = MinibatchSampler(
-                self.f_inner.n_samples, batch_size=self.f_inner.n_samples
-            )
-            outer_sampler = MinibatchSampler(
-                self.f_outer.n_samples, batch_size=self.f_outer.n_samples
-            )
-            exponents = np.zeros(2)
+        if self.batch_size == 'full':
+            batch_size_inner = self.f_inner.n_samples
+            batch_size_outer = self.f_outer.n_samples
         else:
-            inner_sampler = MinibatchSampler(
-                self.f_inner.n_samples, batch_size=self.batch_size
-            )
-            outer_sampler = MinibatchSampler(
-                self.f_outer.n_samples, batch_size=self.batch_size
-            )
-            exponents = np.array(
-                [.5, .5]
-            )
+            batch_size_inner = self.batch_size
+            batch_size_outer = self.batch_size
+        inner_sampler = self.MinibatchSampler(
+            self.f_inner.n_samples, batch_size=batch_size_inner
+        )
+        outer_sampler = self.MinibatchSampler(
+            self.f_outer.n_samples, batch_size=batch_size_outer
+        )
         step_sizes = np.array(
             [self.step_size, self.step_size / self.outer_ratio]
         )
-        lr_scheduler = LearningRateScheduler(
+        exponents = np.array(
+            [.5, .5]
+        )
+        lr_scheduler = self.LearningRateScheduler(
             np.array(step_sizes, dtype=float), exponents
         )
-
         # Start algorithm
         while callback((inner_var, outer_var)):
-            inner_var, outer_var, v = soba(
-                self.f_inner.numba_oracle, self.f_outer.numba_oracle,
+            inner_var, outer_var, v = self.soba(
+                self.f_inner, self.f_outer,
                 inner_var, outer_var, v, eval_freq,
                 inner_sampler, outer_sampler, lr_scheduler,
                 seed=rng.randint(constants.MAX_SEED)
@@ -91,12 +112,12 @@ class Solver(BaseSolver):
         return self.beta
 
 
-@njit
 def soba(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
          inner_sampler, outer_sampler, lr_scheduler, seed=None):
 
     # Set seed for randomness
-    np.random.seed(seed)
+    if seed is not None:
+        np.random.seed(seed)
 
     for i in range(max_iter):
         inner_step_size, outer_step_size = lr_scheduler.get_lr()

@@ -22,4 +22,4 @@ class Dataset(BaseDataset):
             X_train=X_train, y_train=y_train,
             X_test=X_test, y_test=y_test
         )
-        return X_train.shape[1], data
+        return data

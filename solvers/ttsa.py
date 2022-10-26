@@ -7,13 +7,20 @@ from benchopt import safe_import_context
 with safe_import_context() as import_ctx:
     import numpy as np
     from numba import njit
+    from numba.experimental import jitclass
     constants = import_ctx.import_from('constants')
     hia = import_ctx.import_from('hessian_approximation', 'hia')
     MinibatchSampler = import_ctx.import_from(
         'minibatch_sampler', 'MinibatchSampler'
     )
+    spec_minibatch_sampler = import_ctx.import_from(
+        'minibatch_sampler', 'spec'
+    )
     LearningRateScheduler = import_ctx.import_from(
         'learning_rate_scheduler', 'LearningRateScheduler'
+    )
+    spec_scheduler = import_ctx.import_from(
+        'learning_rate_scheduler', 'spec'
     )
 
 
@@ -27,50 +34,83 @@ class Solver(BaseSolver):
 
     # any parameter defined here is accessible as a class attribute
     parameters = {
-        'step_size': constants.STEP_SIZES,
-        'outer_ratio': constants.OUTER_RATIOS,
-        'n_hia_step': constants.N_HIA_STEPS,
-        'batch_size': constants.BATCH_SIZES,
+        'step_size': [.1],
+        'outer_ratio': [1.],
+        'n_hia_step': [10],
+        'batch_size': [64],
+        'eval_freq': [1],
     }
 
     @staticmethod
     def get_next(stop_val):
         return stop_val + 1
 
-    def set_objective(self, f_train, f_test, inner_var0, outer_var0):
-        self.f_inner = f_train
-        self.f_outer = f_test
+    def set_objective(self, f_train, f_test, inner_var0, outer_var0, numba):
+        if self.batch_size == 'full':
+            numba = False
+        if numba:
+            self.f_inner = f_train.numba_oracle
+            self.f_outer = f_test.numba_oracle
+            self.MinibatchSampler = jitclass(MinibatchSampler,
+                                             spec_minibatch_sampler)
+
+            self.LearningRateScheduler = jitclass(LearningRateScheduler,
+                                                  spec_scheduler)
+
+            def ttsa(hia):
+                def f(*args, **kwargs):
+                    return njit(_ttsa)(hia, *args, **kwargs)
+                return f
+
+            self.ttsa = ttsa(njit(hia))
+        else:
+            self.f_inner = f_train
+            self.f_outer = f_test
+
+            def ttsa(hia):
+                def f(*args, **kwargs):
+                    return _ttsa(hia, *args, **kwargs)
+                return f
+
+            self.ttsa = ttsa(hia)
+            self.MinibatchSampler = MinibatchSampler
+            self.LearningRateScheduler = LearningRateScheduler
         self.inner_var0 = inner_var0
         self.outer_var0 = outer_var0
+        self.numba = numba
 
     def run(self, callback):
-        eval_freq = constants.EVAL_FREQ
+        eval_freq = self.eval_freq
         rng = np.random.RandomState(constants.RANDOM_STATE)
 
         # Init variables
         inner_var = self.inner_var0.copy()
         outer_var = self.outer_var0.copy()
 
-        # Init sampler and lr
-        inner_sampler = MinibatchSampler(
-            self.f_inner.n_samples, batch_size=self.batch_size
+        # Init sampler and lr scheduler
+        if self.batch_size == 'full':
+            batch_size_inner = self.f_inner.n_samples
+            batch_size_outer = self.f_outer.n_samples
+        else:
+            batch_size_inner = self.batch_size
+            batch_size_outer = self.batch_size
+        inner_sampler = self.MinibatchSampler(
+            self.f_inner.n_samples, batch_size=batch_size_inner
         )
-        outer_sampler = MinibatchSampler(
-            self.f_outer.n_samples, batch_size=self.batch_size
+        outer_sampler = self.MinibatchSampler(
+            self.f_outer.n_samples, batch_size=batch_size_outer
         )
         step_sizes = np.array(
             [self.step_size, self.step_size, self.step_size / self.outer_ratio]
         )
         exponents = np.array([.4, 0., .6])
-        lr_scheduler = LearningRateScheduler(
+        lr_scheduler = self.LearningRateScheduler(
             np.array(step_sizes, dtype=float), exponents
         )
 
-        # Start algorithm
-        eval_freq = constants.EVAL_FREQ
         while callback((inner_var, outer_var)):
-            inner_var, outer_var, = ttsa(
-                self.f_inner.numba_oracle, self.f_outer.numba_oracle,
+            inner_var, outer_var, = self.ttsa(
+                self.f_inner, self.f_outer,
                 inner_var, outer_var,
                 eval_freq, inner_sampler, outer_sampler, lr_scheduler,
                 self.n_hia_step, seed=rng.randint(constants.MAX_SEED)
@@ -81,9 +121,8 @@ class Solver(BaseSolver):
         return self.beta
 
 
-@njit()
-def ttsa(
-    inner_oracle, outer_oracle, inner_var, outer_var, max_iter,
+def _ttsa(
+    hia, inner_oracle, outer_oracle, inner_var, outer_var, max_iter,
     inner_sampler, outer_sampler, lr_scheduler, n_hia_step, seed=None
 ):
     """Numba compatible TTSA algorithm.

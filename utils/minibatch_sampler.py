@@ -1,10 +1,8 @@
 import numpy as np
-
 from numba import int64
-from numba.experimental import jitclass
 
 
-spec = [
+spec = [  # specifications for numba class
     ('n_samples', int64),
     ('batch_size', int64),
     ('i_batch', int64),
@@ -13,7 +11,6 @@ spec = [
 ]
 
 
-@jitclass(spec)
 class MinibatchSampler():
     """Minibatch sampler helper, relying on shuffling and slices.
 

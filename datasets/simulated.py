@@ -18,7 +18,7 @@ class Dataset(BaseDataset):
         'n_samples, n_features': [
             (10_000, 200),
         ],
-        'sigma_X': [1e-2]
+        'correlation': [0, .5, 1 - 1e-10, 1 - 1e-15]
     }
 
     def __init__(self, n_samples=10, n_features=50, correlation=0,
@@ -50,4 +50,4 @@ class Dataset(BaseDataset):
             X_train=X_train, y_train=y_train,
             X_test=X_test, y_test=y_test
         )
-        return self.n_features, data
+        return data

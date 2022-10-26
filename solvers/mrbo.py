@@ -6,13 +6,20 @@ from benchopt import safe_import_context
 with safe_import_context() as import_ctx:
     import numpy as np
     from numba import njit
+    from numba.experimental import jitclass
     constants = import_ctx.import_from('constants')
     joint_shia = import_ctx.import_from('hessian_approximation', 'joint_hia')
     MinibatchSampler = import_ctx.import_from(
         'minibatch_sampler', 'MinibatchSampler'
     )
+    spec_minibatch_sampler = import_ctx.import_from(
+        'minibatch_sampler', 'spec'
+    )
     LearningRateScheduler = import_ctx.import_from(
         'learning_rate_scheduler', 'LearningRateScheduler'
+    )
+    spec_scheduler = import_ctx.import_from(
+        'learning_rate_scheduler', 'spec'
     )
 
 
@@ -26,25 +33,52 @@ class Solver(BaseSolver):
 
     # any parameter defined here is accessible as a class attribute
     parameters = {
-        'step_size': constants.STEP_SIZES,
-        'outer_ratio': constants.OUTER_RATIOS,
-        'n_hia_step': constants.N_HIA_STEPS,
-        'batch_size': constants.BATCH_SIZES,
-        'eta': constants.ETA
+        'step_size': [.1],
+        'outer_ratio': [1.],
+        'n_hia_step': [10],
+        'batch_size': [64],
+        'eta': [.5],
+        'eval_freq': [1],
     }
 
     @staticmethod
     def get_next(stop_val):
         return stop_val + 1
 
-    def set_objective(self, f_train, f_test, inner_var0, outer_var0):
-        self.f_inner = f_train
-        self.f_outer = f_test
+    def set_objective(self, f_train, f_test, inner_var0, outer_var0, numba):
+        if self.batch_size == 'full':
+            numba = False
+        if numba:
+            self.f_inner = f_train.numba_oracle
+            self.f_outer = f_test.numba_oracle
+            self.MinibatchSampler = jitclass(MinibatchSampler,
+                                             spec_minibatch_sampler)
+
+            self.LearningRateScheduler = jitclass(LearningRateScheduler,
+                                                  spec_scheduler)
+
+            def mrbo(variance_reduction):
+                def f(*args, **kwargs):
+                    return njit(_mrbo)(variance_reduction, *args, **kwargs)
+                return f
+            self.mrbo = mrbo(njit(joint_shia))
+        else:
+            self.f_inner = f_train
+            self.f_outer = f_test
+
+            def mrbo(variance_reduction):
+                def f(*args, **kwargs):
+                    return _mrbo(variance_reduction, *args, **kwargs)
+                return f
+            self.mrbo = mrbo(joint_shia)
+            self.MinibatchSampler = MinibatchSampler
+            self.LearningRateScheduler = LearningRateScheduler
         self.inner_var0 = inner_var0
         self.outer_var0 = outer_var0
+        self.numba = numba
 
     def run(self, callback):
-        eval_freq = constants.EVAL_FREQ  # // self.batch_size
+        eval_freq = self.eval_freq
         rng = np.random.RandomState(constants.RANDOM_STATE)
 
         # Init variables
@@ -54,11 +88,17 @@ class Solver(BaseSolver):
         memory_outer = np.zeros((2, *outer_var.shape), outer_var.dtype)
 
         # Init sampler and lr scheduler
-        inner_sampler = MinibatchSampler(
-            self.f_inner.n_samples, batch_size=self.batch_size
+        if self.batch_size == 'full':
+            batch_size_inner = self.f_inner.n_samples
+            batch_size_outer = self.f_outer.n_samples
+        else:
+            batch_size_inner = self.batch_size
+            batch_size_outer = self.batch_size
+        inner_sampler = self.MinibatchSampler(
+            self.f_inner.n_samples, batch_size=batch_size_inner
         )
-        outer_sampler = MinibatchSampler(
-            self.f_outer.n_samples, batch_size=self.batch_size
+        outer_sampler = self.MinibatchSampler(
+            self.f_outer.n_samples, batch_size=batch_size_outer
         )
         step_sizes = np.array(  # (inner_ss, hia_lr, eta, outer_ss)
             [
@@ -69,15 +109,14 @@ class Solver(BaseSolver):
             ]
         )
         exponents = np.array([1/3, 0, 2/3, 1/3])
-        lr_scheduler = LearningRateScheduler(
+        lr_scheduler = self.LearningRateScheduler(
             np.array(step_sizes, dtype=float), exponents
         )
 
-        eval_freq = constants.EVAL_FREQ
         # Start algorithm
         while callback((inner_var, outer_var)):
-            inner_var, outer_var, memory_inner, memory_outer = mrbo(
-                self.f_inner.numba_oracle, self.f_outer.numba_oracle,
+            inner_var, outer_var, memory_inner, memory_outer = self.mrbo(
+                self.f_inner, self.f_outer,
                 inner_var, outer_var, memory_inner, memory_outer,
                 eval_freq, inner_sampler, outer_sampler,
                 lr_scheduler, self.n_hia_step,
@@ -89,10 +128,9 @@ class Solver(BaseSolver):
         return self.beta
 
 
-@njit()
-def mrbo(inner_oracle, outer_oracle, inner_var, outer_var,
-         memory_inner, memory_outer, max_iter, inner_sampler, outer_sampler,
-         lr_scheduler, n_hia_step, seed=None):
+def _mrbo(joint_shia, inner_oracle, outer_oracle, inner_var, outer_var,
+          memory_inner, memory_outer, max_iter, inner_sampler, outer_sampler,
+          lr_scheduler, n_hia_step, seed=None):
 
     # Set seed for randomness
     if seed is not None:
