@@ -81,7 +81,8 @@ class Objective(BaseObjective):
                 self.outer_var0 = self.outer_var0[:1]
         elif self.task == "datacleaning" or self.model == "multilogreg":
             self.inner_var0 = np.zeros(*inner_shape)
-            self.outer_var0 = -2 * np.ones(*outer_shape)
+            self.outer_var0 = -2 * np.ones(*outer_shape)  
+            # XXX: Try random inits
         self.inner_var0, self.outer_var0 = self.f_train.prox(
             self.inner_var0, self.outer_var0
         )
