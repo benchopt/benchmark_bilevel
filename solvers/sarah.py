@@ -129,7 +129,8 @@ def sarah(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
 
     for i in range(i_min, i_min+max_iter):
         inner_lr, outer_lr = lr_scheduler.get_lr()
-        if i % period == 0:
+        # Computation of the directions
+        if i % period == 0:  # Full batch computations
             _, d_inner, hvp, cross_v = inner_oracle.get_oracles(inner_var,
                                                                 outer_var, v)
             grad_in, d_outer = outer_oracle.get_grad(inner_var, outer_var)
@@ -137,15 +138,7 @@ def sarah(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
             d_v = hvp - grad_in
             d_outer -= cross_v
 
-            inner_var_old = inner_var.copy()
-            v_old = v.copy()
-            outer_var_old = outer_var.copy()
-
-            inner_var -= inner_lr * d_inner
-            v -= inner_lr * d_v
-            outer_var -= outer_lr * d_outer
-
-        else:
+        else:  # Stochastic computations
             slice_inner, _ = inner_sampler.get_batch()
             _, grad_inner_var, hvp, cross_v = inner_oracle.oracles(
                 inner_var, outer_var, v, slice_inner, inverse='id'
@@ -167,13 +160,15 @@ def sarah(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
             d_outer += (grad_out_outer - grad_out_outer_old)
             d_outer -= (cross_v - cross_v_old)
 
-            inner_var_old = inner_var.copy()
-            v_old = v.copy()
-            outer_var_old = outer_var.copy()
+        # Store the last iterates
+        inner_var_old = inner_var.copy()
+        v_old = v.copy()
+        outer_var_old = outer_var.copy()
 
-            inner_var -= inner_lr * d_inner
-            v -= inner_lr * d_v
-            outer_var -= outer_lr * d_outer
+        # Update of the variables
+        inner_var -= inner_lr * d_inner
+        v -= inner_lr * d_v
+        outer_var -= outer_lr * d_outer
 
     return (
         inner_var, outer_var, inner_var_old, v_old, outer_var_old, d_inner,
