@@ -5,12 +5,20 @@ from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
     import numpy as np
+    from numba import njit
+    from numba.experimental import jitclass
     constants = import_ctx.import_from('constants')
     MinibatchSampler = import_ctx.import_from(
         'minibatch_sampler', 'MinibatchSampler'
     )
+    spec_minibatch_sampler = import_ctx.import_from(
+        'minibatch_sampler', 'spec'
+    )
     LearningRateScheduler = import_ctx.import_from(
         'learning_rate_scheduler', 'LearningRateScheduler'
+    )
+    spec_scheduler = import_ctx.import_from(
+        'learning_rate_scheduler', 'spec'
     )
 
 
@@ -28,20 +36,38 @@ class Solver(BaseSolver):
         'outer_ratio': np.logspace(-2, 1, 6),
         'batch_size': [64],
         'period': np.logspace(1, 6, 6),
+        'eval_freq': [1],
     }
 
     @staticmethod
     def get_next(stop_val):
         return stop_val + 1
 
-    def set_objective(self, f_train, f_test, inner_var0, outer_var0):
-        self.f_inner = f_train
-        self.f_outer = f_test
+    def set_objective(self, f_train, f_test, inner_var0, outer_var0, numba):
+        if self.batch_size == 'full':
+            numba = False
+        if numba:
+            self.f_inner = f_train.numba_oracle
+            self.f_outer = f_test.numba_oracle
+            self.MinibatchSampler = jitclass(MinibatchSampler,
+                                             spec_minibatch_sampler)
+
+            self.LearningRateScheduler = jitclass(LearningRateScheduler,
+                                                  spec_scheduler)
+
+            self.soba = njit(sarah)
+        else:
+            self.f_inner = f_train
+            self.f_outer = f_test
+            self.soba = sarah
+            self.MinibatchSampler = MinibatchSampler
+            self.LearningRateScheduler = LearningRateScheduler
         self.inner_var0 = inner_var0
         self.outer_var0 = outer_var0
+        self.numba = numba
 
     def run(self, callback):
-        eval_freq = constants.EVAL_FREQ  # // self.batch_size
+        eval_freq = self.eval_freq  # // self.batch_size
         rng = np.random.RandomState(constants.RANDOM_STATE)
 
         # Init variables
@@ -66,8 +92,6 @@ class Solver(BaseSolver):
         lr_scheduler = LearningRateScheduler(
             np.array(step_sizes, dtype=float), exponents
         )
-
-        eval_freq = constants.EVAL_FREQ
 
         inner_var_old = None
         outer_var_old = None
