@@ -1,6 +1,8 @@
 from benchopt import BaseSolver
 from benchopt.stopping_criterion import SufficientProgressCriterion
 
+from benchopt.utils import profile
+
 from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
@@ -32,10 +34,13 @@ class Solver(BaseSolver):
 
     # any parameter defined here is accessible as a class attribute
     parameters = {
-        'step_size': np.logspace(-5, 3, 9, base=2),
-        'outer_ratio': np.logspace(-2, 1, 6),
+        'step_size': [2.],
+        # 'step_size': np.logspace(-5, 3, 9, base=2),
+        'outer_ratio': [0.15848931924611134],
+        # 'outer_ratio': np.logspace(-2, 1, 6),
         'batch_size': [64],
-        'period': np.logspace(1, 6, 6),
+        'period': [100000, 1000],
+        # 'period': np.logspace(1, 6, 6),
         'eval_freq': [1],
     }
 
@@ -66,6 +71,7 @@ class Solver(BaseSolver):
         self.outer_var0 = outer_var0
         self.numba = numba
 
+    @profile
     def run(self, callback):
         eval_freq = self.eval_freq  # // self.batch_size
         rng = np.random.RandomState(constants.RANDOM_STATE)
@@ -118,6 +124,7 @@ class Solver(BaseSolver):
         return self.beta
 
 
+@profile
 def sarah(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
           inner_sampler, outer_sampler, lr_scheduler, inner_var_old=None,
           v_old=None, outer_var_old=None, d_inner=None, d_v=None, d_outer=None,
@@ -131,9 +138,20 @@ def sarah(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
         inner_lr, outer_lr = lr_scheduler.get_lr()
         # Computation of the directions
         if i % period == 0:  # Full batch computations
-            _, d_inner, hvp, cross_v = inner_oracle.get_oracles(inner_var,
-                                                                outer_var, v)
-            grad_in, d_outer = outer_oracle.get_grad(inner_var, outer_var)
+            slice_inner = slice(0, inner_oracle.n_samples)
+            _, d_inner, hvp, cross_v = inner_oracle.oracles(
+                inner_var,
+                outer_var,
+                v,
+                slice_inner
+            )
+
+            slice_outer = slice(0, outer_oracle.n_samples)
+            grad_in, d_outer = outer_oracle.grad(
+                inner_var,
+                outer_var,
+                slice_outer
+            )
 
             d_v = hvp - grad_in
             d_outer -= cross_v
