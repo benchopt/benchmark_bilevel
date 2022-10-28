@@ -290,6 +290,16 @@ class LogisticRegressionOracleNumba():
             lmbda = np.maximum(lmbda, 0)
         return theta, lmbda
 
+    def get_oracles(self, theta, lmbda, v, inverse='id'):
+        n = self.X.shape[0]
+        idx = np.arange(0, n)
+        return self.oracles(theta, lmbda, v, idx, inverse=inverse)
+
+    def get_grad(self, theta, lmbda):
+        n = self.X.shape[0]
+        idx = np.arange(0, n)
+        return self.grad(theta, lmbda, idx)
+
 
 class LogisticRegressionOracle(BaseOracle):
     """Class defining the oracles for the L^2 regularized logistic loss.

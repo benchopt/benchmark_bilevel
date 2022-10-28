@@ -141,10 +141,10 @@ def sarah(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
         else:  # Stochastic computations
             slice_inner, _ = inner_sampler.get_batch()
             _, grad_inner_var, hvp, cross_v = inner_oracle.oracles(
-                inner_var, outer_var, v, slice_inner, inverse='id'
+                inner_var, outer_var, v, slice_inner
             )
             _, grad_inner_var_old, hvp_old, cross_v_old = inner_oracle.oracles(
-                inner_var_old, outer_var_old, v_old, slice_inner, inverse='id'
+                inner_var_old, outer_var_old, v_old, slice_inner
             )
 
             slice_outer, _ = outer_sampler.get_batch()
