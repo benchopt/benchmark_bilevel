@@ -34,13 +34,10 @@ class Solver(BaseSolver):
 
     # any parameter defined here is accessible as a class attribute
     parameters = {
-        'step_size': [2.],
-        # 'step_size': np.logspace(-5, 3, 9, base=2),
-        'outer_ratio': [0.15848931924611134],
-        # 'outer_ratio': np.logspace(-2, 1, 6),
+        'step_size': np.logspace(-5, 3, 9, base=2),
+        'outer_ratio': np.logspace(-2, 1, 6),
         'batch_size': [64],
-        'period': [100000, 1000],
-        # 'period': np.logspace(1, 6, 6),
+        'period': np.logspace(1, 6, 6),
         'eval_freq': [1],
     }
 
