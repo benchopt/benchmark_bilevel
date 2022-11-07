@@ -29,6 +29,7 @@ class Solver(BaseSolver):
         self.numba = numba
 
     def run(self, n_iter):
+        optuna.logging.set_verbosity(optuna.logging.WARNING)
         if n_iter == 0:
             outer_var = self.outer_var0.copy()
         else:
@@ -37,8 +38,8 @@ class Solver(BaseSolver):
                 for k in range(len(outer_var_flat)):
                     outer_var_flat[k] = trial.suggest_float(
                         f'outer_var{k}',
-                        -5,
-                        5
+                        -9,
+                        1
                     )
                 outer_var = outer_var_flat.reshape(self.outer_var0.shape)
                 inner_var = self.f_inner.get_inner_var_star(outer_var)
