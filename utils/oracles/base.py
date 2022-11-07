@@ -104,10 +104,10 @@ class BaseOracle(ABC):
         inner_var_star, _, d = fmin_l_bfgs_b(
             func, np.zeros(var_shape_flat), fprime=fprime
         )
-        if d['warnflag'] != 0:
-            print('LBFGS did not converged!')
-            print("Final gradient:", d['grad'])
-            raise RuntimeError()
+        # if d['warnflag'] != 0:
+        #     print('LBFGS did not converged!')
+        #     print("Final gradient:", d['grad'])
+        #     raise RuntimeError()
         return inner_var_star
 
     def __getattr__(self, name):
