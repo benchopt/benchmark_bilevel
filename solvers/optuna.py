@@ -7,6 +7,7 @@ with safe_import_context() as import_ctx:
     import optuna
     constants = import_ctx.import_from('constants')
 
+
 class Solver(BaseSolver):
     """Hyperparameter Selection with Optuna."""
     name = 'Optuna'
@@ -29,7 +30,6 @@ class Solver(BaseSolver):
 
     def run(self, n_iter):
         if n_iter == 0:
-            inner_var = self.f_inner.get_inner_var_star(outer_var)
             outer_var = self.outer_var0.copy()
         else:
             def obj_optuna(trial):
@@ -40,6 +40,7 @@ class Solver(BaseSolver):
                         -5,
                         5
                     )
+                outer_var = outer_var_flat.reshape(self.outer_var0.shape)
                 inner_var = self.f_inner.get_inner_var_star(outer_var)
                 return self.f_outer.get_value(inner_var, outer_var)
 
@@ -49,7 +50,7 @@ class Solver(BaseSolver):
             outer_var = np.array(list(trial.params.values())).reshape(
                 self.outer_var0.shape
             )
-
+        inner_var = self.f_inner.get_inner_var_star(outer_var)
         self.beta = (inner_var, outer_var)
 
     def get_result(self):
