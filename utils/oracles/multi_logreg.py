@@ -129,6 +129,14 @@ class MultiLogRegOracle(BaseOracle):
 
         return grad_theta.ravel(), grad_lmbda
 
+    def cross_mat(self, theta_flat, lmbda):
+        if self.reg == "exp":
+            theta = theta_flat.reshape(self.n_features, self.n_classes)
+            cross_v = np.exp(lmbda) * theta
+        else:
+            cross_v = np.zeros_like(lmbda)
+        return cross_v.reshape(1, -1)
+
     def cross(self, theta_flat, lmbda, v_flat, idx):
         if self.reg == "exp":
             theta = theta_flat.reshape(self.n_features, self.n_classes)
