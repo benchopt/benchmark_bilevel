@@ -40,8 +40,8 @@ class Solver(BaseSolver):
                 for k in range(len(outer_var_flat)):
                     outer_var_flat[k] = trial.suggest_float(
                         f'outer_var{k}',
-                        -7,
-                        3
+                        -15,
+                        5
                     )
                 outer_var = outer_var_flat.reshape(self.outer_var0.shape)
                 inner_var = self.f_inner.get_inner_var_star(outer_var)
