@@ -43,8 +43,9 @@ class BaseOracle(ABC):
     # Shape of the variable for the considered problem
     variables_shape = None
 
-    def __init__(self):
+    def __init__(self, numba=False):
         self.memory = {}
+        self.numba = numba
 
     @abstractmethod
     def value(self, inner_var, outer_var, idx):

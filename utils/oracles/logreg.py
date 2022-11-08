@@ -324,14 +324,15 @@ class LogisticRegressionOracle(BaseOracle):
         assert reg in ['exp', 'lin', 'none'], f"Unknown value for reg: '{reg}'"
 
         # Store info for other
-        self.X = np.ascontiguousarray(X)
+        self.X = X
         self.y = y.astype(np.float64)
         self.reg = reg
 
         # Create a numba oracle for the numba functions
-        self.numba_oracle = LogisticRegressionOracleNumba(
-            self.X, self.y, self.reg
-        )
+        if self.numba:
+            self.numba_oracle = LogisticRegressionOracleNumba(
+                self.X, self.y, self.reg
+            )
 
         # attributes
         self.n_samples, self.n_features = X.shape
@@ -438,7 +439,7 @@ class LogisticRegressionOracle(BaseOracle):
 
         if self.reg != 'none':
             alpha = np.exp(lmbda) if self.reg == 'exp' else lmbda
-            val += .5 * (alpha @ theta ** 2)
+            val += .5 * (theta @ (alpha * theta))
             grad += alpha * theta
             hvp += alpha * v
 
