@@ -7,7 +7,6 @@ import scipy.special as sc
 
 from .base import BaseOracle
 
-from benchopt.utils import profile
 import warnings
 
 warnings.filterwarnings("error", category=RuntimeWarning)
@@ -54,7 +53,7 @@ class MultiLogRegOracle(BaseOracle):
             y = OneHotEncoder().fit_transform(y[:, None]).toarray()
 
         # Store info for other
-        self.X = np.ascontiguousarray(X)
+        self.X = X
         self.y = y.astype(np.float64)
         self.reg = reg
 
@@ -196,7 +195,6 @@ class MultiLogRegOracle(BaseOracle):
             print("CG did not converge to the desired precision")
         return Hv
 
-    @profile
     def oracles(self, theta_flat, lmbda, v_flat, idx, inverse="id"):
         """Returns the value, the gradient,"""
         theta = theta_flat.reshape(self.n_features, self.n_classes)

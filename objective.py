@@ -4,6 +4,7 @@ from benchopt import safe_import_context
 with safe_import_context() as import_ctx:
     import numpy as np
     from sklearn.utils import check_random_state
+    from scipy.sparse import issparse
     oracles = import_ctx.import_from('oracles')
 
 
@@ -11,30 +12,27 @@ class Objective(BaseObjective):
     name = "Bilevel Optimization"
 
     parameters = {
-        'task, model, n_reg, reg': [
-            ('datacleaning', None, None, None),
-            ('classif', 'logreg', 'full', 'exp'),
-            ('classif', 'multilogreg', None, None),
+        'task, model, n_reg, reg, numba': [
+            ('datacleaning', None, None, None, False),
+            ('classif', 'logreg', 'full', 'exp', False),
+            ('classif', 'multilogreg', None, None, False),
         ],
     }
 
     def __init__(self, task='classif', model='ridge', reg='exp',  n_reg='full',
-                 random_state=2442):
+                 numba=False, random_state=2442):
         if task == 'classif':
             self.reg = reg
             self.n_reg = n_reg
             if model == 'ridge':
                 self.inner_oracle = oracles.RidgeRegressionOracle
                 self.outer_oracle = oracles.RidgeRegressionOracle
-                self.numba = True
             elif model == 'logreg':
                 self.inner_oracle = oracles.LogisticRegressionOracle
                 self.outer_oracle = oracles.LogisticRegressionOracle
-                self.numba = True
             elif model == 'multilogreg':
                 self.inner_oracle = oracles.MultiLogRegOracle
                 self.outer_oracle = oracles.MultiLogRegOracle
-                self.numba = False
             else:
                 raise ValueError(
                     f"model should be 'ridge', 'logreg' or 'multilogreg'. \
@@ -52,6 +50,7 @@ class Objective(BaseObjective):
         self.task = task
         self.model = model
         self.random_state = random_state
+        self.numba = numba
 
     def get_one_solution(self):
         inner_shape, outer_shape = self.f_train.variables_shape
@@ -59,6 +58,7 @@ class Objective(BaseObjective):
 
     def set_data(self, X_train, y_train, X_test, y_test,
                  X_val=None, y_val=None):
+        # import ipdb; ipdb.set_trace()
         self.f_train = self.inner_oracle(
             X_train, y_train, reg=self.reg
         )
@@ -86,6 +86,13 @@ class Objective(BaseObjective):
         self.inner_var0, self.outer_var0 = self.f_train.prox(
             self.inner_var0, self.outer_var0
         )
+
+    def skip(self, **data):
+        # XXX - fit intercept is not yet implemented in julia.jl
+        if self.numba and issparse(data['X_train']):
+            return True, "Cannot use Numba with sparse input"
+
+        return False, None
 
     def compute(self, beta):
 

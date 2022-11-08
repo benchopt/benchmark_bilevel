@@ -43,8 +43,9 @@ class BaseOracle(ABC):
     # Shape of the variable for the considered problem
     variables_shape = None
 
-    def __init__(self):
+    def __init__(self, numba=False):
         self.memory = {}
+        self.numba = numba
 
     @abstractmethod
     def value(self, inner_var, outer_var, idx):
@@ -102,8 +103,9 @@ class BaseOracle(ABC):
             return self.grad_inner_var(inner_var, outer_var, idx)
 
         inner_var_star, _, d = fmin_l_bfgs_b(
-            func, np.zeros(var_shape_flat), fprime=fprime
+            func, np.zeros(var_shape_flat), fprime=fprime, maxls=30
         )
+
         if d['warnflag'] != 0:
             print('LBFGS did not converged!')
             print("Final gradient:", d['grad'])
