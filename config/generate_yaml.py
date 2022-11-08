@@ -134,7 +134,20 @@ BENCH_DICT = dict(
         task='datacleaning',
         n=64000,
         timeout=720
-    )
+    ),
+    twentynews_binary=dict(
+        eval_freq=[2**5],
+        PATIENCE=12_800,
+        step_size=np.logspace(-5, 3, 9, base=2),
+        outer_ratio=np.logspace(-2, 1, 6),
+        dataset='20news_binary',
+        model='logreg',
+        n_reg='1',
+        reg='exp',
+        task='classif',
+        n=64000,
+        timeout=120
+    ),
 )
 
 
@@ -153,6 +166,7 @@ DATASET_DICT = dict(
     datacleaning0_5=["mnist[ratio=0.5]"],
     datacleaning0_7=["mnist[ratio=0.7]"],
     datacleaning0_9=["mnist[ratio=0.9]"],
+    twentynews_binary=["20news_binary"],
 )
 
 for benchmark in BENCH_DICT:
