@@ -1,6 +1,6 @@
 from benchopt import BaseSolver
-
 from benchopt import safe_import_context
+from benchopt.stopping_criterion import SufficientProgressCriterion
 
 with safe_import_context() as import_ctx:
     import numpy as np
@@ -11,7 +11,9 @@ with safe_import_context() as import_ctx:
 class Solver(BaseSolver):
     """Hyperparameter Selection with Optuna."""
     name = 'Optuna'
-    stopping_strategy = 'iteration'
+    stopping_criterion = SufficientProgressCriterion(
+        patience=1000, strategy='iteration'
+    )
 
     install_cmd = 'conda'
     requirements = ['pip:optuna']
@@ -38,7 +40,7 @@ class Solver(BaseSolver):
                 for k in range(len(outer_var_flat)):
                     outer_var_flat[k] = trial.suggest_float(
                         f'outer_var{k}',
-                        -10,
+                        -7,
                         3
                     )
                 outer_var = outer_var_flat.reshape(self.outer_var0.shape)
