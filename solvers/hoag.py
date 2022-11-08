@@ -4,8 +4,6 @@ from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
     import numpy as np
-    # from numba import njit
-    # from numba.experimental import jitclass
     from hoag import hoag_lbfgs
     constants = import_ctx.import_from('constants')
 
