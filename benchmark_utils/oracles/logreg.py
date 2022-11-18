@@ -329,10 +329,9 @@ class LogisticRegressionOracle(BaseOracle):
         self.reg = reg
 
         # Create a numba oracle for the numba functions
-        if self.numba:
-            self.numba_oracle = LogisticRegressionOracleNumba(
-                self.X, self.y, self.reg
-            )
+        self.numba_oracle = LogisticRegressionOracleNumba(
+            self.X, self.y, self.reg
+        )
 
         # attributes
         self.n_samples, self.n_features = X.shape

@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from benchopt import BaseDataset
 from benchopt import safe_import_context
 
@@ -5,17 +7,20 @@ with safe_import_context() as import_ctx:
     import pickle
     import gzip
     import numpy as np
-    from pathlib import Path
     from urllib import request
     from sklearn.preprocessing import StandardScaler
     from sklearn.model_selection import train_test_split
 
 
 BASE_URL = "http://yann.lecun.com/exdb/mnist/"
-DATA_DIR = Path("./datasets/data")
+DATA_DIR = Path(__file__).parent / "data"
 
 
 def download_mnist():
+    # Make sure the data exists
+    DATA_DIR.mkdir(exist_ok=True)
+
+    # download the archives.
     filenames = {
         "training_images": "train-images-idx3-ubyte.gz",
         "test_images": "t10k-images-idx3-ubyte.gz",

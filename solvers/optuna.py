@@ -5,14 +5,13 @@ from benchopt.stopping_criterion import SufficientProgressCriterion
 with safe_import_context() as import_ctx:
     import numpy as np
     import optuna
-    constants = import_ctx.import_from('constants')
 
 
 class Solver(BaseSolver):
     """Hyperparameter Selection with Optuna."""
     name = 'Optuna'
     stopping_criterion = SufficientProgressCriterion(
-        patience=1000, strategy='iteration'
+        patience=100, strategy='iteration'
     )
 
     install_cmd = 'conda'

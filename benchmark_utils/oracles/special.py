@@ -4,7 +4,7 @@ from numba import njit
 from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
-    np_max = import_ctx.import_from('numba_utils', 'np_max')
+    from benchmark_utils.numba_utils import np_max
 
 
 def logsig(x):
