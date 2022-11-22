@@ -33,7 +33,7 @@ You can also use config files to setup the benchmark run:
 
    $ benchopt run benchmark_bilevel --config config/X.yml
 
-where `X.yml` is a config file. See https://benchopt.github.io/index.html#run-a-benchmark for an example of config file.
+where `X.yml` is a config file. See https://benchopt.github.io/index.html#run-a-benchmark for an example of config file. This will possibly launch a huge grid search. When avalaible, you can rather use the file `X_best_params.yml` in order to lauch an experiment with a single set of parameters for each solver.
 
 Use `benchopt run -h` for more details about these options, or visit https://benchopt.github.io/api.html.
 
