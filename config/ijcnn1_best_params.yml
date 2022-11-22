@@ -1,0 +1,19 @@
+objective:
+  - Bilevel Optimization[model=logreg,n_reg=full,numba=True,reg=exp,task=classif]
+dataset:
+  - ijcnn1
+solver:
+  - MRBO[batch_size=64,eta=0.5,eval_freq=131072,n_hia_step=10,outer_ratio=0.03162277660168379,step_size=1.0]
+  - SUSTAIN[batch_size=64,eta=0.5,eval_freq=131072,n_hia_step=10,outer_ratio=0.03162277660168379,step_size=1.0]
+  - TTSA[batch_size=64,eval_freq=131072,n_hia_step=10,outer_ratio=0.03162277660168379,step_size=1.0]
+  - FSLA[batch_size=64,eval_freq=131072,outer_ratio=0.31622776601683794,step_size=1.0]
+  - AmIGO[batch_size=64,eval_freq=131072,n_inner_step=10,outer_ratio=0.31622776601683794,step_size=0.125]
+  - StocBiO[batch_size=64,eval_freq=131072,n_inner_step=10,n_shia_steps=10,outer_ratio=0.31622776601683794,step_size=0.5]
+  - BSA[batch_size=64,eval_freq=131072,n_hia_step=10,n_inner_step=10,outer_ratio=0.01,step_size=1.0]
+  - SABA[batch_size=64,eval_freq=131072,outer_ratio=1.0,step_size=0.25]
+  - SOBA[batch_size=64,eval_freq=131072,outer_ratio=1.0,step_size=4.0]
+  - SOBA[batch_size=full,eval_freq=4,outer_ratio=0.03162277660168379,step_size=2.0]
+n-repetitions: 10
+max-runs: 1500
+timeout: 8000
+output: ijcnn1

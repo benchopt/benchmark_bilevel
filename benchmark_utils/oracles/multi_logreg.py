@@ -2,8 +2,9 @@ import numpy as np
 from sklearn.utils.extmath import safe_sparse_dot
 from sklearn.preprocessing import OneHotEncoder
 
-from scipy.sparse import linalg as splinalg
 import scipy.special as sc
+from scipy.sparse import issparse
+from scipy.sparse import linalg as splinalg
 
 from .base import BaseOracle
 
@@ -54,6 +55,8 @@ class MultiLogRegOracle(BaseOracle):
 
         # Store info for other
         self.X = X
+        if not issparse(self.X):
+            self.X = np.ascontiguousarray(X)
         self.y = y.astype(np.float64)
         self.reg = reg
 

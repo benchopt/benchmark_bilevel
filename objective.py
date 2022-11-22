@@ -135,7 +135,7 @@ class Objective(BaseObjective):
                 value=acc
             )
 
-    def to_dict(self):
+    def get_objective(self):
         return dict(
             f_train=self.f_train,
             f_test=self.f_test,

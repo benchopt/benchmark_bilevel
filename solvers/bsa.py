@@ -63,7 +63,7 @@ class Solver(BaseSolver):
 
             def bsa(*args, **kwargs):
                 return njit_bsa(self.sgd_inner, self.hia, *args, **kwargs)
-            self.bsa = bsa(self.sgd_inner, self.hia)
+            self.bsa = bsa
         else:
             self.f_inner = f_train
             self.f_outer = f_test

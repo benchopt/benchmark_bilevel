@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.sparse import issparse
 from scipy.sparse.linalg import svds
 
 # from numba import generated_jit
@@ -25,6 +26,8 @@ class RidgeRegressionOracleNumba():
     def __init__(self, X, y, reg):
 
         self.X = X
+        if not issparse(self.X):
+            self.X = np.ascontiguousarray(X)
         self.y = y
         self.reg = reg
 

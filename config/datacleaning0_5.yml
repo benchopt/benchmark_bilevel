@@ -1,5 +1,5 @@
 objective:
-  - Bilevel Optimization[model=None,n_reg=full,reg=exp,task=datacleaning]
+  - Bilevel Optimization[model=None,n_reg=full,numba=False,reg=exp,task=datacleaning]
 dataset:
   - mnist[ratio=0.5]
 solver:

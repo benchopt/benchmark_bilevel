@@ -78,7 +78,8 @@ BENCH_DICT = dict(
         reg='exp',
         task='classif',
         n=1500,
-        timeout=800
+        timeout=800,
+        numba=True
     ),
     covtype=dict(
         eval_freq=[2**5],
@@ -91,7 +92,8 @@ BENCH_DICT = dict(
         reg='exp',
         task='classif',
         n=64000,
-        timeout=300
+        timeout=300,
+        numba=False
     ),
     datacleaning0_5=dict(
         eval_freq=[2**5],
@@ -105,7 +107,8 @@ BENCH_DICT = dict(
         reg='exp',
         task='datacleaning',
         n=64000,
-        timeout=720
+        timeout=720,
+        numba=False
     ),
     datacleaning0_7=dict(
         eval_freq=[2**5],
@@ -119,7 +122,8 @@ BENCH_DICT = dict(
         reg='exp',
         task='datacleaning',
         n=64000,
-        timeout=720
+        timeout=720,
+        numba=False
     ),
     datacleaning0_9=dict(
         eval_freq=[2**5],
@@ -133,7 +137,8 @@ BENCH_DICT = dict(
         reg='exp',
         task='datacleaning',
         n=64000,
-        timeout=720
+        timeout=720,
+        numba=False
     ),
     twentynews_binary=dict(
         eval_freq=[2**5],
@@ -146,7 +151,8 @@ BENCH_DICT = dict(
         reg='exp',
         task='classif',
         n=64000,
-        timeout=120
+        timeout=120,
+        numba=False
     ),
 )
 
@@ -155,7 +161,7 @@ OBJECTIVE_DICT = dict(
     (
         benchmark,
         dict((key, BENCH_DICT[benchmark][key])
-             for key in ['model', 'n_reg', 'reg', 'task'])
+             for key in ['model', 'n_reg', 'numba', 'reg', 'task'])
     )
     for benchmark in BENCH_DICT
 )
@@ -173,7 +179,7 @@ for benchmark in BENCH_DICT:
     with open(f"{benchmark}.yml", "x") as f:
         f.write("objective:\n")
         f.write("  - Bilevel Optimization[")
-        for key in ['model', 'n_reg', 'reg', 'task']:
+        for key in ['model', 'n_reg', 'numba', 'reg', 'task']:
             f.write(f"{key}={OBJECTIVE_DICT[benchmark][key]}")
             if key != 'task':
                 f.write(',')
