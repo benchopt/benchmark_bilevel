@@ -7,19 +7,12 @@ with safe_import_context() as import_ctx:
     import numpy as np
     from numba import njit, prange
     from numba.experimental import jitclass
-    constants = import_ctx.import_from('constants')
-    MinibatchSampler = import_ctx.import_from(
-        'minibatch_sampler', 'MinibatchSampler'
-    )
-    spec_minibatch_sampler = import_ctx.import_from(
-        'minibatch_sampler', 'spec'
-    )
-    LearningRateScheduler = import_ctx.import_from(
-        'learning_rate_scheduler', 'LearningRateScheduler'
-    )
-    spec_scheduler = import_ctx.import_from(
-        'learning_rate_scheduler', 'spec'
-    )
+
+    from benchmark_utils import constants
+    from benchmark_utils.minibatch_sampler import MinibatchSampler
+    from benchmark_utils.minibatch_sampler import spec as mbs_spec
+    from benchmark_utils.learning_rate_scheduler import LearningRateScheduler
+    from benchmark_utils.learning_rate_scheduler import spec as sched_spec
 
 
 class Solver(BaseSolver):
@@ -27,7 +20,7 @@ class Solver(BaseSolver):
     name = 'SABA'
 
     stopping_criterion = SufficientProgressCriterion(
-        patience=constants.PATIENCE, strategy='callback'
+        patience=100, strategy='callback'
     )
 
     # any parameter defined here is accessible as a class attribute
@@ -35,7 +28,7 @@ class Solver(BaseSolver):
         'step_size': [.1],
         'outer_ratio': [1.],
         'batch_size': [64],
-        'eval_freq': [1],
+        'eval_freq': [128],
     }
 
     @staticmethod
@@ -49,39 +42,38 @@ class Solver(BaseSolver):
             self.f_inner = f_train.numba_oracle
             self.f_outer = f_test.numba_oracle
 
-            def init_memory(init_memory_fb):
-                def f(*args, **kwargs):
-                    return njit(_init_memory)(init_memory_fb, *args, **kwargs)
-                return f
-            self.init_memory = init_memory(njit(_init_memory_fb))
-            self.MinibatchSampler = jitclass(MinibatchSampler,
-                                             spec_minibatch_sampler)
+            # JIT necessary functions and classes
+            njit_saba = njit(_saba)
+            njit_vr = njit(variance_reduction)
+            njit_init_mem = njit(_init_memory)
+            njit_init_mem_fb = njit(_init_memory_fb)
+            self.MinibatchSampler = jitclass(MinibatchSampler, mbs_spec)
+            self.LearningRateScheduler = jitclass(
+                LearningRateScheduler, sched_spec
+            )
 
-            self.LearningRateScheduler = jitclass(LearningRateScheduler,
-                                                  spec_scheduler)
+            def init_memory(*args, **kwargs):
+                return njit_init_mem(njit_init_mem_fb, *args, **kwargs)
+            self.init_memory = init_memory
 
-            def saba(variance_reduction):
-                def f(*args, **kwargs):
-                    return njit(_saba)(variance_reduction, *args, **kwargs)
-                return f
-            self.saba = saba(njit(variance_reduction))
+            def saba(*args, **kwargs):
+                return njit_saba(njit_vr, *args, **kwargs)
+            self.saba = saba
         else:
             self.f_inner = f_train
             self.f_outer = f_test
 
-            def init_memory(init_memory_fb):
-                def f(*args, **kwargs):
-                    return _init_memory(init_memory_fb, *args, **kwargs)
-                return f
-
-            def saba(variance_reduction):
-                def f(*args, **kwargs):
-                    return _saba(variance_reduction, *args, **kwargs)
-                return f
-            self.saba = saba(variance_reduction)
-            self.init_memory = init_memory(_init_memory_fb)
             self.MinibatchSampler = MinibatchSampler
             self.LearningRateScheduler = LearningRateScheduler
+
+            def init_memory(*args, **kwargs):
+                return _init_memory(_init_memory_fb, *args, **kwargs)
+            self.init_memory = init_memory
+
+            def saba(*args, **kwargs):
+                return _saba(variance_reduction, *args, **kwargs)
+            self.saba = saba
+
         self.inner_var0 = inner_var0
         self.outer_var0 = outer_var0
         self.numba = numba

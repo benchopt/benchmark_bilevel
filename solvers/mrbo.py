@@ -7,20 +7,13 @@ with safe_import_context() as import_ctx:
     import numpy as np
     from numba import njit
     from numba.experimental import jitclass
-    constants = import_ctx.import_from('constants')
-    joint_shia = import_ctx.import_from('hessian_approximation', 'joint_hia')
-    MinibatchSampler = import_ctx.import_from(
-        'minibatch_sampler', 'MinibatchSampler'
-    )
-    spec_minibatch_sampler = import_ctx.import_from(
-        'minibatch_sampler', 'spec'
-    )
-    LearningRateScheduler = import_ctx.import_from(
-        'learning_rate_scheduler', 'LearningRateScheduler'
-    )
-    spec_scheduler = import_ctx.import_from(
-        'learning_rate_scheduler', 'spec'
-    )
+
+    from benchmark_utils import constants
+    from benchmark_utils.hessian_approximation import joint_shia
+    from benchmark_utils.minibatch_sampler import MinibatchSampler
+    from benchmark_utils.minibatch_sampler import spec as mbs_spec
+    from benchmark_utils.learning_rate_scheduler import LearningRateScheduler
+    from benchmark_utils.learning_rate_scheduler import spec as sched_spec
 
 
 class Solver(BaseSolver):
@@ -38,41 +31,48 @@ class Solver(BaseSolver):
         'n_hia_step': [10],
         'batch_size': [64],
         'eta': [.5],
-        'eval_freq': [1],
+        'eval_freq': [128],
     }
 
     @staticmethod
     def get_next(stop_val):
         return stop_val + 1
 
+    def skip(self, f_train, f_test, inner_var0, outer_var0, numba):
+        if self.batch_size == 'full' and numba:
+            return True, "numba is not useful for full bach resolution."
+
+        return False, None
+
     def set_objective(self, f_train, f_test, inner_var0, outer_var0, numba):
-        if self.batch_size == 'full':
-            numba = False
+
         if numba:
             self.f_inner = f_train.numba_oracle
             self.f_outer = f_test.numba_oracle
-            self.MinibatchSampler = jitclass(MinibatchSampler,
-                                             spec_minibatch_sampler)
 
-            self.LearningRateScheduler = jitclass(LearningRateScheduler,
-                                                  spec_scheduler)
+            # JIT necessary functions and classes
+            njit_mrbo = njit(_mrbo)
+            njit_joint_shia = njit(joint_shia)
+            self.MinibatchSampler = jitclass(MinibatchSampler, mbs_spec)
+            self.LearningRateScheduler = jitclass(
+                LearningRateScheduler, sched_spec
+            )
 
-            def mrbo(variance_reduction):
-                def f(*args, **kwargs):
-                    return njit(_mrbo)(variance_reduction, *args, **kwargs)
-                return f
-            self.mrbo = mrbo(njit(joint_shia))
+            def mrbo(*args, **kwargs):
+                return njit_mrbo(njit_joint_shia, *args, **kwargs)
+            self.mrbo = mrbo
+
         else:
             self.f_inner = f_train
             self.f_outer = f_test
 
-            def mrbo(variance_reduction):
-                def f(*args, **kwargs):
-                    return _mrbo(variance_reduction, *args, **kwargs)
-                return f
-            self.mrbo = mrbo(joint_shia)
             self.MinibatchSampler = MinibatchSampler
             self.LearningRateScheduler = LearningRateScheduler
+
+            def mrbo(*args, **kwargs):
+                return _mrbo(joint_shia, *args, **kwargs)
+            self.mrbo = mrbo
+
         self.inner_var0 = inner_var0
         self.outer_var0 = outer_var0
         self.numba = numba

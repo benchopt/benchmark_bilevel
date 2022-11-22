@@ -8,21 +8,14 @@ with safe_import_context() as import_ctx:
     import numpy as np
     from numba import njit
     from numba.experimental import jitclass
-    constants = import_ctx.import_from('constants')
-    sgd_inner = import_ctx.import_from('sgd_inner', 'sgd_inner')
-    shia = import_ctx.import_from('hessian_approximation', 'shia')
-    MinibatchSampler = import_ctx.import_from(
-        'minibatch_sampler', 'MinibatchSampler'
-    )
-    spec_minibatch_sampler = import_ctx.import_from(
-        'minibatch_sampler', 'spec'
-    )
-    LearningRateScheduler = import_ctx.import_from(
-        'learning_rate_scheduler', 'LearningRateScheduler'
-    )
-    spec_scheduler = import_ctx.import_from(
-        'learning_rate_scheduler', 'spec'
-    )
+
+    from benchmark_utils import constants
+    from benchmark_utils.sgd_inner import sgd_inner
+    from benchmark_utils.hessian_approximation import shia
+    from benchmark_utils.minibatch_sampler import MinibatchSampler
+    from benchmark_utils.minibatch_sampler import spec as mbs_spec
+    from benchmark_utils.learning_rate_scheduler import LearningRateScheduler
+    from benchmark_utils.learning_rate_scheduler import spec as sched_spec
 
 
 class Solver(BaseSolver):
@@ -43,33 +36,38 @@ class Solver(BaseSolver):
         'n_inner_step': [10],
         'batch_size': [64],
         'n_shia_steps': [10],
-        'eval_freq': [1],
+        'eval_freq': [128],
     }
 
     @staticmethod
     def get_next(stop_val):
         return stop_val + 1
 
+    def skip(self, f_train, f_test, inner_var0, outer_var0, numba):
+        if self.batch_size == 'full' and numba:
+            return True, "numba is not useful for full bach resolution."
+
+        return False, None
+
     def set_objective(self, f_train, f_test, inner_var0, outer_var0, numba):
-        if self.batch_size == 'full':
-            numba = False
         if numba:
             self.f_inner = f_train.numba_oracle
             self.f_outer = f_test.numba_oracle
-            self.sgd_inner = njit(sgd_inner)
+
+            # JIT necessary functions and classes
             self.shia = njit(shia)
+            njit_stocbio = njit(_stocbio)
+            self.sgd_inner = njit(sgd_inner)
+            self.MinibatchSampler = jitclass(MinibatchSampler, mbs_spec)
+            self.LearningRateScheduler = jitclass(
+                LearningRateScheduler, sched_spec
+            )
 
-            self.MinibatchSampler = jitclass(MinibatchSampler,
-                                             spec_minibatch_sampler)
-
-            self.LearningRateScheduler = jitclass(LearningRateScheduler,
-                                                  spec_scheduler)
-
-            def stocbio(sgd_inner, shia):
-                def f(*args, **kwargs):
-                    return njit(_stocbio)(sgd_inner, shia, *args, **kwargs)
-                return f
-            self.stocbio = stocbio(self.sgd_inner, self.shia)
+            def stocbio(*args, **kwargs):
+                return njit_stocbio(
+                    self.sgd_inner, self.shia, *args, **kwargs
+                )
+            self.stocbio = stocbio
         else:
             self.f_inner = f_train
             self.f_outer = f_test
@@ -78,11 +76,10 @@ class Solver(BaseSolver):
             self.MinibatchSampler = MinibatchSampler
             self.LearningRateScheduler = LearningRateScheduler
 
-            def stocbio(sgd_inner, shia):
-                def f(*args, **kwargs):
-                    return _stocbio(sgd_inner, shia, *args, **kwargs)
-                return f
-            self.stocbio = stocbio(self.sgd_inner, self.shia)
+            def stocbio(*args, **kwargs):
+                return _stocbio(sgd_inner, shia, *args, **kwargs)
+
+            self.stocbio = stocbio
 
         self.inner_var0 = inner_var0
         self.outer_var0 = outer_var0

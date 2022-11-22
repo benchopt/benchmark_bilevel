@@ -1,7 +1,7 @@
 from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
-    joint_shia = import_ctx.import_from('hessian_approximation', 'joint_shia')
+    from benchmark_utils.hessian_approximation import joint_shia
 
 
 def sgd_inner(inner_oracle, inner_var, outer_var, step_size, inner_sampler,
