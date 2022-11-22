@@ -329,9 +329,11 @@ class LogisticRegressionOracle(BaseOracle):
         self.reg = reg
 
         # Create a numba oracle for the numba functions
-        self.numba_oracle = LogisticRegressionOracleNumba(
-            self.X, self.y, self.reg
-        )
+        if not sparse.issparse(self.X):
+            self.X = np.ascontiguousarray(self.X)
+            self.numba_oracle = LogisticRegressionOracleNumba(
+                self.X, self.y, self.reg
+            )
 
         # attributes
         self.n_samples, self.n_features = X.shape
