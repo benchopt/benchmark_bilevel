@@ -1,5 +1,5 @@
 objective:
-  - Bilevel Optimization[model=logreg,n_reg=1,reg=exp,task=classif]
+  - Bilevel Optimization[model=logreg,n_reg=1,numba=False,reg=exp,task=classif]
 dataset:
   - 20news_binary
 solver:
@@ -12,7 +12,6 @@ solver:
   - StocBiO[batch_size=[64],n_inner_step=[10],n_shia_steps=[10],eval_freq=[32],step_size=[0.03125, 0.0625, 0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0],outer_ratio=[0.01, 0.039810717055349734, 0.15848931924611134, 0.630957344480193, 2.5118864315095797, 10.0]]
   - SUSTAIN[batch_size=[64],n_hia_step=[10],eta=[0.5],eval_freq=[32],step_size=[0.03125, 0.0625, 0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0],outer_ratio=[0.01, 0.039810717055349734, 0.15848931924611134, 0.630957344480193, 2.5118864315095797, 10.0]]
   - TTSA[batch_size=[64],n_hia_step=[10],eval_freq=[32],step_size=[0.03125, 0.0625, 0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0],outer_ratio=[0.01, 0.039810717055349734, 0.15848931924611134, 0.630957344480193, 2.5118864315095797, 10.0]]
-  - optuna
 n-repetitions: 10
 max-runs: 64000
 timeout: 1200

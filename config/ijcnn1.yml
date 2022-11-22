@@ -1,5 +1,5 @@
 objective:
-  - Bilevel Optimization[model=logreg,n_reg=full,reg=exp,task=classif]
+  - Bilevel Optimization[model=logreg,n_reg=full,numba=True,reg=exp,task=classif]
 dataset:
   - ijcnn1
 solver:
