@@ -9,19 +9,12 @@ with safe_import_context() as import_ctx:
     import numpy as np
     from numba import njit
     from numba.experimental import jitclass
-    constants = import_ctx.import_from('constants')
-    MinibatchSampler = import_ctx.import_from(
-        'minibatch_sampler', 'MinibatchSampler'
-    )
-    spec_minibatch_sampler = import_ctx.import_from(
-        'minibatch_sampler', 'spec'
-    )
-    LearningRateScheduler = import_ctx.import_from(
-        'learning_rate_scheduler', 'LearningRateScheduler'
-    )
-    spec_scheduler = import_ctx.import_from(
-        'learning_rate_scheduler', 'spec'
-    )
+
+    from benchmark_utils import constants
+    from benchmark_utils.minibatch_sampler import MinibatchSampler
+    from benchmark_utils.minibatch_sampler import spec as mbs_spec
+    from benchmark_utils.learning_rate_scheduler import LearningRateScheduler
+    from benchmark_utils.learning_rate_scheduler import spec as sched_spec
 
 
 class Solver(BaseSolver):
@@ -34,36 +27,45 @@ class Solver(BaseSolver):
 
     # any parameter defined here is accessible as a class attribute
     parameters = {
-        'step_size': np.logspace(-5, 3, 9, base=2),
-        'outer_ratio': np.logspace(-2, 1, 6),
+        'step_size': [.1],
+        'outer_ratio': [1.],
         'batch_size': [64],
-        'period': np.logspace(1, 6, 6),
+        'period_frac': [1],
         'eval_freq': [1],
     }
 
     @staticmethod
     def get_next(stop_val):
         return stop_val + 1
+    
+    def skip(self, f_train, f_test, inner_var0, outer_var0, numba):
+        if self.batch_size == 'full' and numba:
+            return True, "numba is not useful for full bach resolution."
+
+        return False, None
 
     def set_objective(self, f_train, f_test, inner_var0, outer_var0, numba):
-        if self.batch_size == 'full':
-            numba = False
+
         if numba:
             self.f_inner = f_train.numba_oracle
             self.f_outer = f_test.numba_oracle
+
+            # JIT necessary functions and classes
+            self.sarah = njit(sarah)
             self.MinibatchSampler = jitclass(MinibatchSampler,
-                                             spec_minibatch_sampler)
+                                             mbs_spec)
 
             self.LearningRateScheduler = jitclass(LearningRateScheduler,
-                                                  spec_scheduler)
+                                                  sched_spec)
 
-            self.soba = njit(sarah)
         else:
             self.f_inner = f_train
             self.f_outer = f_test
-            self.soba = sarah
+
+            self.sarah = sarah
             self.MinibatchSampler = MinibatchSampler
             self.LearningRateScheduler = LearningRateScheduler
+
         self.inner_var0 = inner_var0
         self.outer_var0 = outer_var0
         self.numba = numba
@@ -77,6 +79,9 @@ class Solver(BaseSolver):
         inner_var = self.inner_var0.copy()
         outer_var = self.outer_var0.copy()
         v = np.zeros_like(inner_var)
+
+        period = self.f_inner.n_samples + self.f_outer.n_samples
+        period *= self.period_frac
 
         # Init sampler and lr scheduler
         inner_sampler = MinibatchSampler(
@@ -106,7 +111,7 @@ class Solver(BaseSolver):
         # Start algorithm
         while callback((inner_var, outer_var)):
             inner_var, outer_var, inner_var_old, v_old, outer_var_old,\
-                d_inner, d_v, d_outer, i_min = sarah(
+                d_inner, d_v, d_outer, i_min = self.sarah(
                     self.f_inner, self.f_outer,
                     inner_var, outer_var, v,
                     eval_freq, inner_sampler, outer_sampler,
