@@ -83,6 +83,10 @@ if __name__ == "__main__":
                                  'datacleaning0_7', 'datacleaning0_9',
                                  'covtype'],
                         help='Choose the benchmark to plot.')
+    parser.add_argument('--criterion', '-c', type=str, default='100',
+                        choices=['100', 'all'],
+                        help='Choose the best curves with respect to the 100 \
+                        first iterates or all the iterates.')
     args = parser.parse_args()
 
     x_axis = args.x_axis  # 'calls' or 'time'
@@ -129,14 +133,22 @@ if __name__ == "__main__":
     ] = 'soba full batch'
 
     # Select curve that reach the lowest point
-    # import ipdb; ipdb.set_trace()
-    to_plot = (
-        df.query('stop_val <= 100')
-        .groupby(['solver', 'solver_name', 'stop_val'])
-        .median()
-        .reset_index().sort_values(metric)
-        .groupby('solver').first()['solver_name']
-    )
+    if args.criterion == '100':
+        to_plot = (
+            df.query('stop_val <= 100')
+            .groupby(['solver', 'solver_name', 'stop_val'])
+            .median()
+            .reset_index().sort_values(metric)
+            .groupby('solver').first()['solver_name']
+        )
+    elif args.criterion == 'all':
+        to_plot = (
+            df
+            .groupby(['solver', 'solver_name', 'stop_val'])
+            .median()
+            .reset_index().sort_values(metric)
+            .groupby('solver').first()['solver_name']
+        )
     to_plot = [to_plot[p] for p in STYLES if p in to_plot]
     df = df.query("solver_name in @to_plot")
     df.to_parquet(f'{fname.stem}_best_param.parquet')
@@ -309,7 +321,6 @@ if __name__ == "__main__":
             bbox_inches='tight'
         )
     elif x_axis == 'calls':
-
         fig.savefig(
             Path(fname.stem + '_calls').with_suffix('.pdf'),
             bbox_extra_artists=[x_, y_, l_],

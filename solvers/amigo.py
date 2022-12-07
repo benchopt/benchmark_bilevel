@@ -8,21 +8,14 @@ with safe_import_context() as import_ctx:
     import numpy as np
     from numba import njit
     from numba.experimental import jitclass
-    constants = import_ctx.import_from('constants')
-    sgd_inner = import_ctx.import_from('sgd_inner', 'sgd_inner')
-    sgd_v = import_ctx.import_from('hessian_approximation', 'sgd_v')
-    MinibatchSampler = import_ctx.import_from(
-        'minibatch_sampler', 'MinibatchSampler'
-    )
-    spec_minibatch_sampler = import_ctx.import_from(
-        'minibatch_sampler', 'spec'
-    )
-    LearningRateScheduler = import_ctx.import_from(
-        'learning_rate_scheduler', 'LearningRateScheduler'
-    )
-    spec_scheduler = import_ctx.import_from(
-        'learning_rate_scheduler', 'spec'
-    )
+
+    from benchmark_utils import constants
+    from benchmark_utils.sgd_inner import sgd_inner
+    from benchmark_utils.hessian_approximation import sgd_v
+    from benchmark_utils.minibatch_sampler import MinibatchSampler
+    from benchmark_utils.minibatch_sampler import spec as mbs_spec
+    from benchmark_utils.learning_rate_scheduler import LearningRateScheduler
+    from benchmark_utils.learning_rate_scheduler import spec as sched_spec
 
 
 class Solver(BaseSolver):
@@ -37,7 +30,7 @@ class Solver(BaseSolver):
     parameters = {
         'step_size': [.1],
         'outer_ratio': [1.],
-        'eval_freq': [1],
+        'eval_freq': [128],
         'n_inner_step': [10],
         'batch_size': [64],
     }
@@ -46,39 +39,43 @@ class Solver(BaseSolver):
     def get_next(stop_val):
         return stop_val + 1
 
+    def skip(self, f_train, f_test, inner_var0, outer_var0, numba):
+        if self.batch_size == 'full' and numba:
+            return True, "numba is not useful for full bach resolution."
+
+        return False, None
+
     def set_objective(self, f_train, f_test, inner_var0, outer_var0, numba):
-        if self.batch_size == 'full':
-            numba = False
+
         if numba:
             self.f_inner = f_train.numba_oracle
             self.f_outer = f_test.numba_oracle
-            self.sgd_inner = njit(sgd_inner)
+
+            # JIT necessary functions and classes
             self.sgd_v = njit(sgd_v)
+            njit_amigo = njit(_amigo)
+            self.sgd_inner = njit(sgd_inner)
+            self.MinibatchSampler = jitclass(MinibatchSampler, mbs_spec)
+            self.LearningRateScheduler = jitclass(
+                LearningRateScheduler, sched_spec
+            )
 
-            self.MinibatchSampler = jitclass(MinibatchSampler,
-                                             spec_minibatch_sampler)
+            def amigo(*args, seed=None):
+                return njit_amigo(self.sgd_inner, self.sgd_v, *args, seed=seed)
+            self.amigo = amigo
 
-            self.LearningRateScheduler = jitclass(LearningRateScheduler,
-                                                  spec_scheduler)
-
-            def amigo(sgd_inner, sgd_v):
-                def f(*args, seed=None):
-                    return njit(_amigo)(sgd_inner, sgd_v, *args, seed=seed)
-                return f
-            self.amigo = amigo(self.sgd_inner, self.sgd_v)
         else:
             self.f_inner = f_train
             self.f_outer = f_test
-            self.sgd_inner = sgd_inner
+
             self.sgd_v = sgd_v
+            self.sgd_inner = sgd_inner
             self.MinibatchSampler = MinibatchSampler
             self.LearningRateScheduler = LearningRateScheduler
 
-            def amigo(sgd_inner, sgd_v):
-                def f(*args, seed=None):
-                    return _amigo(sgd_inner, sgd_v, *args, seed=seed)
-                return f
-            self.amigo = amigo(self.sgd_inner, self.sgd_v)
+            def amigo(*args, seed=None):
+                return _amigo(self.sgd_inner, self.sgd_v, *args, seed=seed)
+            self.amigo = amigo
 
         self.inner_var0 = inner_var0
         self.outer_var0 = outer_var0

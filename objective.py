@@ -4,54 +4,64 @@ from benchopt import safe_import_context
 with safe_import_context() as import_ctx:
     import numpy as np
     from sklearn.utils import check_random_state
-    oracles = import_ctx.import_from('oracles')
+    from scipy.sparse import issparse
+    from benchmark_utils import oracles
 
 
 class Objective(BaseObjective):
     name = "Bilevel Optimization"
 
+    min_benchopt_version = "1.2.1"
+
     parameters = {
-        'task, model, n_reg, reg': [
-            ('datacleaning', None, None, None),
-            ('classif', 'logreg', 'full', 'exp'),
-            ('classif', 'multilogreg', None, None),
+        'task, model, n_reg, reg, numba': [
+            ('datacleaning', None, None, None, False),
+            ('classif', 'logreg', 'full', 'exp', False),
+            ('classif', 'multilogreg', None, None, False),
         ],
     }
 
     def __init__(self, task='classif', model='ridge', reg='exp',  n_reg='full',
-                 random_state=2442):
+                 numba=False, random_state=2442):
+        self.task = task
+        self.model = model
+        self.random_state = random_state
+        self.numba = numba
+
         if task == 'classif':
             self.reg = reg
             self.n_reg = n_reg
-            if model == 'ridge':
-                self.inner_oracle = oracles.RidgeRegressionOracle
-                self.outer_oracle = oracles.RidgeRegressionOracle
-                self.numba = True
-            elif model == 'logreg':
-                self.inner_oracle = oracles.LogisticRegressionOracle
-                self.outer_oracle = oracles.LogisticRegressionOracle
-                self.numba = True
-            elif model == 'multilogreg':
-                self.inner_oracle = oracles.MultiLogRegOracle
-                self.outer_oracle = oracles.MultiLogRegOracle
-                self.numba = False
-            else:
-                raise ValueError(
-                    f"model should be 'ridge', 'logreg' or 'multilogreg'. \
-                    Got '{model}'."
-                )
         elif task == 'datacleaning':
             self.reg = 2e-1
-            self.inner_oracle = oracles.DataCleaningOracle
-            self.outer_oracle = oracles.MultiLogRegOracle
-            self.numba = False
         else:
             raise ValueError(
                 f"task should be 'classif' or 'datacleaning'. Got '{task}'"
             )
-        self.task = task
-        self.model = model
-        self.random_state = random_state
+
+    def set_oracle(self):
+        if self.task == 'classif':
+            if self.model == 'ridge':
+                self.inner_oracle = oracles.RidgeRegressionOracle
+                self.outer_oracle = oracles.RidgeRegressionOracle
+            elif self.model == 'logreg':
+                self.inner_oracle = oracles.LogisticRegressionOracle
+                self.outer_oracle = oracles.LogisticRegressionOracle
+            elif self.model == 'multilogreg':
+                self.inner_oracle = oracles.MultiLogRegOracle
+                self.outer_oracle = oracles.MultiLogRegOracle
+            else:
+                raise ValueError(
+                    "model should be 'ridge', 'logreg' or 'multilogreg'. "
+                    f"Got '{self.model}'."
+                )
+        elif self.task == 'datacleaning':
+            self.inner_oracle = oracles.DataCleaningOracle
+            self.outer_oracle = oracles.MultiLogRegOracle
+        else:
+            raise ValueError(
+                "task should be 'classif' or 'datacleaning'. "
+                f"Got '{self.task}'"
+            )
 
     def get_one_solution(self):
         inner_shape, outer_shape = self.f_train.variables_shape
@@ -59,13 +69,12 @@ class Objective(BaseObjective):
 
     def set_data(self, X_train, y_train, X_test, y_test,
                  X_val=None, y_val=None):
-        self.f_train = self.inner_oracle(
-            X_train, y_train, reg=self.reg
-        )
 
-        self.f_test = self.outer_oracle(
-                X_test, y_test, reg='none'
-        )
+        # Create oracle instances
+        self.set_oracle()
+
+        self.f_train = self.inner_oracle(X_train, y_train, reg=self.reg)
+        self.f_test = self.outer_oracle(X_test, y_test, reg='none')
 
         if self.task == 'datacleaning' or self.model == 'multilogreg':
             self.X_val, self.y_val = X_val, y_val
@@ -86,6 +95,12 @@ class Objective(BaseObjective):
         self.inner_var0, self.outer_var0 = self.f_train.prox(
             self.inner_var0, self.outer_var0
         )
+
+    def skip(self, X_train, y_train, X_test, y_test, X_val=None, y_val=None):
+        if self.numba and issparse(X_train):
+            return True, "Cannot use Numba with sparse input"
+
+        return False, None
 
     def compute(self, beta):
 
@@ -116,10 +131,11 @@ class Objective(BaseObjective):
                 inner_var, outer_var, self.X_val, self.y_val
             )
             return dict(
+                test_accuracy=acc,
                 value=acc
             )
 
-    def to_dict(self):
+    def get_objective(self):
         return dict(
             f_train=self.f_train,
             f_test=self.f_test,

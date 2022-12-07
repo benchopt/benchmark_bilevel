@@ -1,8 +1,9 @@
 import numpy as np
 from sklearn.preprocessing import OneHotEncoder
 
-from scipy.sparse import linalg as splinalg
 import scipy.special as sc
+from scipy.sparse import issparse
+from scipy.sparse import linalg as splinalg
 
 from .base import BaseOracle
 
@@ -71,7 +72,9 @@ class DataCleaningOracle(BaseOracle):
             y = OneHotEncoder().fit_transform(y[:, None]).toarray()
 
         # Store info for other
-        self.X = np.ascontiguousarray(X)
+        self.X = X
+        if not issparse(self.X):
+            self.X = np.ascontiguousarray(X)
         self.y = y.astype(np.float64)
 
         # attributes
