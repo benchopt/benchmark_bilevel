@@ -61,6 +61,11 @@ SOLVER_DICT = dict(
         batch_size=[64],
         n_hia_step=[10]
     ),
+    sarah=dict(
+        name=['sarah'],
+        batch_size=[64],
+        period_frac=[.25, .5, .75, 1, 1.25, 1.5, 1.75, 2]
+    )
 )
 
 # Store benchmark specific parameters
@@ -78,7 +83,8 @@ BENCH_DICT = dict(
         reg='exp',
         task='classif',
         n=1500,
-        timeout=800
+        timeout=800,
+        numba=True
     ),
     covtype=dict(
         eval_freq=[2**5],
@@ -91,7 +97,8 @@ BENCH_DICT = dict(
         reg='exp',
         task='classif',
         n=64000,
-        timeout=300
+        timeout=300,
+        numba=False
     ),
     datacleaning0_5=dict(
         eval_freq=[2**5],
@@ -105,7 +112,8 @@ BENCH_DICT = dict(
         reg='exp',
         task='datacleaning',
         n=64000,
-        timeout=720
+        timeout=720,
+        numba=False
     ),
     datacleaning0_7=dict(
         eval_freq=[2**5],
@@ -119,7 +127,8 @@ BENCH_DICT = dict(
         reg='exp',
         task='datacleaning',
         n=64000,
-        timeout=720
+        timeout=720,
+        numba=False
     ),
     datacleaning0_9=dict(
         eval_freq=[2**5],
@@ -133,8 +142,23 @@ BENCH_DICT = dict(
         reg='exp',
         task='datacleaning',
         n=64000,
-        timeout=720
-    )
+        timeout=720,
+        numba=False
+    ),
+    twentynews_binary=dict(
+        eval_freq=[2**5],
+        PATIENCE=12_800,
+        step_size=np.logspace(-5, 3, 9, base=2),
+        outer_ratio=np.logspace(-2, 1, 6),
+        dataset='20news_binary',
+        model='logreg',
+        n_reg='1',
+        reg='exp',
+        task='classif',
+        n=64000,
+        timeout=120,
+        numba=False
+    ),
 )
 
 
@@ -142,7 +166,7 @@ OBJECTIVE_DICT = dict(
     (
         benchmark,
         dict((key, BENCH_DICT[benchmark][key])
-             for key in ['model', 'n_reg', 'reg', 'task'])
+             for key in ['model', 'n_reg', 'numba', 'reg', 'task'])
     )
     for benchmark in BENCH_DICT
 )
@@ -153,13 +177,14 @@ DATASET_DICT = dict(
     datacleaning0_5=["mnist[ratio=0.5]"],
     datacleaning0_7=["mnist[ratio=0.7]"],
     datacleaning0_9=["mnist[ratio=0.9]"],
+    twentynews_binary=["20news_binary"],
 )
 
 for benchmark in BENCH_DICT:
     with open(f"{benchmark}.yml", "x") as f:
         f.write("objective:\n")
         f.write("  - Bilevel Optimization[")
-        for key in ['model', 'n_reg', 'reg', 'task']:
+        for key in ['model', 'n_reg', 'numba', 'reg', 'task']:
             f.write(f"{key}={OBJECTIVE_DICT[benchmark][key]}")
             if key != 'task':
                 f.write(',')
