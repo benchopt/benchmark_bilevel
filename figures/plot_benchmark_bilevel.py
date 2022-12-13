@@ -40,8 +40,8 @@ STYLES = {
     # Our solves
     'saba': dict(color='#E69F00', label=r'\textbf{SABA}', zorder=12, lw=3),
     'soba': dict(color='#0072B2', label=r'\textbf{SOBA}', zorder=11, lw=3),
-    'soba full batch': dict(color='#A60628', label=r'\textbf{SOBA FULL BATCH}',
-                            zorder=10, lw=3),
+    'sarah': dict(color='#467821', label=r'\textbf{BiO-SARAH}', zorder=11,
+                  lw=3),
 }
 
 N_CALLS = {
@@ -59,7 +59,8 @@ N_CALLS = {
     # Our solves
     'saba': (3, 2),
     'soba': (3, 2),
-    'soba full batch': (3, 2),
+    'sarah': (3, 2),
+    # 'soba full batch': (3, 2),
 }
 
 LEGEND_OUTSIDE = True
@@ -108,7 +109,7 @@ if __name__ == "__main__":
         datacleaning0_9=("datacleaning0_9.parquet", 'objective_value',
                          ((.1, 1000), (2e4, 4e7)), None, 'Test error', 'log',
                          ('log', 'log'), (None, 40), 64, 2**5, 20_000, 5_000),
-        covtype=("covtype.parquet", 'objective_value', ((.01, 280),
+        covtype=("covtype_091222.parquet", 'objective_value', ((.01, 280),
                  (5e4, 1e8)), None, 'Test error', 'log', ('log', 'log'),
                  (27, 40), 512, 2**5, 371_847, 92_962),
     )

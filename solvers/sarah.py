@@ -19,7 +19,7 @@ with safe_import_context() as import_ctx:
 
 class Solver(BaseSolver):
     """Adaptation of SARAH for bilevel optimization"""
-    name = 'sarah'
+    name = 'BiO-SARAH'
 
     stopping_criterion = SufficientProgressCriterion(
         patience=constants.PATIENCE, strategy='callback'
@@ -37,7 +37,7 @@ class Solver(BaseSolver):
     @staticmethod
     def get_next(stop_val):
         return stop_val + 1
-    
+
     def skip(self, f_train, f_test, inner_var0, outer_var0, numba):
         if self.batch_size == 'full' and numba:
             return True, "numba is not useful for full bach resolution."
@@ -51,7 +51,7 @@ class Solver(BaseSolver):
             self.f_outer = f_test.numba_oracle
 
             # JIT necessary functions and classes
-            self.sarah = njit(sarah)
+            self.bio_sarah = njit(bio_sarah)
             self.MinibatchSampler = jitclass(MinibatchSampler,
                                              mbs_spec)
 
@@ -62,7 +62,7 @@ class Solver(BaseSolver):
             self.f_inner = f_train
             self.f_outer = f_test
 
-            self.sarah = sarah
+            self.bio_sarah = bio_sarah
             self.MinibatchSampler = MinibatchSampler
             self.LearningRateScheduler = LearningRateScheduler
 
@@ -111,13 +111,13 @@ class Solver(BaseSolver):
         # Start algorithm
         while callback((inner_var, outer_var)):
             inner_var, outer_var, inner_var_old, v_old, outer_var_old,\
-                d_inner, d_v, d_outer, i_min = self.sarah(
+                d_inner, d_v, d_outer, i_min = self.bio_sarah(
                     self.f_inner, self.f_outer,
                     inner_var, outer_var, v,
                     eval_freq, inner_sampler, outer_sampler,
                     lr_scheduler, inner_var_old=inner_var_old, v_old=v_old,
                     outer_var_old=outer_var_old, d_inner=d_inner, d_v=d_v,
-                    d_outer=d_outer, i_min=i_min, period=self.period,
+                    d_outer=d_outer, i_min=i_min, period=period,
                     seed=rng.randint(constants.MAX_SEED)
                 )
         self.beta = (inner_var, outer_var)
@@ -127,10 +127,10 @@ class Solver(BaseSolver):
 
 
 @profile
-def sarah(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
-          inner_sampler, outer_sampler, lr_scheduler, inner_var_old=None,
-          v_old=None, outer_var_old=None, d_inner=None, d_v=None, d_outer=None,
-          i_min=0, period=100, seed=None):
+def bio_sarah(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
+              inner_sampler, outer_sampler, lr_scheduler, inner_var_old=None,
+              v_old=None, outer_var_old=None, d_inner=None, d_v=None,
+              d_outer=None, i_min=0, period=100, seed=None):
 
     # Set seed for randomness
     if seed is not None:
