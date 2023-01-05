@@ -8,5 +8,5 @@ solver:
 n-repetitions: 10
 max-runs: 64000
 timeout: 7200
-output: datacleaning0_5
+output: datacleaning0_5_sarah_svrg
   

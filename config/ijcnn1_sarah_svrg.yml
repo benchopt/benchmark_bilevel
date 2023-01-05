@@ -8,4 +8,4 @@ solver:
 n-repetitions: 10
 max-runs: 1500
 timeout: 8000
-output: ijcnn1
+output: ijcnn1_sarah_svrg

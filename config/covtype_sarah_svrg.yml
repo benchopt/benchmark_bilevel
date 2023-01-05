@@ -8,4 +8,4 @@ solver:
 n-repetitions: 10
 max-runs: 64000
 timeout: 3000
-output: covtype_best_params
+output: covtype_sarah_svrg
