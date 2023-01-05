@@ -29,7 +29,7 @@ class Solver(BaseSolver):
         'outer_ratio': [1.],
         'batch_size': [64],
         'period_frac': [1],
-        'eval_freq': [1],
+        'eval_freq': [128],
     }
 
     @staticmethod
@@ -49,7 +49,7 @@ class Solver(BaseSolver):
             self.f_outer = f_test.numba_oracle
 
             # JIT necessary functions and classes
-            self.bio_sarah = njit(bio_sarah)
+            self.bio_svrg = njit(bio_svrg)
             self.MinibatchSampler = jitclass(MinibatchSampler,
                                              mbs_spec)
 
@@ -60,7 +60,7 @@ class Solver(BaseSolver):
             self.f_inner = f_train
             self.f_outer = f_test
 
-            self.bio_sarah = bio_sarah
+            self.bio_svrg = bio_svrg
             self.MinibatchSampler = MinibatchSampler
             self.LearningRateScheduler = LearningRateScheduler
 
@@ -98,24 +98,24 @@ class Solver(BaseSolver):
             np.array(step_sizes, dtype=float), exponents
         )
 
-        inner_var_old = inner_var.copy()
-        outer_var_old = outer_var.copy()
-        v_old = v.copy()
-        d_inner = np.zeros_like(inner_var)
-        d_v = np.zeros_like(inner_var)
-        d_outer = np.zeros_like(outer_var)
+        inner_var_ref = inner_var.copy()
+        outer_var_ref = outer_var.copy()
+        v_ref = v.copy()
+        d_inner_ref = np.zeros_like(inner_var)
+        d_v_ref = np.zeros_like(inner_var)
+        d_outer_ref = np.zeros_like(outer_var)
         i_min = 0
         # Start algorithm
         while callback((inner_var, outer_var)):
-            inner_var, outer_var, inner_var_old, v_old, outer_var_old,\
-                d_inner, d_v, d_outer, i_min = self.bio_sarah(
+            inner_var, outer_var, inner_var_ref, v_ref, outer_var_ref,\
+                d_inner_ref, d_v_ref, d_outer_ref, i_min = self.bio_svrg(
                     self.f_inner, self.f_outer,
                     inner_var, outer_var, v,
                     eval_freq, inner_sampler, outer_sampler,
-                    lr_scheduler, inner_var_old=inner_var_old, v_old=v_old,
-                    outer_var_old=outer_var_old, d_inner=d_inner, d_v=d_v,
-                    d_outer=d_outer, i_min=i_min, period=period,
-                    seed=rng.randint(constants.MAX_SEED)
+                    lr_scheduler, inner_var_ref=inner_var_ref, v_ref=v_ref,
+                    outer_var_ref=outer_var_ref, d_inner_ref=d_inner_ref, 
+                    d_v_ref=d_v_ref, d_outer_ref=d_outer_ref, i_min=i_min, 
+                    period=period, seed=rng.randint(constants.MAX_SEED)
                 )
         self.beta = (inner_var, outer_var)
 
@@ -123,10 +123,10 @@ class Solver(BaseSolver):
         return self.beta
 
 
-def bio_sarah(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
-              inner_sampler, outer_sampler, lr_scheduler, inner_var_ref,
-              v_ref, outer_var_ref, d_inner, d_v,
-              d_outer, i_min=0, period=100, seed=None):
+def bio_svrg(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
+             inner_sampler, outer_sampler, lr_scheduler, inner_var_ref,
+             v_ref, outer_var_ref, d_inner_ref, d_v_ref, d_outer_ref,
+             i_min=0, period=100, seed=None):
 
     # Set seed for randomness
     if seed is not None:
@@ -140,7 +140,7 @@ def bio_sarah(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
             v_ref = v.copy()
             outer_var_ref = outer_var.copy()
             slice_inner = slice(0, inner_oracle.n_samples)
-            _, d_inner, hvp, cross_v = inner_oracle.oracles(
+            _, d_inner_ref, hvp, cross_v = inner_oracle.oracles(
                 inner_var,
                 outer_var,
                 v,
@@ -155,8 +155,12 @@ def bio_sarah(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
                 slice_outer
             )
 
-            d_v = hvp - grad_in
-            d_outer -= cross_v
+            d_v_ref = hvp - grad_in
+            d_outer_ref -= cross_v
+
+            d_inner = d_inner_ref.copy()
+            d_v = d_v_ref.copy()
+            d_outer = d_outer_ref.copy()
 
         else:  # Stochastic computations
             slice_inner, _ = inner_sampler.get_batch()
@@ -175,9 +179,10 @@ def bio_sarah(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
                 inner_var_ref, outer_var_ref, slice_outer
             )
 
-            d_inner += grad_inner_var - grad_inner_var_ref
-            d_v += (hvp - hvp_ref) - (grad_in_outer - grad_in_outer_ref)
-            d_outer += (grad_out_outer - grad_out_outer_ref)
+            d_inner = grad_inner_var - grad_inner_var_ref + d_inner_ref
+            d_v = (hvp - hvp_ref) - (grad_in_outer - grad_in_outer_ref) 
+            d_v += d_v_ref
+            d_outer = (grad_out_outer - grad_out_outer_ref) + d_outer_ref
             d_outer -= (cross_v - cross_v_ref)
 
         # Update of the variables
@@ -186,6 +191,6 @@ def bio_sarah(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
         outer_var -= outer_lr * d_outer
 
     return (
-        inner_var, outer_var, inner_var_ref, v_ref, outer_var_ref, d_inner,
-        d_v, d_outer, i_min+max_iter
+        inner_var, outer_var, inner_var_ref, v_ref, outer_var_ref, d_inner_ref,
+        d_v_ref, d_outer_ref, i_min+max_iter
     )

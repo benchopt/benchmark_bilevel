@@ -28,7 +28,7 @@ class Solver(BaseSolver):
         'step_size': [.1],
         'outer_ratio': [1.],
         'batch_size': [64],
-        'period_frac': [1],
+        'period_frac': [128],
         'eval_freq': [1],
     }
 
