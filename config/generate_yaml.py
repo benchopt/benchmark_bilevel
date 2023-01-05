@@ -62,10 +62,15 @@ SOLVER_DICT = dict(
         n_hia_step=[10]
     ),
     sarah=dict(
-        name=['sarah'],
+        name=['BiO-SARAH'],
         batch_size=[64],
         period_frac=[.25, .5, .75, 1, 1.25, 1.5, 1.75, 2]
-    )
+    ),
+    svrg=dict(
+        name=['BiO-SVRG'],
+        batch_size=[64],
+        period_frac=[.25, .5, .75, 1, 1.25, 1.5, 1.75, 2]
+    ),
 )
 
 # Store benchmark specific parameters

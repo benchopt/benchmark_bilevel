@@ -1,0 +1,12 @@
+objective:
+    - Bilevel Optimization[model=logreg,n_reg=full,numba=True,reg=exp,task=classif]
+  dataset:
+    - ijcnn1
+  solver:
+    - BiO-SARAH[batch_size=[64],period_frac=[0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2],eval_freq=[131072],step_size=[0.03125, 0.0625, 0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0],outer_ratio=[0.01, 0.03162277660168379, 0.1, 0.31622776601683794, 1.0, 3.1622776601683795, 10.0]]
+    - BiO-SVRG[batch_size=[64],period_frac=[0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2],eval_freq=[131072],step_size=[0.03125, 0.0625, 0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0],outer_ratio=[0.01, 0.03162277660168379, 0.1, 0.31622776601683794, 1.0, 3.1622776601683795, 10.0]]
+  n-repetitions: 10
+  max-runs: 1500
+  timeout: 8000
+  output: ijcnn1
+  
