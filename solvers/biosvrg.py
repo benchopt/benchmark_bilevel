@@ -113,8 +113,8 @@ class Solver(BaseSolver):
                     inner_var, outer_var, v,
                     eval_freq, inner_sampler, outer_sampler,
                     lr_scheduler, inner_var_ref=inner_var_ref, v_ref=v_ref,
-                    outer_var_ref=outer_var_ref, d_inner_ref=d_inner_ref, 
-                    d_v_ref=d_v_ref, d_outer_ref=d_outer_ref, i_min=i_min, 
+                    outer_var_ref=outer_var_ref, d_inner_ref=d_inner_ref,
+                    d_v_ref=d_v_ref, d_outer_ref=d_outer_ref, i_min=i_min,
                     period=period, seed=rng.randint(constants.MAX_SEED)
                 )
         self.beta = (inner_var, outer_var)
@@ -180,7 +180,7 @@ def bio_svrg(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
             )
 
             d_inner = grad_inner_var - grad_inner_var_ref + d_inner_ref
-            d_v = (hvp - hvp_ref) - (grad_in_outer - grad_in_outer_ref) 
+            d_v = (hvp - hvp_ref) - (grad_in_outer - grad_in_outer_ref)
             d_v += d_v_ref
             d_outer = (grad_out_outer - grad_out_outer_ref) + d_outer_ref
             d_outer -= (cross_v - cross_v_ref)
