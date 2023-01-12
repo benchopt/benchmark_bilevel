@@ -39,8 +39,8 @@ STYLES = {
 
     # Our solves
     'saba': dict(color='#E69F00', label=r'\textbf{SABA}', zorder=12, lw=3),
-    'soba': dict(color='#0072B2', label=r'\textbf{SOBA}', zorder=11, lw=3),
-    'sarah': dict(color='#467821', label=r'\textbf{BiO-SARAH}', zorder=11,
+    'bio-svrg': dict(color='#0072B2', label=r'\textbf{BiO-SVRG}', zorder=11, lw=3),
+    'bio-sarah': dict(color='#467821', label=r'\textbf{BiO-SARAH}', zorder=11,
                   lw=3),
 }
 
@@ -58,8 +58,8 @@ N_CALLS = {
 
     # Our solves
     'saba': (3, 2),
-    'soba': (3, 2),
-    'sarah': (3, 2),
+    'bio-svrg': (3, 2),
+    'bio-sarah': (3, 2),
     # 'soba full batch': (3, 2),
 }
 
@@ -97,11 +97,11 @@ if __name__ == "__main__":
     bench = args.benchmark
 
     BENCHMARKS_CONFIG = dict(
-        ijcnn1=("ijcnn1.parquet", 'objective_value_func',
+        ijcnn1=("ijcnn1_sarah_svrg.parquet", 'objective_value_func',
                 ((1, 480), (0, 2e9)), 1e-4, r'Optimality ~$h(x^t) -h^*$',
                 'log', ('linear', 'linear'), None, 64, 2**17, 49_990, 91_701),
-        datacleaning0_5=("datacleaning0_5.parquet", 'objective_value',
-                         ((.1, 120), (2e4, 5e7)), None, 'Test error', 'log',
+        datacleaning0_5=("datacleaning0_5_sarah_svrg.parquet", 'objective_value',
+                         ((.001, 120), (2e4, 5e7)), None, 'Test error', 'log',
                          ('log', 'log'), (None, 40), 64, 2**5, 20_000, 5_000),
         datacleaning0_7=("datacleaning0_7.parquet", 'objective_value',
                          ((.1, 120), (8e3, 4e7)), None, 'Test error', 'log',
