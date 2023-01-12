@@ -114,6 +114,8 @@ class Solver(BaseSolver):
                 self.n_hia_step, seed=rng.randint(constants.MAX_SEED)
             )
         self.beta = (inner_var, outer_var)
+        if self.numba:
+            self.run_once(2)
 
     def get_result(self):
         return self.beta
