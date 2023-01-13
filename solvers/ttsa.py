@@ -76,6 +76,8 @@ class Solver(BaseSolver):
         self.inner_var0 = inner_var0
         self.outer_var0 = outer_var0
         self.numba = numba
+        if self.numba:
+            self.run_once(2)
 
     def run(self, callback):
         eval_freq = self.eval_freq
