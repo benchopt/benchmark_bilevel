@@ -81,6 +81,7 @@ class Solver(BaseSolver):
 
         period = self.f_inner.n_samples + self.f_outer.n_samples
         period *= self.period_frac
+        period = int(period)
 
         # Init sampler and lr scheduler
         inner_sampler = self.MinibatchSampler(
