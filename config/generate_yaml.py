@@ -64,12 +64,12 @@ SOLVER_DICT = dict(
     sarah=dict(
         name=['BiO-SARAH'],
         batch_size=[64],
-        period_frac=[.25, .5, .75, 1, 1.25, 1.5, 1.75, 2]
+        period_frac=[0.25, 0.5, 1., 2., 4., 8.]
     ),
     svrg=dict(
         name=['BiO-SVRG'],
         batch_size=[64],
-        period_frac=[.25, .5, .75, 1, 1.25, 1.5, 1.75, 2]
+        period_frac=[0.25, 0.5, 1., 2., 4., 8.]
     ),
 )
 
