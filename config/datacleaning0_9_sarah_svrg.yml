@@ -11,6 +11,6 @@ solver:
   - BiO-SVRG[batch_size=[64],period_frac=[0.25, 0.5, 1.0, 2.0, 4.0, 8.0],eval_freq=[32],step_size=[0.03125, 0.0625, 0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0],outer_ratio=[0.01, 0.039810717055349734, 0.15848931924611134, 0.630957344480193, 2.5118864315095797, 10.0]]
 n-repetitions: 10
 max-runs: 64000
-timeout: 7200
+timeout: 3600
 output: datacleaning0_9_sarah_svrg
   
