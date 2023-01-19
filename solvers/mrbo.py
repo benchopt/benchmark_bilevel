@@ -32,6 +32,7 @@ class Solver(BaseSolver):
         'batch_size': [64],
         'eta': [.5],
         'eval_freq': [128],
+        'random_state': [1]
     }
 
     @staticmethod
@@ -81,7 +82,7 @@ class Solver(BaseSolver):
 
     def run(self, callback):
         eval_freq = self.eval_freq
-        rng = np.random.RandomState(constants.RANDOM_STATE)
+        rng = np.random.RandomState(self.random_state)
 
         # Init variables
         inner_var = self.inner_var0.copy()

@@ -37,6 +37,7 @@ class Solver(BaseSolver):
         'batch_size': [64],
         'n_shia_steps': [10],
         'eval_freq': [128],
+        'random_state': [1]
     }
 
     @staticmethod
@@ -89,7 +90,7 @@ class Solver(BaseSolver):
 
     def run(self, callback):
         eval_freq = self.eval_freq  # // self.batch_size
-        rng = np.random.RandomState(constants.RANDOM_STATE)
+        rng = np.random.RandomState(self.random_state)
 
         # Init variables
         outer_var = self.outer_var0.copy()
