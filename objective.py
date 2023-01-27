@@ -130,9 +130,16 @@ class Objective(BaseObjective):
             acc = self.f_test.accuracy(
                 inner_var, outer_var, self.X_val, self.y_val
             )
+            val_acc = self.f_test.accuracy(
+                inner_var, outer_var, self.f_test.X, self.f_test.y
+            )
+            train_acc = self.f_test.accuracy(
+                inner_var, outer_var, self.f_train.X, self.f_train.y
+            )
             return dict(
-                test_accuracy=acc,
-                value=acc
+                train_accuracy=train_acc,
+                value=val_acc,
+                test_accuracy=acc
             )
 
     def get_objective(self):
