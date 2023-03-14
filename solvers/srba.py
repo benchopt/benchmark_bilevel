@@ -17,7 +17,7 @@ with safe_import_context() as import_ctx:
 
 class Solver(BaseSolver):
     """Adaptation of SARAH for bilevel optimization"""
-    name = 'BiO-SARAH'
+    name = 'SRBA'
 
     stopping_criterion = SufficientProgressCriterion(
         patience=constants.PATIENCE, strategy='callback'
@@ -50,7 +50,7 @@ class Solver(BaseSolver):
             self.f_outer = f_test.numba_oracle
 
             # JIT necessary functions and classes
-            self.bio_sarah = njit(bio_sarah)
+            self.srba = njit(srba)
             self.MinibatchSampler = jitclass(MinibatchSampler,
                                              mbs_spec)
 
@@ -61,7 +61,7 @@ class Solver(BaseSolver):
             self.f_inner = f_train
             self.f_outer = f_test
 
-            self.bio_sarah = bio_sarah
+            self.srba = srba
             self.MinibatchSampler = MinibatchSampler
             self.LearningRateScheduler = LearningRateScheduler
 
@@ -113,7 +113,7 @@ class Solver(BaseSolver):
         # Start algorithm
         while callback((inner_var, outer_var)):
             inner_var, outer_var, inner_var_old, v_old, outer_var_old,\
-                d_inner, d_v, d_outer, i_min = self.bio_sarah(
+                d_inner, d_v, d_outer, i_min = self.srba(
                     self.f_inner, self.f_outer,
                     inner_var, outer_var, v,
                     eval_freq, inner_sampler, outer_sampler,
@@ -128,7 +128,7 @@ class Solver(BaseSolver):
         return self.beta
 
 
-def bio_sarah(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
+def srba(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
               inner_sampler, outer_sampler, lr_scheduler, inner_var_old,
               v_old, outer_var_old, d_inner, d_v,
               d_outer, i_min=0, period=100, seed=None):
