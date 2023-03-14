@@ -37,7 +37,7 @@ class Solver(BaseSolver):
     @staticmethod
     def get_next(stop_val):
         return stop_val + 1
-    
+
     def skip(self, f_train, f_test, inner_var0, outer_var0, numba):
         if self.batch_size == 'full' and numba:
             return True, "numba is not useful for full bach resolution."
