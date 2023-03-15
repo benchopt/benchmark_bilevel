@@ -110,7 +110,6 @@ class Solver(BaseSolver):
         period /= self.batch_size
         period = int(period)
 
-
         # Init sampler and lr scheduler
         inner_sampler = self.MinibatchSampler(
             self.f_inner.n_samples, batch_size=self.batch_size
