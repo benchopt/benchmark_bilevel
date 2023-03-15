@@ -54,16 +54,17 @@ class Solver(BaseSolver):
             _sgd_inner_vrbo = njit(sgd_inner_vrbo)
 
             @njit
-            def njit_sgd_inner_vrbo(inner_oracle, outer_oracle,  inner_var, 
-                outer_var, inner_lr, inner_sampler, outer_sampler, n_inner_step,
-                memory_inner,memory_outer, n_hia_step, hia_lr
+            def njit_sgd_inner_vrbo(
+                inner_oracle, outer_oracle,  inner_var,  outer_var, inner_lr,
+                inner_sampler, outer_sampler, n_inner_step, memory_inner,
+                memory_outer, n_hia_step, hia_lr
             ):
-                return _sgd_inner_vrbo(njit_joint_shia, inner_oracle, 
-                    outer_oracle, inner_var, outer_var, inner_lr, inner_sampler,
-                    outer_sampler, n_inner_step, memory_inner, memory_outer, 
-                    n_hia_step, hia_lr
+                return _sgd_inner_vrbo(
+                    njit_joint_shia, inner_oracle, outer_oracle, inner_var,
+                    outer_var, inner_lr, inner_sampler, outer_sampler,
+                    n_inner_step, memory_inner, memory_outer, n_hia_step,
+                    hia_lr
                 )
-        
 
             self.MinibatchSampler = jitclass(MinibatchSampler, mbs_spec)
             self.LearningRateScheduler = jitclass(
@@ -71,7 +72,8 @@ class Solver(BaseSolver):
             )
 
             def vrbo(*args, **kwargs):
-                return njit_vrbo(njit_sgd_inner_vrbo, njit_shia, *args, **kwargs)
+                return njit_vrbo(njit_sgd_inner_vrbo, njit_shia, *args,
+                                 **kwargs)
             self.vrbo = vrbo
 
         else:
@@ -82,10 +84,10 @@ class Solver(BaseSolver):
                 return sgd_inner_vrbo(joint_shia, *args, *kwargs)
             self.MinibatchSampler = MinibatchSampler
             self.LearningRateScheduler = LearningRateScheduler
+
             def vrbo(*args, **kwargs):
                 return _vrbo(_sgd_inner_vrbo, shia, *args, **kwargs)
             self.vrbo = vrbo
-
 
         self.inner_var0 = inner_var0
         self.outer_var0 = outer_var0
@@ -134,7 +136,7 @@ class Solver(BaseSolver):
                 self.f_inner, self.f_outer,
                 inner_var, outer_var, memory_inner, memory_outer,
                 eval_freq, inner_sampler, outer_sampler,
-                lr_scheduler, self.n_hia_step, self.n_inner_step, self.period,
+                lr_scheduler, self.n_hia_step, self.n_inner_step, period,
                 seed=rng.randint(constants.MAX_SEED)
             )
         self.beta = (inner_var, outer_var)
@@ -143,9 +145,11 @@ class Solver(BaseSolver):
         return self.beta
 
 
-def _vrbo(sgd_inner_vrbo, shia, inner_oracle, outer_oracle, inner_var, outer_var,
-         memory_inner, memory_outer, max_iter, inner_sampler, outer_sampler,
-         lr_scheduler, n_hia_step, n_inner_steps, period, seed=None):
+def _vrbo(
+    sgd_inner_vrbo, shia, inner_oracle, outer_oracle, inner_var,
+    outer_var, memory_inner, memory_outer, max_iter, inner_sampler,
+    outer_sampler, lr_scheduler, n_hia_step, n_inner_steps, period, seed=None
+):
 
     # Set seed for randomness
     if seed is not None:
