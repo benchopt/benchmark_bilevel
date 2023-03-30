@@ -14,10 +14,10 @@ class Objective(BaseObjective):
     min_benchopt_version = "1.2.1"
 
     parameters = {
-        'task, model, n_reg, reg, numba': [
-            ('datacleaning', None, None, None, False),
-            ('classif', 'logreg', 'full', 'exp', False),
-            ('classif', 'multilogreg', None, None, False),
+        'task, model, n_reg, reg, numba, random_state': [
+            ('datacleaning', None, None, None, False, 2442),
+            ('classif', 'logreg', 'full', 'exp', False, 2442),
+            ('classif', 'multilogreg', None, None, False, 2442),
         ],
     }
 
