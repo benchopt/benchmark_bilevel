@@ -107,8 +107,7 @@ class Solver(BaseSolver):
                 inner_sampler, outer_sampler, lr_scheduler,
                 seed=rng.randint(constants.MAX_SEED)
             )
-            if np.isnan(outer_var).any():
-                raise ValueError()
+
         self.beta = (inner_var, outer_var)
 
     def get_result(self):

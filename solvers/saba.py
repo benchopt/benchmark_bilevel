@@ -20,7 +20,7 @@ class Solver(BaseSolver):
     name = 'SABA'
 
     stopping_criterion = SufficientProgressCriterion(
-        patience=100, strategy='callback'
+        patience=constants.PATIENCE, strategy='callback'
     )
 
     # any parameter defined here is accessible as a class attribute
@@ -131,8 +131,7 @@ class Solver(BaseSolver):
                 memory_hvp, memory_cross_v, memory_grad_in_outer,
                 seed=rng.randint(constants.MAX_SEED)
             )
-            if np.isnan(outer_var).any():
-                raise ValueError()
+
         self.beta = (inner_var, outer_var)
 
     def get_result(self):

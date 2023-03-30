@@ -15,7 +15,7 @@ with safe_import_context() as import_ctx:
     from benchmark_utils.learning_rate_scheduler import spec as sched_spec
 
     from benchmark_utils.sgd_inner import sgd_inner_vrbo
-    from benchmark_utils.hessian_approximation import shia, joint_shia
+    from benchmark_utils.hessian_approximation import shia_fb, joint_shia
 
 
 class Solver(BaseSolver):
@@ -49,7 +49,7 @@ class Solver(BaseSolver):
             self.f_outer = f_test.numba_oracle
 
             njit_vrbo = njit(_vrbo)
-            njit_shia = njit(shia)
+            njit_shia = njit(shia_fb)
             njit_joint_shia = njit(joint_shia)
             _sgd_inner_vrbo = njit(sgd_inner_vrbo)
 
@@ -86,7 +86,7 @@ class Solver(BaseSolver):
             self.LearningRateScheduler = LearningRateScheduler
 
             def vrbo(*args, **kwargs):
-                return _vrbo(_sgd_inner_vrbo, shia, *args, **kwargs)
+                return _vrbo(_sgd_inner_vrbo, shia_fb, *args, **kwargs)
             self.vrbo = vrbo
 
         self.inner_var0 = inner_var0
@@ -128,16 +128,18 @@ class Solver(BaseSolver):
         lr_scheduler = self.LearningRateScheduler(
             np.array(step_sizes, dtype=float), exponents
         )
-
+        i_min = 0
         # Start algorithm
         while callback((inner_var, outer_var)):
-            inner_var, outer_var, memory_inner, memory_outer = self.vrbo(
-                self.f_inner, self.f_outer,
-                inner_var, outer_var, memory_inner, memory_outer,
-                eval_freq, inner_sampler, outer_sampler,
-                lr_scheduler, self.n_hia_step, self.n_inner_step, period,
-                seed=rng.randint(constants.MAX_SEED)
-            )
+            inner_var, outer_var, memory_inner, memory_outer, i_min = \
+                self.vrbo(
+                    self.f_inner, self.f_outer,
+                    inner_var, outer_var, memory_inner, memory_outer,
+                    eval_freq, inner_sampler, outer_sampler,
+                    lr_scheduler, self.n_hia_step, self.n_inner_step,
+                    i_min=i_min, period=period,
+                    seed=rng.randint(constants.MAX_SEED)
+                )
         self.beta = (inner_var, outer_var)
 
     def get_result(self):
@@ -147,31 +149,32 @@ class Solver(BaseSolver):
 def _vrbo(
     sgd_inner_vrbo, shia, inner_oracle, outer_oracle, inner_var,
     outer_var, memory_inner, memory_outer, max_iter, inner_sampler,
-    outer_sampler, lr_scheduler, n_hia_step, n_inner_steps, period, seed=None
+    outer_sampler, lr_scheduler, n_hia_step, n_inner_steps, i_min=0,
+    period=100, seed=None
 ):
 
     # Set seed for randomness
     if seed is not None:
         np.random.seed(seed)
 
-    for i in range(max_iter):
+    for i in range(i_min, i_min+max_iter):
         inner_lr, hia_lr, outer_lr = lr_scheduler.get_lr()
 
         # Step.1 - (Re)initialize directions for z and x
         if i % period == 0:
-            slice_inner, _ = inner_sampler.get_batch()
+            slice_inner = slice(0, inner_oracle.n_samples)
             grad_inner_var = inner_oracle.grad_inner_var(
                 inner_var, outer_var, slice_inner
             )
             memory_inner[1] = grad_inner_var
 
-            slice_outer, _ = outer_sampler.get_batch()
+            slice_outer = slice(0, outer_oracle.n_samples)
             grad_outer, impl_grad = outer_oracle.grad(
                 inner_var, outer_var, slice_outer
             )
             ihvp = shia(
-                inner_oracle, inner_var, outer_var, grad_outer, inner_sampler,
-                n_hia_step, hia_lr
+                inner_oracle, inner_var, outer_var, grad_outer, n_hia_step,
+                hia_lr
             )
             impl_grad -= inner_oracle.cross(
                 inner_var, outer_var, ihvp, slice_inner
@@ -191,4 +194,4 @@ def _vrbo(
             memory_outer, n_hia_step, hia_lr
         )
 
-    return inner_var, outer_var, memory_inner, memory_outer
+    return inner_var, outer_var, memory_inner, memory_outer, i_min+max_iter

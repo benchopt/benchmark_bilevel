@@ -128,10 +128,11 @@ class Solver(BaseSolver):
         return self.beta
 
 
-def srba(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
-              inner_sampler, outer_sampler, lr_scheduler, inner_var_old,
-              v_old, outer_var_old, d_inner, d_v,
-              d_outer, i_min=0, period=100, seed=None):
+def srba(
+    inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
+    inner_sampler, outer_sampler, lr_scheduler, inner_var_old, v_old,
+    outer_var_old, d_inner, d_v, d_outer, i_min=0, period=100, seed=None
+):
 
     # Set seed for randomness
     if seed is not None:
