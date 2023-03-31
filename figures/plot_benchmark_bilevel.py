@@ -28,6 +28,7 @@ STYLES = {
 
     'amigo': dict(color='#5778a4', label=r'AmIGO'),
     'mrbo': dict(color='#e49444', label=r'MRBO'),
+    'vrbo': dict(color='#e7ca60', label=r'VRBO'),
     'saba': dict(color='#d1615d', label=r'SABA'),
     'stocbio': dict(color='#85b6b2', label=r'StocBiO'),
     'bio-sarah': dict(color='#6a9f58', label=r'\textbf{SRBA}', lw=2.5),
@@ -87,33 +88,34 @@ if __name__ == "__main__":
 
     BENCHMARKS_CONFIG = dict(
         ijcnn1=(
-            "ijcnn1_sarah_svrg.parquet", 'objective_value_func',
-            ((1, 480), (0, 2e9)), 1e-4, r'Optimality ~$h(x^t) -h^*$', 'log',
-            ('linear', 'linear'), None, 64, 2**17, 49_990, 91_701
+            "ijcnn1_sarah_svrg_vrbo.parquet", 'objective_value_func',
+            'objective_value_func', ((1, 480), (0, 2e9)), 1e-4,
+            r'Optimality ~$h(x^t) -h^*$', 'log', ('linear', 'linear'), None,
+            64, 2**17, 49_990, 91_701
         ),
         datacleaning0_5=(
-            "datacleaning0_5_sarah_svrg.parquet", 
+            "datacleaning0_5_sarah_svrg_vrbo.parquet",
             'objective_value', 'objective_test_accuracy',
             ((.05, 900), (2e4, 5e7)), None, 'Test error', 'log',
             ('log', 'log'), (None, 40), 64, 2**5, 20_000, 5_000
         ),
         datacleaning0_7=(
-            "datacleaning0_7_sarah_svrg.parquet", 
+            "datacleaning0_7_sarah_svrg.parquet",
             'objective_value', 'objective_test_accuracy',
             ((.1, 120), (8e3, 4e7)), None, 'Test error', 'log',
             ('log', 'log'), (None, 40), 64, 2**5, 20_000, 5_000
         ),
         datacleaning0_9=(
-            "datacleaning0_9_sarah_svrg.parquet", 
+            "datacleaning0_9_sarah_svrg.parquet",
             'objective_value', 'objective_test_accuracy',
             ((.1, 1000), (2e4, 4e7)), None, 'Test error', 'log',
             ('log', 'log'), (None, 40), 64, 2**5, 20_000, 5_000
         ),
         covtype=(
-            "covtype_sarah_svrg.parquet", 
+            "covtype_sarah_svrg.parquet",
             'objective_value', 'objective_test_accuracy',
-            ((.1, 1200), (5e4, 1e8)), None, 'Test error', 'log', ('log', 'log'),
-            (27, 40), 512, 2**5, 371_847, 92_962
+            ((.1, 1200), (5e4, 1e8)), None, 'Test error', 'log',
+            ('log', 'log'), (27, 40), 512, 2**5, 371_847, 92_962
         ),
     )
 
@@ -230,7 +232,8 @@ if __name__ == "__main__":
             q1 = np.quantile(interp_vals, .2, axis=0)
             q2 = np.quantile(interp_vals, .8, axis=0)
             curve = (
-                df_solver.groupby('stop_val').quantile([0.2, 0.5, 0.8])
+                df_solver.groupby('stop_val').quantile([0.2, 0.5, 0.8],
+                                                       numeric_only=True)
                 .unstack()
             )
             lines.append(ax.semilogy(
@@ -279,7 +282,8 @@ if __name__ == "__main__":
             q1 = np.quantile(interp_vals, .2, axis=0)
             q2 = np.quantile(interp_vals, .8, axis=0)
             curve = (
-                df_solver.groupby('stop_val').quantile([0.2, 0.5, 0.8])
+                df_solver.groupby('stop_val').quantile([0.2, 0.5, 0.8],
+                                                       numeric_only=True)
                 .unstack()
             )
 
