@@ -31,6 +31,22 @@ def shia(
     return step_size * s
 
 
+def shia_fb(
+    inner_oracle, inner_var, outer_var, v, n_step, step_size
+):
+    """Hessian Inverse Approximation subroutine from [Ji2021].
+
+    This implement Algorithm.3
+    """
+    s = v
+    for i in range(n_step):
+        inner_slice = slice(0, inner_oracle.n_samples)
+        hvp = inner_oracle.hvp(inner_var, outer_var, v, inner_slice)
+        v -= step_size * hvp
+        s += v
+    return step_size * s
+
+
 def sgd_v(inner_oracle, inner_var, outer_var, v, grad_out,
           inner_sampler, n_step, step_size):
     r"""SGD for the inverse Hessian approximation.

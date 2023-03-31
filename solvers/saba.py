@@ -20,7 +20,7 @@ class Solver(BaseSolver):
     name = 'SABA'
 
     stopping_criterion = SufficientProgressCriterion(
-        patience=100, strategy='callback'
+        patience=constants.PATIENCE, strategy='callback'
     )
 
     # any parameter defined here is accessible as a class attribute
@@ -29,6 +29,7 @@ class Solver(BaseSolver):
         'outer_ratio': [1.],
         'batch_size': [64],
         'eval_freq': [128],
+        'random_state': [1]
     }
 
     @staticmethod
@@ -81,10 +82,12 @@ class Solver(BaseSolver):
         self.inner_var0 = inner_var0
         self.outer_var0 = outer_var0
         self.numba = numba
+        if self.numba:
+            self.run_once(2)
 
     def run(self, callback):
         eval_freq = self.eval_freq  # // self.batch_size
-        rng = np.random.RandomState(constants.RANDOM_STATE)
+        rng = np.random.RandomState(self.random_state)
 
         # Init variables
         inner_var = self.inner_var0.copy()
@@ -128,8 +131,7 @@ class Solver(BaseSolver):
                 memory_hvp, memory_cross_v, memory_grad_in_outer,
                 seed=rng.randint(constants.MAX_SEED)
             )
-            if np.isnan(outer_var).any():
-                raise ValueError()
+
         self.beta = (inner_var, outer_var)
 
     def get_result(self):

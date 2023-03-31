@@ -1,0 +1,15 @@
+objective:
+  - Bilevel Optimization[model=multilogreg,n_reg=full,numba=False,reg=exp,task=classif]
+dataset:
+  - covtype
+solver:
+  - SABA[batch_size=64,eval_freq=2048,outer_ratio=[0.01, 0.1, 1., 10.],step_size=[0.03125, 0.0625, 0.125, 0.25, 0.5, 1.], random_state=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]]
+  - AmIGO[batch_size=64,eval_freq=2048,n_inner_step=10,outer_ratio=[0.01, 0.1, 1., 10.],step_size=[0.03125, 0.0625, 0.125, 0.25, 0.5, 1.], random_state=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]]
+  - StocBiO[batch_size=64,eval_freq=2048,n_inner_step=10,n_shia_steps=10,outer_ratio=[0.01, 0.1, 1., 10.],step_size=[0.03125, 0.0625, 0.125, 0.25, 0.5, 1.], random_state=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]]
+  - MRBO[batch_size=64,eta=0.5,eval_freq=2048,n_hia_step=10,outer_ratio=[0.01, 0.1, 1., 10.],step_size=[0.03125, 0.0625, 0.125, 0.25, 0.5, 1.], random_state=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]]
+  # - BiO-SARAH[batch_size=64,period_frac=[0.5, 8., 64., 512.],eval_freq=[4096],step_size=[0.03125, 0.0625, 0.125, 0.25, 0.5, 1.],outer_ratio=[0.01, 0.1, 1., 10.], random_state=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]]
+  # - BiO-SARAH[batch_size=4096,period_frac=[0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16., 32., 64., 128., 256., 1024., 2048., 5096.],eval_freq=[128],step_size=[0.03125, 0.0625, 0.125, 0.25, 0.5, 1.],outer_ratio=[0.01, 0.1, 1., 10.], random_state=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]]
+n-repetitions: 1
+max-runs: 64000
+timeout: 1200
+output: covtype_sarah_svrg

@@ -26,22 +26,12 @@ mpl.rcParams.update({
 STYLES = {
     '*': dict(lw=2),
 
-    # One loop
-    'mrbo': dict(color='#009E73', linestyle=':', label=r'MRBO'),
-    'sustain': dict(color='#56B4E9', linestyle=':', label=r'SUSTAIN'),
-    'ttsa': dict(color='#D55E00', linestyle=':', label=r'TTSA'),
-    'fsla': dict(color='#97F0AA', linestyle=':', label=r'FSLA'),
-
-    # Two loops solvers
-    'amigo': dict(color='#000000', linestyle='--', label=r'AmIGO'),
-    'stocbio': dict(color='#CC79A7', linestyle='--', label=r'StocBiO'),
-    'bsa': dict(color='#F0E442', linestyle='--', label=r'BSA'),
-
-    # Our solves
-    'saba': dict(color='#E69F00', label=r'\textbf{SABA}', zorder=12, lw=3),
-    'soba': dict(color='#0072B2', label=r'\textbf{SOBA}', zorder=11, lw=3),
-    'soba full batch': dict(color='#A60628', label=r'\textbf{SOBA FULL BATCH}',
-                            zorder=10, lw=3),
+    'amigo': dict(color='#5778a4', label=r'AmIGO'),
+    'mrbo': dict(color='#e49444', label=r'MRBO'),
+    'vrbo': dict(color='#e7ca60', label=r'VRBO'),
+    'saba': dict(color='#d1615d', label=r'SABA'),
+    'stocbio': dict(color='#85b6b2', label=r'StocBiO'),
+    'bio-sarah': dict(color='#6a9f58', label=r'\textbf{SRBA}', lw=2.5),
 }
 
 N_CALLS = {
@@ -58,11 +48,12 @@ N_CALLS = {
 
     # Our solves
     'saba': (3, 2),
-    'soba': (3, 2),
-    'soba full batch': (3, 2),
+    'bio-svrg': (3, 2),
+    'bio-sarah': (3, 2),
+    # 'soba full batch': (3, 2),
 }
 
-LEGEND_OUTSIDE = True
+LEGEND_OUTSIDE = False
 
 DEFAULT_WIDTH = 3.25
 DEFAULT_DOUBLE_WIDTH = 6.75
@@ -96,25 +87,41 @@ if __name__ == "__main__":
     bench = args.benchmark
 
     BENCHMARKS_CONFIG = dict(
-        ijcnn1=("ijcnn1.parquet", 'objective_value_func',
-                ((1, 480), (0, 2e9)), 1e-4, r'Optimality ~$h(x^t) -h^*$',
-                'log', ('linear', 'linear'), None, 64, 2**17, 49_990, 91_701),
-        datacleaning0_5=("datacleaning0_5.parquet", 'objective_value',
-                         ((.1, 120), (2e4, 5e7)), None, 'Test error', 'log',
-                         ('log', 'log'), (None, 40), 64, 2**5, 20_000, 5_000),
-        datacleaning0_7=("datacleaning0_7.parquet", 'objective_value',
-                         ((.1, 120), (8e3, 4e7)), None, 'Test error', 'log',
-                         ('log', 'log'), (None, 40), 64, 2**5, 20_000, 5_000),
-        datacleaning0_9=("datacleaning0_9.parquet", 'objective_value',
-                         ((.1, 1000), (2e4, 4e7)), None, 'Test error', 'log',
-                         ('log', 'log'), (None, 40), 64, 2**5, 20_000, 5_000),
-        covtype=("covtype.parquet", 'objective_value', ((.01, 280),
-                 (5e4, 1e8)), None, 'Test error', 'log', ('log', 'log'),
-                 (27, 40), 512, 2**5, 371_847, 92_962),
+        ijcnn1=(
+            "ijcnn1_sarah_svrg_vrbo.parquet", 'objective_value_func',
+            'objective_value_func', ((1, 480), (0, 2e9)), 1e-4,
+            r'Optimality ~$h(x^t) -h^*$', 'log', ('linear', 'linear'), None,
+            64, 2**17, 49_990, 91_701
+        ),
+        datacleaning0_5=(
+            "datacleaning0_5_sarah_svrg_vrbo.parquet",
+            'objective_value', 'objective_test_accuracy',
+            ((.05, 900), (2e4, 5e7)), None, 'Test error', 'log',
+            ('log', 'log'), (None, 40), 64, 2**5, 20_000, 5_000
+        ),
+        datacleaning0_7=(
+            "datacleaning0_7_sarah_svrg.parquet",
+            'objective_value', 'objective_test_accuracy',
+            ((.1, 120), (8e3, 4e7)), None, 'Test error', 'log',
+            ('log', 'log'), (None, 40), 64, 2**5, 20_000, 5_000
+        ),
+        datacleaning0_9=(
+            "datacleaning0_9_sarah_svrg.parquet",
+            'objective_value', 'objective_test_accuracy',
+            ((.1, 1000), (2e4, 4e7)), None, 'Test error', 'log',
+            ('log', 'log'), (None, 40), 64, 2**5, 20_000, 5_000
+        ),
+        covtype=(
+            "covtype_sarah_svrg.parquet",
+            'objective_value', 'objective_test_accuracy',
+            ((.1, 1200), (5e4, 1e8)), None, 'Test error', 'log',
+            ('log', 'log'), (27, 40), 512, 2**5, 371_847, 92_962
+        ),
     )
 
-    fname, metric, xlim, eps, yname, yscaling, xscaling, ylim, batch_size, \
-        eval_freq, n_inner_samples, n_outer_samples = BENCHMARKS_CONFIG[bench]
+    fname, metric_selection, metric_plot, xlim, eps, yname, yscaling, \
+        xscaling, ylim, batch_size, eval_freq, n_inner_samples, \
+        n_outer_samples = BENCHMARKS_CONFIG[bench]
     xlim = xlim[0] if x_axis == 'time' else xlim[1]
     xscaling = xscaling[0] if x_axis == 'time' else xscaling[1]
 
@@ -127,6 +134,22 @@ if __name__ == "__main__":
     df['solver'] = df['solver_name'].apply(
         lambda x: x.split('[')[0].lower()
     )
+    df['seed'] = df['solver_name'].apply(
+        lambda x: int(x.split(',')[-2].split("=")[-1])
+    )
+
+    df['solver_name'] = df['solver_name'].apply(
+        lambda x: x.split('[')[0] + '['
+        + ''.join([s + ',' for s in x.split(',')[1:-2]]) + x.split(',')[-1]
+    )
+
+    # keep only runs all the random seeds
+    df['full'] = False
+    n_seeds = df.groupby('solver_name')['seed'].nunique()
+    for s in n_seeds.index:
+        if n_seeds[s] == 10:
+            df['full'].loc[df['solver_name'] == s] = True
+    df = df.query('full == True')
 
     df.loc[
         df['solver_name'].apply(lambda x: 'full' in x), 'solver'
@@ -138,7 +161,7 @@ if __name__ == "__main__":
             df.query('stop_val <= 100')
             .groupby(['solver', 'solver_name', 'stop_val'])
             .median()
-            .reset_index().sort_values(metric)
+            .reset_index().sort_values(metric_selection)
             .groupby('solver').first()['solver_name']
         )
     elif args.criterion == 'all':
@@ -146,7 +169,7 @@ if __name__ == "__main__":
             df
             .groupby(['solver', 'solver_name', 'stop_val'])
             .median()
-            .reset_index().sort_values(metric)
+            .reset_index().sort_values(metric_selection)
             .groupby('solver').first()['solver_name']
         )
     to_plot = [to_plot[p] for p in STYLES if p in to_plot]
@@ -176,7 +199,7 @@ if __name__ == "__main__":
     if eps is not None:
         c_star = (
             df.groupby(['solver', 'stop_val'])
-            .median().loc[:, metric].min() - eps
+            .median().loc[:, metric_plot].min() - eps
         )
 
     # if metric == 'objective_value':
@@ -184,11 +207,11 @@ if __name__ == "__main__":
     lines = []
     for solver_name in to_plot:
         df_solver = df.query("solver_name == @solver_name")
-        solver = df_solver.iloc[0, -1]
+        solver = df_solver.iloc[0]['solver']
         style = STYLES['*'].copy()
         style.update(STYLES[solver])
-        curves = [data[['time', metric]].values
-                  for _, data in df_solver.groupby('idx_rep')]
+        curves = [data[['time', metric_plot]].values
+                  for _, data in df_solver.groupby('seed')]
         vals = [c[:, 1] for c in curves]
         if x_axis == 'time':
             times = [c[:, 0] for c in curves]
@@ -202,14 +225,15 @@ if __name__ == "__main__":
             for i, (t, val) in enumerate(zip(times, vals)):
                 interp_vals[i] = np.exp(np.interp(time_grid, np.log(t),
                                         np.log(val)))
-            if metric == 'objective_value':
+            if metric_plot == 'objective_test_accuracy':
                 interp_vals *= 100
             time_grid = np.exp(time_grid)
             medval = np.quantile(interp_vals, .5, axis=0)
             q1 = np.quantile(interp_vals, .2, axis=0)
             q2 = np.quantile(interp_vals, .8, axis=0)
             curve = (
-                df_solver.groupby('stop_val').quantile([0.2, 0.5, 0.8])
+                df_solver.groupby('stop_val').quantile([0.2, 0.5, 0.8],
+                                                       numeric_only=True)
                 .unstack()
             )
             lines.append(ax.semilogy(
@@ -248,7 +272,7 @@ if __name__ == "__main__":
             for i, (t, val) in enumerate(zip(calls, vals)):
                 interp_vals[i] = np.exp(np.interp(calls_grid, np.log(t),
                                         np.log(val)))
-            if metric == 'objective_value':
+            if metric_plot == 'objective_test_accuracy':
                 interp_vals *= 100
             calls_grid = np.exp(calls_grid)
             # We shift the grid to the left for the plot
@@ -258,7 +282,8 @@ if __name__ == "__main__":
             q1 = np.quantile(interp_vals, .2, axis=0)
             q2 = np.quantile(interp_vals, .8, axis=0)
             curve = (
-                df_solver.groupby('stop_val').quantile([0.2, 0.5, 0.8])
+                df_solver.groupby('stop_val').quantile([0.2, 0.5, 0.8],
+                                                       numeric_only=True)
                 .unstack()
             )
 
@@ -274,9 +299,9 @@ if __name__ == "__main__":
                 color=style['color'], alpha=0.3
             )
 
-        print(f"Min score ({solver}):", df_solver[metric].min())
+        print(f"Min score ({solver}):", df_solver[metric_selection].min())
 
-    print("Min score:", df[metric].min())
+    print("Min score:", df[metric_selection].min())
     if x_axis == 'time':
         x_ = ax.set_xlabel('Time [sec]')
     elif x_axis == 'calls':
@@ -295,7 +320,7 @@ if __name__ == "__main__":
         legendFig.savefig('legend.pdf')
         l_ = x_
     else:
-        l_ = ax_legend.legend(handles=lines, ncol=3, loc='center')
+        l_ = ax.legend(handles=lines, ncol=2, prop={'size': 6.5})
     if "datacleaning" in fname.stem:
         ticklist = [15, 20, 30, 40]
         labels = [r'$%d \%%$' % tick for tick in ticklist]
@@ -314,7 +339,6 @@ if __name__ == "__main__":
     #     axins.set_xticklabels([])
     #     axins.set_yticklabels([])
     #     ax.indicate_inset_zoom(axins, edgecolor="black")
-
     if x_axis == 'time':
         fig.savefig(
             fname.with_suffix('.pdf'), bbox_extra_artists=[x_, y_, l_],

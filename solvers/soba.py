@@ -65,6 +65,8 @@ class Solver(BaseSolver):
         self.inner_var0 = inner_var0
         self.outer_var0 = outer_var0
         self.numba = numba
+        if self.numba:
+            self.run_once(2)
 
     def run(self, callback):
         eval_freq = self.eval_freq  # // self.batch_size
@@ -105,8 +107,7 @@ class Solver(BaseSolver):
                 inner_sampler, outer_sampler, lr_scheduler,
                 seed=rng.randint(constants.MAX_SEED)
             )
-            if np.isnan(outer_var).any():
-                raise ValueError()
+
         self.beta = (inner_var, outer_var)
 
     def get_result(self):

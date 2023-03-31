@@ -1,8 +1,6 @@
 from benchopt import BaseSolver
 from benchopt.stopping_criterion import SufficientProgressCriterion
 
-from benchopt.utils import profile
-
 from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
@@ -19,7 +17,7 @@ with safe_import_context() as import_ctx:
 
 class Solver(BaseSolver):
     """Adaptation of SARAH for bilevel optimization"""
-    name = 'sarah'
+    name = 'SRBA'
 
     stopping_criterion = SufficientProgressCriterion(
         patience=constants.PATIENCE, strategy='callback'
@@ -30,8 +28,9 @@ class Solver(BaseSolver):
         'step_size': [.1],
         'outer_ratio': [1.],
         'batch_size': [64],
-        'period_frac': [1],
+        'period_frac': [128],
         'eval_freq': [1],
+        'random_state': [1]
     }
 
     @staticmethod
@@ -51,7 +50,7 @@ class Solver(BaseSolver):
             self.f_outer = f_test.numba_oracle
 
             # JIT necessary functions and classes
-            self.sarah = njit(sarah)
+            self.srba = njit(srba)
             self.MinibatchSampler = jitclass(MinibatchSampler,
                                              mbs_spec)
 
@@ -62,18 +61,19 @@ class Solver(BaseSolver):
             self.f_inner = f_train
             self.f_outer = f_test
 
-            self.sarah = sarah
+            self.srba = srba
             self.MinibatchSampler = MinibatchSampler
             self.LearningRateScheduler = LearningRateScheduler
 
         self.inner_var0 = inner_var0
         self.outer_var0 = outer_var0
         self.numba = numba
+        if self.numba:
+            self.run_once(2)
 
-    @profile
     def run(self, callback):
         eval_freq = self.eval_freq  # // self.batch_size
-        rng = np.random.RandomState(constants.RANDOM_STATE)
+        rng = np.random.RandomState(self.random_state)
 
         # Init variables
         inner_var = self.inner_var0.copy()
@@ -82,12 +82,14 @@ class Solver(BaseSolver):
 
         period = self.f_inner.n_samples + self.f_outer.n_samples
         period *= self.period_frac
+        period /= self.batch_size
+        period = int(period)
 
         # Init sampler and lr scheduler
-        inner_sampler = MinibatchSampler(
+        inner_sampler = self.MinibatchSampler(
             self.f_inner.n_samples, batch_size=self.batch_size
         )
-        outer_sampler = MinibatchSampler(
+        outer_sampler = self.MinibatchSampler(
             self.f_outer.n_samples, batch_size=self.batch_size
         )
         step_sizes = np.array(  # (inner_ss, hia_lr, outer_ss)
@@ -97,27 +99,27 @@ class Solver(BaseSolver):
             ]
         )
         exponents = np.zeros(2)
-        lr_scheduler = LearningRateScheduler(
+        lr_scheduler = self.LearningRateScheduler(
             np.array(step_sizes, dtype=float), exponents
         )
 
-        inner_var_old = None
-        outer_var_old = None
-        v_old = None
-        d_inner = None
-        d_v = None
-        d_outer = None
+        inner_var_old = inner_var.copy()
+        outer_var_old = outer_var.copy()
+        v_old = v.copy()
+        d_inner = np.zeros_like(inner_var)
+        d_v = np.zeros_like(inner_var)
+        d_outer = np.zeros_like(outer_var)
         i_min = 0
         # Start algorithm
         while callback((inner_var, outer_var)):
             inner_var, outer_var, inner_var_old, v_old, outer_var_old,\
-                d_inner, d_v, d_outer, i_min = self.sarah(
+                d_inner, d_v, d_outer, i_min = self.srba(
                     self.f_inner, self.f_outer,
                     inner_var, outer_var, v,
                     eval_freq, inner_sampler, outer_sampler,
                     lr_scheduler, inner_var_old=inner_var_old, v_old=v_old,
                     outer_var_old=outer_var_old, d_inner=d_inner, d_v=d_v,
-                    d_outer=d_outer, i_min=i_min, period=self.period,
+                    d_outer=d_outer, i_min=i_min, period=period,
                     seed=rng.randint(constants.MAX_SEED)
                 )
         self.beta = (inner_var, outer_var)
@@ -126,11 +128,11 @@ class Solver(BaseSolver):
         return self.beta
 
 
-@profile
-def sarah(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
-          inner_sampler, outer_sampler, lr_scheduler, inner_var_old=None,
-          v_old=None, outer_var_old=None, d_inner=None, d_v=None, d_outer=None,
-          i_min=0, period=100, seed=None):
+def srba(
+    inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
+    inner_sampler, outer_sampler, lr_scheduler, inner_var_old, v_old,
+    outer_var_old, d_inner, d_v, d_outer, i_min=0, period=100, seed=None
+):
 
     # Set seed for randomness
     if seed is not None:
@@ -145,7 +147,8 @@ def sarah(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
                 inner_var,
                 outer_var,
                 v,
-                slice_inner
+                slice_inner,
+                inverse='id'
             )
 
             slice_outer = slice(0, outer_oracle.n_samples)
@@ -161,10 +164,10 @@ def sarah(inner_oracle, outer_oracle, inner_var, outer_var, v, max_iter,
         else:  # Stochastic computations
             slice_inner, _ = inner_sampler.get_batch()
             _, grad_inner_var, hvp, cross_v = inner_oracle.oracles(
-                inner_var, outer_var, v, slice_inner
+                inner_var, outer_var, v, slice_inner, inverse='id'
             )
             _, grad_inner_var_old, hvp_old, cross_v_old = inner_oracle.oracles(
-                inner_var_old, outer_var_old, v_old, slice_inner
+                inner_var_old, outer_var_old, v_old, slice_inner, inverse='id'
             )
 
             slice_outer, _ = outer_sampler.get_batch()

@@ -1,9 +1,3 @@
-from benchopt import safe_import_context
-
-with safe_import_context() as import_ctx:
-    from benchmark_utils.hessian_approximation import joint_shia
-
-
 def sgd_inner(inner_oracle, inner_var, outer_var, step_size, inner_sampler,
               n_inner_step):
 
@@ -17,9 +11,10 @@ def sgd_inner(inner_oracle, inner_var, outer_var, step_size, inner_sampler,
     return inner_var
 
 
-def sgd_inner_vrbo(inner_oracle, outer_oracle, inner_var, outer_var, inner_lr,
-                   inner_sampler, outer_sampler, n_inner_step, memory_inner,
-                   memory_outer, n_hia_step, hia_lr):
+def sgd_inner_vrbo(joint_shia, inner_oracle, outer_oracle, inner_var,
+                   outer_var, inner_lr, inner_sampler, outer_sampler,
+                   n_inner_step, memory_inner, memory_outer, n_hia_step,
+                   hia_lr):
 
     for i in range(n_inner_step):
         # Step.4.k.1 - Update direction for z

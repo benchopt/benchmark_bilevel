@@ -1,0 +1,19 @@
+objective:
+  - Bilevel Optimization[model=multilogreg,n_reg=full,numba=False,reg=exp,task=classif]
+dataset:
+  - covtype
+solver:
+  - MRBO[batch_size=64,eta=0.5,eval_freq=32,n_hia_step=10,outer_ratio=0.15848931924611134,step_size=2.0]                                                                                                      
+  - SUSTAIN[batch_size=64,eta=0.5,eval_freq=32,n_hia_step=10,outer_ratio=0.15848931924611134,step_size=2.0]                                                                                                   
+  - TTSA[batch_size=64,eval_freq=32,n_hia_step=10,outer_ratio=0.01,step_size=1.0]                                                                                                                             
+  - FSLA[batch_size=64,eval_freq=32,outer_ratio=0.039810717055349734,step_size=2.0]                                                                                                                           
+  - AmIGO[batch_size=64,eval_freq=32,n_inner_step=10,outer_ratio=0.01,step_size=0.125]                                                                                                                        
+  - StocBiO[batch_size=64,eval_freq=32,n_inner_step=10,n_shia_steps=10,outer_ratio=0.630957344480193,step_size=0.25]                                                                                          
+  - BSA[batch_size=64,eval_freq=32,n_hia_step=10,n_inner_step=10,outer_ratio=0.039810717055349734,step_size=0.5]                                                                                              
+  - SABA[batch_size=64,eval_freq=32,outer_ratio=0.01,step_size=0.125]                                                                                                                                         
+  - SOBA[batch_size=64,eval_freq=32,outer_ratio=0.039810717055349734,step_size=8.0]                                                                                                                           
+  - BiO-SARAH[batch_size=64,eval_freq=32,outer_ratio=0.15848931924611134,period_frac=0.5,step_size=0.125] 
+n-repetitions: 10
+max-runs: 64000
+timeout: 3000
+output: covtype_best_params

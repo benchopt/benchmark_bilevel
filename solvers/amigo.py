@@ -33,6 +33,7 @@ class Solver(BaseSolver):
         'eval_freq': [128],
         'n_inner_step': [10],
         'batch_size': [64],
+        'random_state': [1]
     }
 
     @staticmethod
@@ -80,10 +81,12 @@ class Solver(BaseSolver):
         self.inner_var0 = inner_var0
         self.outer_var0 = outer_var0
         self.numba = numba
+        if self.numba:
+            self.run_once(2)
 
     def run(self, callback):
         eval_freq = self.eval_freq
-        rng = np.random.RandomState(constants.RANDOM_STATE)
+        rng = np.random.RandomState(self.random_state)
 
         # Init variables
         inner_var = self.inner_var0.copy()
