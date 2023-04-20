@@ -3,9 +3,8 @@ from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
     import numpy as np
-    from sklearn.utils import check_random_state
     from scipy.sparse import issparse
-    from benchmark_utils import oracles
+    from sklearn.utils import check_random_state
 
 
 class Objective(BaseObjective):
@@ -38,49 +37,18 @@ class Objective(BaseObjective):
                 f"task should be 'classif' or 'datacleaning'. Got '{task}'"
             )
 
-    def set_oracle(self):
-        if self.task == 'classif':
-            if self.model == 'ridge':
-                self.inner_oracle = oracles.RidgeRegressionOracle
-                self.outer_oracle = oracles.RidgeRegressionOracle
-            elif self.model == 'logreg':
-                self.inner_oracle = oracles.LogisticRegressionOracle
-                self.outer_oracle = oracles.LogisticRegressionOracle
-            elif self.model == 'multilogreg':
-                self.inner_oracle = oracles.MultiLogRegOracle
-                self.outer_oracle = oracles.MultiLogRegOracle
-            else:
-                raise ValueError(
-                    "model should be 'ridge', 'logreg' or 'multilogreg'. "
-                    f"Got '{self.model}'."
-                )
-        elif self.task == 'datacleaning':
-            self.inner_oracle = oracles.DataCleaningOracle
-            self.outer_oracle = oracles.MultiLogRegOracle
-        else:
-            raise ValueError(
-                "task should be 'classif' or 'datacleaning'. "
-                f"Got '{self.task}'"
-            )
-
     def get_one_solution(self):
         inner_shape, outer_shape = self.f_train.variables_shape
         return np.zeros(*inner_shape), np.zeros(*outer_shape)
 
-    def set_data(self, X_train, y_train, X_test, y_test,
-                 X_val=None, y_val=None):
+    def set_data(self, X_train, y_train, X_val, y_val, get_inner_oracle,
+                 get_outer_oracle, X_test=None, y_test=None):
 
-        # Create oracle instances
-        self.set_oracle()
-
-        self.f_train = self.inner_oracle(X_train, y_train, reg=self.reg)
-        self.f_test = self.outer_oracle(X_test, y_test, reg='none')
-
-        if self.task == 'datacleaning' or self.model == 'multilogreg':
-            self.X_val, self.y_val = X_val, y_val
+        self.get_inner_oracle = get_inner_oracle
+        self.get_outer_oracle = get_outer_oracle
 
         rng = check_random_state(self.random_state)
-        inner_shape, outer_shape = self.f_train.variables_shape
+        inner_shape, outer_shape = self.get_inner_oracle.variables_shape
         if self.model == "logreg":
             self.inner_var0 = rng.randn(*inner_shape)
             self.outer_var0 = rng.rand(*outer_shape)
