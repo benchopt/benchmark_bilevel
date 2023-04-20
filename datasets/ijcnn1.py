@@ -52,5 +52,7 @@ class Dataset(BaseDataset):
         data = dict(
             X_train=X_train, y_train=y_train,
             X_val=X_val, y_val=y_val,
+            get_inner_oracle=get_inner_oracle,
+            get_outer_oracle=get_outer_oracle,
         )
-        return data, (get_inner_oracle, get_outer_oracle)
+        return data
