@@ -18,7 +18,6 @@ class Dataset(BaseDataset):
         'oracle': ['logreg'],
         'reg': ['exp'],
         'n_reg': ['full'],
-        'framework': ['Jax']
     }
 
     def get_data(self):
