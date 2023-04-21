@@ -38,13 +38,10 @@ class Objective(BaseObjective):
                 self.outer_var0 = np.log(self.outer_var0)
             if n_reg == 1:
                 self.outer_var0 = self.outer_var0[:1]
-        elif self.task == "datacleaning" or self.model == "multilogreg":
+        elif oracle == "datacleaning" or oracle == "multilogreg":
             self.inner_var0 = np.zeros(*inner_shape)
             self.outer_var0 = -2 * np.ones(*outer_shape)
             # XXX: Try random inits
-        # self.inner_var0, self.outer_var0 = self.f_train.prox(
-        #     self.inner_var0, self.outer_var0
-        # )
 
     def compute(self, beta):
 

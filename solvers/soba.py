@@ -14,6 +14,8 @@ with safe_import_context() as import_ctx:
     from benchmark_utils.learning_rate_scheduler import LearningRateScheduler
     from benchmark_utils.learning_rate_scheduler import spec as sched_spec
 
+    from benchmark_utils.oracles import MultiLogRegOracle
+
 
 class Solver(BaseSolver):
     """Stochastic Bi-level Algorithm (SOBA)."""
@@ -36,10 +38,16 @@ class Solver(BaseSolver):
     def get_next(stop_val):
         return stop_val + 1
 
-    def skip(self, *args, **kwargs):
-        if self.batch_size == 'full' and self.framework == 'Numba':
-            return True, "numba is not useful for full bach resolution."
-
+    def skip(self, f_train, f_val, **kwargs):
+        if self.framework == 'Numba':
+            if self.batch_size == 'full':
+                return True, "Numba is not useful for full bach resolution."
+            elif isinstance(f_train(), MultiLogRegOracle):
+                return True, "Numba implementation not available for " \
+                      "Multiclass Logistic Regression."
+            elif isinstance(f_val(), MultiLogRegOracle):
+                return True, "Numba implementation not available for" \
+                      "Multiclass Logistic Regression."
         return False, None
 
     def set_objective(self, f_train, f_val, inner_var0, outer_var0):
