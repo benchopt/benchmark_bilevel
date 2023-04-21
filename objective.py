@@ -23,7 +23,8 @@ class Objective(BaseObjective):
         return np.zeros(*inner_shape), np.zeros(*outer_shape)
 
     def set_data(self, X_train, y_train, X_val, y_val, get_inner_oracle,
-                 get_outer_oracle, oracle, metrics, n_reg, X_test=None, y_test=None):
+                 get_outer_oracle, oracle, metrics, n_reg, X_test=None,
+                 y_test=None):
 
         self.get_inner_oracle = get_inner_oracle
         self.get_outer_oracle = get_outer_oracle
