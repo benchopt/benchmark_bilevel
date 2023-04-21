@@ -3,8 +3,9 @@ from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
     import numpy as np
-    from libsvmdata import fetch_libsvm
     from benchmark_utils import oracles
+    from libsvmdata import fetch_libsvm
+    from benchmark_utils.get_oracle import get_oracle
 
 
 class Dataset(BaseDataset):
@@ -26,30 +27,25 @@ class Dataset(BaseDataset):
 
         def get_inner_oracle(framework=None):
             if self.oracle == 'logreg':
-                oracle = oracles.LogisticRegressionOracle(
-                    X_train, y_train, reg=self.reg
+                oracle = get_oracle(
+                    oracles.LogisticRegressionOracle,
+                    X_train,
+                    y_train,
+                    framework=framework,
+                    reg=self.reg
                 )
-                if framework == "Numba":
-                    oracle = oracle.numba_oracle
-                elif framework == "Jax":
-                    raise NotImplementedError("Jax oracle not implemented yet")
-                elif framework is not None:
-                    raise ValueError(f"Framework {framework} not supported.")
             else:
                 raise ValueError(f"Oracle {self.oracle} not supported.")
             return oracle
 
         def get_outer_oracle(framework=None):
             if self.oracle == 'logreg':
-                oracle = oracles.LogisticRegressionOracle(
-                    X_val, y_val
+                oracle = get_oracle(
+                    oracles.LogisticRegressionOracle,
+                    X_val,
+                    y_val,
+                    framework=framework
                 )
-                if framework == "Numba":
-                    oracle = oracle.numba_oracle
-                elif framework == "Jax":
-                    raise NotImplementedError("Jax oracle not implemented yet")
-                elif framework is not None:
-                    raise ValueError(f"Framework {framework} not supported.")
             else:
                 raise ValueError(f"Oracle {self.oracle} not supported.")
             return oracle
