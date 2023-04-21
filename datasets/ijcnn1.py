@@ -2,6 +2,7 @@ from benchopt import BaseDataset
 from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
+    import numpy as np
     from libsvmdata import fetch_libsvm
     from ..benchmark_utils import oracles
 
@@ -14,6 +15,7 @@ class Dataset(BaseDataset):
     requirements = ['libsvmdata', 'scikit-learn']
     oracle = 'logreg'
     reg = ['exp', 'lin', 'none']
+    framework = [None, 'Numba', 'Jax']
 
     def get_data(self):
         X_train, y_train = fetch_libsvm('ijcnn1')
@@ -49,10 +51,32 @@ class Dataset(BaseDataset):
                 raise ValueError(f"Oracle {self.oracle} not supported.")
             return oracle
 
+        def metrics(self, inner_var, outer_var):
+            f_train = get_inner_oracle(framework=None)
+            f_val = get_outer_oracle(framework=None)
+            inner_star = f_train.get_inner_var_star(outer_var)
+            value_function = f_val.get_value(inner_star, outer_var)
+            grad_f_val_inner, grad_f_val_outer = self.f_val.get_grad(
+                inner_star, outer_var
+            )
+            grad_value = grad_f_val_outer
+            v = self.f_train.get_inverse_hvp(
+                inner_star, outer_var,
+                grad_f_val_inner
+            )
+            grad_value -= self.f_train.get_cross(inner_star, outer_var, v)
+
+            return dict(
+                value_func=value_function,
+                value=np.linalg.norm(grad_value)**2,
+            )
+
         data = dict(
             X_train=X_train, y_train=y_train,
             X_val=X_val, y_val=y_val,
             get_inner_oracle=get_inner_oracle,
             get_outer_oracle=get_outer_oracle,
+            oracle=self.oracle,
+            metrics=metrics,
         )
         return data
