@@ -29,43 +29,43 @@ class Solver(BaseSolver):
         'outer_ratio': [1.],
         'batch_size': [64],
         'eval_freq': [128],
+        'framework': [None, 'Numba'],
     }
 
     @staticmethod
     def get_next(stop_val):
         return stop_val + 1
 
-    def skip(self, f_train, f_test, inner_var0, outer_var0, numba):
-        if self.batch_size == 'full' and numba:
+    def skip(self, *args, **kwargs):
+        if self.batch_size == 'full' and self.framework == 'Numba':
             return True, "numba is not useful for full bach resolution."
 
         return False, None
 
-    def set_objective(self, f_train, f_test, inner_var0, outer_var0, numba):
+    def set_objective(self, f_train, f_val, inner_var0, outer_var0):
 
-        if numba:
-            self.f_inner = f_train.numba_oracle
-            self.f_outer = f_test.numba_oracle
+        self.f_inner = f_train(framework=self.framework)
+        self.f_outer = f_val(framework=self.framework)
 
+        if self.framework == 'Numba':
             # JIT necessary functions and classes
             self.soba = njit(soba)
             self.MinibatchSampler = jitclass(MinibatchSampler, mbs_spec)
             self.LearningRateScheduler = jitclass(
                 LearningRateScheduler, sched_spec
             )
-
-        else:
-            self.f_inner = f_train
-            self.f_outer = f_test
-
+        elif self.framework is None:
             self.soba = soba
             self.MinibatchSampler = MinibatchSampler
             self.LearningRateScheduler = LearningRateScheduler
+        elif self.framework == 'Jax':
+            raise NotImplementedError("Jax version not implemented yet")
+        else:
+            raise ValueError(f"Framework {self.framework} not supported.")
 
         self.inner_var0 = inner_var0
         self.outer_var0 = outer_var0
-        self.numba = numba
-        if self.numba:
+        if self.framework == 'Numba':
             self.run_once(2)
 
     def run(self, callback):

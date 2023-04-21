@@ -12,11 +12,10 @@ class Objective(BaseObjective):
     min_benchopt_version = "1.2.1"
 
     parameters = {
-        'random_state': 2442
+        'random_state': [2442]
     }
 
-    def __init__(self, task='classif', model='ridge', reg='exp',  n_reg='full',
-                 numba=False, random_state=2442):
+    def __init__(self, random_state=2442):
         self.random_state = random_state
 
     def get_one_solution(self):
@@ -24,7 +23,7 @@ class Objective(BaseObjective):
         return np.zeros(*inner_shape), np.zeros(*outer_shape)
 
     def set_data(self, X_train, y_train, X_val, y_val, get_inner_oracle,
-                 get_outer_oracle, oracle, metrics, X_test=None, y_test=None):
+                 get_outer_oracle, oracle, metrics, n_reg, X_test=None, y_test=None):
 
         self.get_inner_oracle = get_inner_oracle
         self.get_outer_oracle = get_outer_oracle
@@ -37,15 +36,15 @@ class Objective(BaseObjective):
             self.outer_var0 = rng.rand(*outer_shape)
             if self.get_inner_oracle().reg == 'exp':
                 self.outer_var0 = np.log(self.outer_var0)
-            if self.n_reg == 1:
+            if n_reg == 1:
                 self.outer_var0 = self.outer_var0[:1]
         elif self.task == "datacleaning" or self.model == "multilogreg":
             self.inner_var0 = np.zeros(*inner_shape)
             self.outer_var0 = -2 * np.ones(*outer_shape)
             # XXX: Try random inits
-        self.inner_var0, self.outer_var0 = self.f_train.prox(
-            self.inner_var0, self.outer_var0
-        )
+        # self.inner_var0, self.outer_var0 = self.f_train.prox(
+        #     self.inner_var0, self.outer_var0
+        # )
 
     def compute(self, beta):
 
@@ -58,9 +57,8 @@ class Objective(BaseObjective):
 
     def get_objective(self):
         return dict(
-            f_train=self.f_train,
-            f_test=self.f_test,
+            f_train=self.get_inner_oracle,
+            f_val=self.get_outer_oracle,
             inner_var0=self.inner_var0,
             outer_var0=self.outer_var0,
-            numba=self.numba
         )
