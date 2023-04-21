@@ -14,7 +14,7 @@ with safe_import_context() as import_ctx:
     from benchmark_utils.learning_rate_scheduler import LearningRateScheduler
     from benchmark_utils.learning_rate_scheduler import spec as sched_spec
 
-    from benchmark_utils.oracles import MultiLogRegOracle
+    from benchmark_utils.oracles import MultiLogRegOracle, DataCleaningOracle
 
 
 class Solver(BaseSolver):
@@ -48,6 +48,12 @@ class Solver(BaseSolver):
             elif isinstance(f_val(), MultiLogRegOracle):
                 return True, "Numba implementation not available for" \
                       "Multiclass Logistic Regression."
+            elif isinstance(f_train(), DataCleaningOracle):
+                return True, "Numba implementation not available for " \
+                      "Datacleaning."
+            elif isinstance(f_val(), DataCleaningOracle):
+                return True, "Numba implementation not available for" \
+                      "Datacleaning."
         return False, None
 
     def set_objective(self, f_train, f_val, inner_var0, outer_var0):
