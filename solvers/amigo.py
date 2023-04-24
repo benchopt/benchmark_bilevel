@@ -17,6 +17,8 @@ with safe_import_context() as import_ctx:
     from benchmark_utils.learning_rate_scheduler import LearningRateScheduler
     from benchmark_utils.learning_rate_scheduler import spec as sched_spec
 
+    from benchmark_utils.oracles import MultiLogRegOracle, DataCleaningOracle
+
 
 class Solver(BaseSolver):
     """Two loops solver."""
@@ -33,25 +35,37 @@ class Solver(BaseSolver):
         'eval_freq': [128],
         'n_inner_step': [10],
         'batch_size': [64],
-        'random_state': [1]
+        'random_state': [1],
+        'framework': [None, 'Numba']
     }
 
     @staticmethod
     def get_next(stop_val):
         return stop_val + 1
 
-    def skip(self, f_train, f_test, inner_var0, outer_var0, numba):
-        if self.batch_size == 'full' and numba:
-            return True, "numba is not useful for full bach resolution."
-
+    def skip(self, f_train, f_val, **kwargs):
+        if self.framework == 'Numba':
+            if self.batch_size == 'full':
+                return True, "Numba is not useful for full bach resolution."
+            elif isinstance(f_train(), MultiLogRegOracle):
+                return True, "Numba implementation not available for " \
+                      "Multiclass Logistic Regression."
+            elif isinstance(f_val(), MultiLogRegOracle):
+                return True, "Numba implementation not available for" \
+                      "Multiclass Logistic Regression."
+            elif isinstance(f_train(), DataCleaningOracle):
+                return True, "Numba implementation not available for " \
+                      "Datacleaning."
+            elif isinstance(f_val(), DataCleaningOracle):
+                return True, "Numba implementation not available for" \
+                      "Datacleaning."
         return False, None
 
-    def set_objective(self, f_train, f_test, inner_var0, outer_var0, numba):
+    def set_objective(self, f_train, f_val, inner_var0, outer_var0):
+        self.f_inner = f_train(framework=self.framework)
+        self.f_outer = f_val(framework=self.framework)
 
-        if numba:
-            self.f_inner = f_train.numba_oracle
-            self.f_outer = f_test.numba_oracle
-
+        if self.framework == 'Numba':
             # JIT necessary functions and classes
             self.sgd_v = njit(sgd_v)
             njit_amigo = njit(_amigo)
@@ -64,11 +78,7 @@ class Solver(BaseSolver):
             def amigo(*args, seed=None):
                 return njit_amigo(self.sgd_inner, self.sgd_v, *args, seed=seed)
             self.amigo = amigo
-
-        else:
-            self.f_inner = f_train
-            self.f_outer = f_test
-
+        elif self.framework is None:
             self.sgd_v = sgd_v
             self.sgd_inner = sgd_inner
             self.MinibatchSampler = MinibatchSampler
@@ -77,11 +87,14 @@ class Solver(BaseSolver):
             def amigo(*args, seed=None):
                 return _amigo(self.sgd_inner, self.sgd_v, *args, seed=seed)
             self.amigo = amigo
+        elif self.framework == 'Jax':
+            raise NotImplementedError("Jax version not implemented yet")
+        else:
+            raise ValueError(f"Framework {self.framework} not supported.")
 
         self.inner_var0 = inner_var0
         self.outer_var0 = outer_var0
-        self.numba = numba
-        if self.numba:
+        if self.framework == 'Numba':
             self.run_once(2)
 
     def run(self, callback):
@@ -91,7 +104,7 @@ class Solver(BaseSolver):
         # Init variables
         inner_var = self.inner_var0.copy()
         outer_var = self.outer_var0.copy()
-        v = self.f_outer.grad_inner_var(inner_var, outer_var, np.array([0]))
+        v = np.zeros_like(inner_var)
 
         # Init sampler and lr scheduler
         if self.batch_size == 'full':
