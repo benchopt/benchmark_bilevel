@@ -36,7 +36,7 @@ class Solver(BaseSolver):
         'eval_freq': [128],
         'n_inner_step': [10],
         'random_state': [1],
-        'framework': [None, "Numba"]
+        'framework': [None, "numba"]
     }
 
     @staticmethod
@@ -44,7 +44,7 @@ class Solver(BaseSolver):
         return stop_val + 1
 
     def skip(self, f_train, f_val, **kwargs):
-        if self.framework == 'Numba':
+        if self.framework == 'numba':
             if self.batch_size == 'full':
                 return True, "Numba is not useful for full bach resolution."
             elif isinstance(f_train(), MultiLogRegOracle):
@@ -64,7 +64,7 @@ class Solver(BaseSolver):
     def set_objective(self, f_train, f_val, inner_var0, outer_var0):
         self.f_inner = f_train(framework=self.framework)
         self.f_outer = f_val(framework=self.framework)
-        if self.framework == 'Numba':
+        if self.framework == 'numba':
             njit_vrbo = njit(_vrbo)
             njit_shia = njit(shia_fb)
             njit_joint_shia = njit(joint_shia)
@@ -102,14 +102,14 @@ class Solver(BaseSolver):
             def vrbo(*args, **kwargs):
                 return _vrbo(_sgd_inner_vrbo, shia_fb, *args, **kwargs)
             self.vrbo = vrbo
-        elif self.framework == 'Jax':
+        elif self.framework == 'jax':
             raise NotImplementedError("Jax version not implemented yet")
         else:
             raise ValueError(f"Framework {self.framework} not supported.")
 
         self.inner_var0 = inner_var0
         self.outer_var0 = outer_var0
-        if self.framework == 'Numba':
+        if self.framework == 'numba':
             self.run_once(2)
 
     def run(self, callback):

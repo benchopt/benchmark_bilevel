@@ -13,7 +13,7 @@ class Dataset(BaseDataset):
     name = "ijcnn1"
 
     install_cmd = 'conda'
-    requirements = ['pip:libsvmdata', 'pip:scikit-learn']
+    requirements = ['pip:libsvmdata', 'scikit-learn']
 
     parameters = {
         'oracle': ['logreg'],

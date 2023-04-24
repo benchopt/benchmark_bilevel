@@ -32,7 +32,7 @@ class Solver(BaseSolver):
         'batch_size': [64],
         'eval_freq': [128],
         'random_state': [1],
-        'framework': [None, 'Numba'],
+        'framework': [None, 'numba'],
     }
 
     @staticmethod
@@ -60,7 +60,7 @@ class Solver(BaseSolver):
     def set_objective(self, f_train, f_val, inner_var0, outer_var0):
         self.f_inner = f_train(framework=self.framework)
         self.f_outer = f_val(framework=self.framework)
-        if self.framework == 'Numba':
+        if self.framework == 'numba':
             # JIT necessary functions and classes
             njit_saba = njit(_saba)
             njit_vr = njit(variance_reduction)
@@ -89,14 +89,14 @@ class Solver(BaseSolver):
             def saba(*args, **kwargs):
                 return _saba(variance_reduction, *args, **kwargs)
             self.saba = saba
-        elif self.framework == 'Jax':
+        elif self.framework == 'jax':
             raise NotImplementedError("Jax version not implemented yet")
         else:
             raise ValueError(f"Framework {self.framework} not supported.")
 
         self.inner_var0 = inner_var0
         self.outer_var0 = outer_var0
-        if self.framework == 'Numba':
+        if self.framework == 'numba':
             self.run_once(2)
 
     def run(self, callback):
