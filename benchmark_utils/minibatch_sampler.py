@@ -1,6 +1,12 @@
 import numpy as np
 from numba import int64
 
+import jax.lax
+import jax.random
+from jax import jit
+import jax.numpy as jnp
+from functools import partial
+
 
 spec = [  # specifications for numba class
     ('n_samples', int64),
@@ -59,3 +65,37 @@ class MinibatchSampler():
             weight = (self.n_samples % self.batch_size) / self.n_samples
 
         return selector, (idx, weight)
+
+
+@jit
+def keep_ibatch(i, key):
+    return i + 1, key
+
+
+@jit
+def reset_ibatch(i, key):
+    return 0, jax.random.split(key, 1)[0]
+
+
+@partial(jit, static_argnames=('n_batches', 'batch_size'))
+def _sampler(n_batches=10, batch_size=1, **state):
+    """Jax version of the minibatch sampler."""
+    idx = jax.random.permutation(state['key'], n_batches - 1)[state['i_batch']]
+    start = 1 * idx
+    state['i_batch'], state['key'] = jax.lax.cond(
+        state['i_batch'] == n_batches, reset_ibatch, keep_ibatch,
+        state['i_batch'], state['key']
+    )
+
+    return start, state
+
+
+def init_sampler(n_samples=10, batch_size=1, random_state=1):
+    """Initialize the minibatch sampler."""
+    n_batches = (n_samples + batch_size - 1) // batch_size
+    state = dict(
+        i_batch=jnp.array(0),
+        key=jax.random.PRNGKey(random_state),
+    )
+
+    return jit(lambda **state: _sampler(n_batches, batch_size, **state)), state
