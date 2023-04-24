@@ -39,7 +39,7 @@ class Solver(BaseSolver):
         'n_shia_steps': [10],
         'eval_freq': [128],
         'random_state': [1],
-        'framework': [None, 'Numba']
+        'framework': [None, 'numba']
     }
 
     @staticmethod

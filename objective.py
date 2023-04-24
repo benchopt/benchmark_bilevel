@@ -19,7 +19,7 @@ class Objective(BaseObjective):
         self.random_state = random_state
 
     def get_one_solution(self):
-        inner_shape, outer_shape = self.get_inner_oracle.variables_shape
+        inner_shape, outer_shape = self.get_inner_oracle().variables_shape
         return np.zeros(*inner_shape), np.zeros(*outer_shape)
 
     def set_data(self, get_inner_oracle, get_outer_oracle, oracle, metrics,
