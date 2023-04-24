@@ -14,8 +14,9 @@ with safe_import_context() as import_ctx:
     from benchmark_utils.hessian_approximation import shia
     from benchmark_utils.minibatch_sampler import MinibatchSampler
     from benchmark_utils.minibatch_sampler import spec as mbs_spec
-    from benchmark_utils.learning_rate_scheduler import LearningRateScheduler
     from benchmark_utils.learning_rate_scheduler import spec as sched_spec
+    from benchmark_utils.learning_rate_scheduler import LearningRateScheduler
+    from benchmark_utils.oracles import MultiLogRegOracle, DataCleaningOracle
 
 
 class Solver(BaseSolver):
@@ -37,24 +38,36 @@ class Solver(BaseSolver):
         'batch_size': [64],
         'n_shia_steps': [10],
         'eval_freq': [128],
-        'random_state': [1]
+        'random_state': [1],
+        'framework': [None, 'numba']
     }
 
     @staticmethod
     def get_next(stop_val):
         return stop_val + 1
 
-    def skip(self, f_train, f_test, inner_var0, outer_var0, numba):
-        if self.batch_size == 'full' and numba:
-            return True, "numba is not useful for full bach resolution."
-
+    def skip(self, f_train, f_val, **kwargs):
+        if self.framework == 'numba':
+            if self.batch_size == 'full':
+                return True, "Numba is not useful for full bach resolution."
+            elif isinstance(f_train(), MultiLogRegOracle):
+                return True, "Numba implementation not available for " \
+                      "Multiclass Logistic Regression."
+            elif isinstance(f_val(), MultiLogRegOracle):
+                return True, "Numba implementation not available for" \
+                      "Multiclass Logistic Regression."
+            elif isinstance(f_train(), DataCleaningOracle):
+                return True, "Numba implementation not available for " \
+                      "Datacleaning."
+            elif isinstance(f_val(), DataCleaningOracle):
+                return True, "Numba implementation not available for" \
+                      "Datacleaning."
         return False, None
 
-    def set_objective(self, f_train, f_test, inner_var0, outer_var0, numba):
-        if numba:
-            self.f_inner = f_train.numba_oracle
-            self.f_outer = f_test.numba_oracle
-
+    def set_objective(self, f_train, f_val, inner_var0, outer_var0):
+        self.f_inner = f_train(framework=self.framework)
+        self.f_outer = f_val(framework=self.framework)
+        if self.framework == 'numba':
             # JIT necessary functions and classes
             self.shia = njit(shia)
             njit_stocbio = njit(_stocbio)
@@ -69,9 +82,7 @@ class Solver(BaseSolver):
                     self.sgd_inner, self.shia, *args, **kwargs
                 )
             self.stocbio = stocbio
-        else:
-            self.f_inner = f_train
-            self.f_outer = f_test
+        elif self.framework is None:
             self.sgd_inner = sgd_inner
             self.shia = shia
             self.MinibatchSampler = MinibatchSampler
@@ -81,11 +92,14 @@ class Solver(BaseSolver):
                 return _stocbio(sgd_inner, shia, *args, **kwargs)
 
             self.stocbio = stocbio
+        elif self.framework == 'jax':
+            raise NotImplementedError("Jax version not implemented yet")
+        else:
+            raise ValueError(f"Framework {self.framework} not supported.")
 
         self.inner_var0 = inner_var0
         self.outer_var0 = outer_var0
-        self.numba = numba
-        if self.numba:
+        if self.framework == 'numba':
             self.run_once(2)
 
     def run(self, callback):
@@ -136,9 +150,6 @@ class Solver(BaseSolver):
 
     def get_result(self):
         return self.beta
-
-    def line_search(self, outer_var, grad):
-        pass
 
 
 def _stocbio(sgd_inner, shia, inner_oracle, outer_oracle, inner_var, outer_var,

@@ -9,13 +9,13 @@ with safe_import_context() as import_ctx:
     from numba.experimental import jitclass
 
     from benchmark_utils import constants
+    from benchmark_utils.sgd_inner import sgd_inner_vrbo
     from benchmark_utils.minibatch_sampler import MinibatchSampler
     from benchmark_utils.minibatch_sampler import spec as mbs_spec
-    from benchmark_utils.learning_rate_scheduler import LearningRateScheduler
-    from benchmark_utils.learning_rate_scheduler import spec as sched_spec
-
-    from benchmark_utils.sgd_inner import sgd_inner_vrbo
     from benchmark_utils.hessian_approximation import shia_fb, joint_shia
+    from benchmark_utils.learning_rate_scheduler import spec as sched_spec
+    from benchmark_utils.learning_rate_scheduler import LearningRateScheduler
+    from benchmark_utils.oracles import MultiLogRegOracle, DataCleaningOracle
 
 
 class Solver(BaseSolver):
@@ -28,26 +28,43 @@ class Solver(BaseSolver):
 
     # any parameter defined here is accessible as a class attribute
     parameters = {
-        'step_size': [.001],
+        'step_size': [.1],
         'outer_ratio': [1.],
         'n_hia_step': [10],
         'batch_size': [64],
         'period_frac': [128],
-        'eval_freq': [1],
+        'eval_freq': [128],
         'n_inner_step': [10],
-        'random_state': [1]
+        'random_state': [1],
+        'framework': [None, "numba"]
     }
 
     @staticmethod
     def get_next(stop_val):
         return stop_val + 1
 
-    def set_objective(self, f_train, f_test, inner_var0, outer_var0, numba):
+    def skip(self, f_train, f_val, **kwargs):
+        if self.framework == 'numba':
+            if self.batch_size == 'full':
+                return True, "Numba is not useful for full bach resolution."
+            elif isinstance(f_train(), MultiLogRegOracle):
+                return True, "Numba implementation not available for " \
+                      "Multiclass Logistic Regression."
+            elif isinstance(f_val(), MultiLogRegOracle):
+                return True, "Numba implementation not available for" \
+                      "Multiclass Logistic Regression."
+            elif isinstance(f_train(), DataCleaningOracle):
+                return True, "Numba implementation not available for " \
+                      "Datacleaning."
+            elif isinstance(f_val(), DataCleaningOracle):
+                return True, "Numba implementation not available for" \
+                      "Datacleaning."
+        return False, None
 
-        if numba:
-            self.f_inner = f_train.numba_oracle
-            self.f_outer = f_test.numba_oracle
-
+    def set_objective(self, f_train, f_val, inner_var0, outer_var0):
+        self.f_inner = f_train(framework=self.framework)
+        self.f_outer = f_val(framework=self.framework)
+        if self.framework == 'numba':
             njit_vrbo = njit(_vrbo)
             njit_shia = njit(shia_fb)
             njit_joint_shia = njit(joint_shia)
@@ -76,10 +93,7 @@ class Solver(BaseSolver):
                                  **kwargs)
             self.vrbo = vrbo
 
-        else:
-            self.f_inner = f_train
-            self.f_outer = f_test
-
+        elif self.framework is None:
             def _sgd_inner_vrbo(*args, **kwargs):
                 return sgd_inner_vrbo(joint_shia, *args, *kwargs)
             self.MinibatchSampler = MinibatchSampler
@@ -88,11 +102,14 @@ class Solver(BaseSolver):
             def vrbo(*args, **kwargs):
                 return _vrbo(_sgd_inner_vrbo, shia_fb, *args, **kwargs)
             self.vrbo = vrbo
+        elif self.framework == 'jax':
+            raise NotImplementedError("Jax version not implemented yet")
+        else:
+            raise ValueError(f"Framework {self.framework} not supported.")
 
         self.inner_var0 = inner_var0
         self.outer_var0 = outer_var0
-        self.numba = numba
-        if self.numba:
+        if self.framework == 'numba':
             self.run_once(2)
 
     def run(self, callback):
