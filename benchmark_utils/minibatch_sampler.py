@@ -81,7 +81,7 @@ def reset_ibatch(i, key):
 def _sampler(n_batches=10, batch_size=1, **state):
     """Jax version of the minibatch sampler."""
     idx = jax.random.permutation(state['key'], n_batches - 1)[state['i_batch']]
-    start = 1 * idx
+    start = state['i_batch'] * idx
     state['i_batch'], state['key'] = jax.lax.cond(
         state['i_batch'] == n_batches, reset_ibatch, keep_ibatch,
         state['i_batch'], state['key']

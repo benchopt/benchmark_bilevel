@@ -12,7 +12,7 @@ with safe_import_context() as import_ctx:
     from sklearn.model_selection import train_test_split
 
     from benchmark_utils import oracles
-    from benchmark_utils.get_oracle import get_oracle
+    from benchmark_utils.oracle_utils import get_oracle
 
 
 BASE_URL = "http://yann.lecun.com/exdb/mnist/"

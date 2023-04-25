@@ -5,7 +5,8 @@ with safe_import_context() as import_ctx:
     import numpy as np
     from benchmark_utils import oracles
     from libsvmdata import fetch_libsvm
-    from benchmark_utils.get_oracle import get_oracle
+    from benchmark_utils.oracle_utils import get_oracle
+    from benchmark_utils.oracle_utils import convert_array_framework
 
 
 class Dataset(BaseDataset):
@@ -27,10 +28,12 @@ class Dataset(BaseDataset):
 
         def get_inner_oracle(framework=None):
             if self.oracle == 'logreg':
+                X = convert_array_framework(X_train, framework)
+                y = convert_array_framework(y_train, framework)
                 oracle = get_oracle(
                     oracles.LogisticRegressionOracle,
-                    X_train,
-                    y_train,
+                    X,
+                    y,
                     framework=framework,
                     reg=self.reg
                 )
@@ -40,10 +43,12 @@ class Dataset(BaseDataset):
 
         def get_outer_oracle(framework=None):
             if self.oracle == 'logreg':
+                X = convert_array_framework(X_val, framework)
+                y = convert_array_framework(y_val, framework)
                 oracle = get_oracle(
                     oracles.LogisticRegressionOracle,
-                    X_val,
-                    y_val,
+                    X,
+                    y,
                     framework=framework
                 )
             else:

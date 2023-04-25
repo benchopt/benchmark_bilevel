@@ -10,6 +10,10 @@ from numba import njit
 from numba import float64, int64, types    # import the types
 from numba.experimental import jitclass
 
+import jax
+import jax.numpy as jnp
+from jax.nn import log_sigmoid
+
 from .base import BaseOracle
 from .special import expit, logsig, expit_njit, logsig_njit
 
@@ -133,6 +137,17 @@ def _get_hvp_op(x, y, theta, reg, lmbda):
     )
 
     return Hop
+
+
+@jax.jit
+def jax_loss_sample(inner_var, outer_var, x, y):
+    return -log_sigmoid(y*jnp.dot(inner_var, x))
+
+
+@jax.jit
+def jax_loss(theta, lmbda, X, y):
+    batched_loss = jax.vmap(jax_loss_sample, in_axes=(None, None, 0, 0))
+    return jnp.mean(batched_loss(theta, lmbda, X, y), axis=0)
 
 
 spec = [
@@ -328,12 +343,27 @@ class LogisticRegressionOracle(BaseOracle):
         self.y = y.astype(np.float64)
         self.reg = reg
 
-        # Create a numba oracle for the numba functions
-        if not sparse.issparse(self.X):
-            self.X = np.ascontiguousarray(self.X)
-            self.numba_oracle = LogisticRegressionOracleNumba(
-                self.X, self.y, self.reg
-            )
+        # Create a numba oracle and jax loss
+        if isinstance(self.X, jnp.ndarray):
+            def jax_oracle(inner_var, outer_var, start, batch_size=1):
+                x = jax.lax.dynamic_slice(
+                    self.X, (start, 0),
+                    (batch_size, self.X.shape[1])
+                )
+                y = jax.lax.dynamic_slice(
+                    self.y, (start, ), (batch_size, ))
+                res = jax_loss(inner_var, outer_var, x, y)
+                if self.reg == 'exp':
+                    res += jnp.dot(jnp.exp(outer_var) * inner_var, inner_var)/2
+                elif self.reg == 'lin':
+                    res += jnp.dot(outer_var * inner_var, inner_var)/2
+                return res
+            self.jax_oracle = jax_oracle
+        else:
+            if not sparse.issparse(self.X):
+                self.numba_oracle = LogisticRegressionOracleNumba(
+                    np.ascontiguousarray(self.X), self.y, self.reg
+                )
 
         # attributes
         self.n_samples, self.n_features = X.shape

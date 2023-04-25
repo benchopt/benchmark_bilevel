@@ -5,7 +5,7 @@ with safe_import_context() as import_ctx:
     import numpy as np
     from benchmark_utils import oracles
     from sklearn.datasets import fetch_covtype
-    from benchmark_utils.get_oracle import get_oracle
+    from benchmark_utils.oracle_utils import get_oracle
     from sklearn.preprocessing import StandardScaler
     from sklearn.model_selection import train_test_split
 
