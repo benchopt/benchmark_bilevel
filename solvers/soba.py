@@ -18,6 +18,8 @@ with safe_import_context() as import_ctx:
 
     from benchmark_utils.oracles import MultiLogRegOracle, DataCleaningOracle
 
+    from benchopt.utils import profile
+
     import jax
     import jax.numpy as jnp
     from functools import partial
@@ -180,6 +182,7 @@ class Solver(BaseSolver):
         return self.beta
 
 
+@profile
 def soba(inner_oracle, outer_oracle, inner_var, outer_var, v,
          inner_sampler=None, outer_sampler=None, lr_scheduler=None, max_iter=1,
          seed=None):
@@ -224,7 +227,7 @@ def soba_jax(f_inner, f_outer, inner_var, outer_var, v,
              state_inner_sampler=None, state_outer_sampler=None, state_lr=None,
              inner_sampler=None, outer_sampler=None, max_iter=1):
     def soba_one_iter(carry, _):
-        grad_inner = jax.grad(f_inner, argnums=(0, 1))
+        grad_inner = jax.grad(f_inner, argnums=0)
         grad_outer = jax.grad(f_outer, argnums=(0, 1))
 
         inner_var, outer_var, v, state_lr, state_inner_sampler, \
@@ -238,7 +241,7 @@ def soba_jax(f_inner, f_outer, inner_var, outer_var, v,
             lambda z, x: grad_inner(z, x, start_inner), inner_var,
             outer_var
         )
-        hvp, cross_v = vjp_train((v, v))
+        hvp, cross_v = vjp_train(v)
 
         start_outer, state_outer_sampler = outer_sampler(**state_outer_sampler)
         grad_in_outer, impl_grad = grad_outer(
