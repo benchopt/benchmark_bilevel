@@ -5,7 +5,6 @@ import jax.lax
 import jax.random
 from jax import jit
 import jax.numpy as jnp
-from functools import partial
 
 
 spec = [  # specifications for numba class

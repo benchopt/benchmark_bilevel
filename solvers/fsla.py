@@ -10,12 +10,17 @@ with safe_import_context() as import_ctx:
     from numba.experimental import jitclass
 
     from benchmark_utils import constants
+    from benchmark_utils.minibatch_sampler import init_sampler
+    from benchmark_utils.learning_rate_scheduler import update_lr
     from benchmark_utils.minibatch_sampler import MinibatchSampler
     from benchmark_utils.minibatch_sampler import spec as mbs_spec
-    from benchmark_utils.learning_rate_scheduler import LearningRateScheduler
     from benchmark_utils.learning_rate_scheduler import spec as sched_spec
-
+    from benchmark_utils.learning_rate_scheduler import LearningRateScheduler
     from benchmark_utils.oracles import MultiLogRegOracle, DataCleaningOracle
+
+    import jax
+    import jax.numpy as jnp
+    from functools import partial
 
 
 class Solver(BaseSolver):
@@ -33,7 +38,7 @@ class Solver(BaseSolver):
         'batch_size': [64],
         'eval_freq': [128],
         'random_state': [1],
-        'framework': [None, 'numba'],
+        'framework': [None],
     }
 
     @staticmethod
@@ -58,9 +63,20 @@ class Solver(BaseSolver):
                       "Datacleaning."
         return False, None
 
-    def set_objective(self, f_train, f_val, inner_var0, outer_var0):
+    def set_objective(self, f_train, f_val, n_inner_samples, n_outer_samples,
+                      inner_var0, outer_var0):
         self.f_inner = f_train(framework=self.framework)
         self.f_outer = f_val(framework=self.framework)
+        self.n_inner_samples = n_inner_samples
+        self.n_outer_samples = n_outer_samples
+
+        # Init sampler and lr scheduler
+        if self.batch_size == "full":
+            self.batch_size_inner = n_inner_samples
+            self.batch_size_outer = n_outer_samples
+        else:
+            self.batch_size_inner = self.batch_size
+            self.batch_size_outer = self.batch_size
 
         if self.framework == 'numba':
             # JIT necessary functions and classes
@@ -74,13 +90,29 @@ class Solver(BaseSolver):
             self.MinibatchSampler = MinibatchSampler
             self.LearningRateScheduler = LearningRateScheduler
         elif self.framework == 'jax':
-            raise NotImplementedError("Jax version not implemented yet")
+            self.f_inner = jax.jit(
+                partial(self.f_inner, batch_size=self.batch_size_inner)
+            )
+            self.f_outer = jax.jit(
+                partial(self.f_outer, batch_size=self.batch_size_outer)
+            )
+            inner_sampler, self.state_inner_sampler \
+                = init_sampler(n_samples=n_inner_samples,
+                               batch_size=self.batch_size_inner)
+            outer_sampler, self.state_outer_sampler \
+                = init_sampler(n_samples=n_outer_samples,
+                               batch_size=self.batch_size_outer)
+            self.fsla = partial(
+                fsla_jax,
+                inner_sampler=inner_sampler,
+                outer_sampler=outer_sampler
+            )
         else:
             raise ValueError(f"Framework {self.framework} not supported.")
 
         self.inner_var0 = inner_var0
         self.outer_var0 = outer_var0
-        if self.framework == 'numba':
+        if self.framework == 'numba' or self.framework == 'jax':
             self.run_once(2)
 
     def run(self, callback):
@@ -90,48 +122,68 @@ class Solver(BaseSolver):
         # Init variables
         inner_var = self.inner_var0.copy()
         outer_var = self.outer_var0.copy()
-        v = np.zeros_like(inner_var)
-        memory_outer = np.zeros((2, *outer_var.shape))
-
-        # Init sampler and lr scheduler
-        if self.batch_size == 'full':
-            batch_size_inner = self.f_inner.n_samples
-            batch_size_outer = self.f_outer.n_samples
+        if self.framework == 'jax':
+            v = jnp.zeros_like(inner_var)
+            memory_outer = jnp.zeros((2, *outer_var.shape))
+            step_sizes = jnp.array(
+                [self.step_size, self.step_size,
+                 self.step_size / self.outer_ratio]
+            )
+            # Use 1 / sqrt(t) for the learning rates
+            exponents = 0.5 * jnp.ones(len(step_sizes))
+            state_lr = dict(constants=step_sizes, exponents=exponents,
+                            i_step=0)
+            carry = dict(
+                state_lr=state_lr,
+                state_inner_sampler=self.state_inner_sampler,
+                state_outer_sampler=self.state_outer_sampler,
+            )
         else:
-            batch_size_inner = self.batch_size
-            batch_size_outer = self.batch_size
-        inner_sampler = self.MinibatchSampler(
-            self.f_inner.n_samples, batch_size=batch_size_inner
-        )
-        outer_sampler = self.MinibatchSampler(
-            self.f_outer.n_samples, batch_size=batch_size_outer
-        )
-        step_sizes = np.array(
-            [self.step_size, self.step_size, self.step_size / self.outer_ratio]
-        )
-        # Use 1 / sqrt(t) for the learning rates
-        exponents = 0.5 * np.ones(len(step_sizes))
-        lr_scheduler = self.LearningRateScheduler(
-            np.array(step_sizes, dtype=float), exponents
-        )
+            v = np.zeros_like(inner_var)
+            memory_outer = np.zeros((2, *outer_var.shape))
+
+            inner_sampler = self.MinibatchSampler(
+                self.f_inner.n_samples, batch_size=self.batch_size_inner
+            )
+            outer_sampler = self.MinibatchSampler(
+                self.f_outer.n_samples, batch_size=self.batch_size_outer
+            )
+            step_sizes = np.array(
+                [self.step_size, self.step_size,
+                 self.step_size / self.outer_ratio]
+            )
+            # Use 1 / sqrt(t) for the learning rates
+            exponents = 0.5 * np.ones(len(step_sizes))
+            lr_scheduler = self.LearningRateScheduler(
+                np.array(step_sizes, dtype=float), exponents
+            )
 
         # Start algorithm
         while callback((inner_var, outer_var)):
-            inner_var, outer_var, v = self.fsla(
-                self.f_inner, self.f_outer,
-                inner_var, outer_var, v, memory_outer,
-                eval_freq, inner_sampler, outer_sampler, lr_scheduler,
-                seed=rng.randint(constants.MAX_SEED)
-            )
+            if self.framework == 'jax':
+                inner_var, outer_var, v, memory_outer, carry = self.fsla(
+                    self.f_inner, self.f_outer,
+                    inner_var, outer_var, v, memory_outer,
+                    max_iter=eval_freq, **carry
+                )
+            else:
+                inner_var, outer_var, v, memory_outer = self.fsla(
+                    self.f_inner, self.f_outer, inner_var, outer_var, v,
+                    memory_outer,
+                    inner_sampler=inner_sampler,
+                    outer_sampler=outer_sampler,
+                    lr_scheduler=lr_scheduler, max_iter=eval_freq,
+                    seed=rng.randint(constants.MAX_SEED)
+                )
         self.beta = (inner_var, outer_var)
 
     def get_result(self):
         return self.beta
 
 
-def fsla(inner_oracle, outer_oracle, inner_var, outer_var, v,
-         memory_outer, max_iter, inner_sampler, outer_sampler,
-         lr_scheduler, seed=None):
+def fsla(inner_oracle, outer_oracle, inner_var, outer_var, v, memory_outer,
+         inner_sampler=None, outer_sampler=None, lr_scheduler=None, max_iter=1,
+         seed=None):
 
     # Set seed for randomness
     if seed is not None:
@@ -183,6 +235,94 @@ def fsla(inner_oracle, outer_oracle, inner_var, outer_var, v,
         outer_var -= outer_lr * memory_outer[1]
 
         # Step.6 - project back to the constraint set
-        inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)
+        # inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)
 
-    return inner_var, outer_var, v
+    return inner_var, outer_var, v, memory_outer
+
+
+@partial(jax.jit, static_argnums=(0, 1),
+         static_argnames=('inner_sampler', 'outer_sampler', 'max_iter'))
+def fsla_jax(f_inner, f_outer, inner_var, outer_var, v, memory_outer,
+             state_inner_sampler=None, state_outer_sampler=None, state_lr=None,
+             inner_sampler=None, outer_sampler=None, max_iter=1):
+    def fsla_one_iter(carry, _):
+        grad_inner_fun = jax.grad(f_inner, argnums=0)
+        grad_outer_fun = jax.grad(f_outer, argnums=(0, 1))
+        inner_var, outer_var, v, memory_outer, state_lr, state_inner_sampler, \
+            state_outer_sampler = carry
+
+        (inner_lr, eta, outer_lr), state_lr = update_lr(state_lr)
+
+        # Step.1 - SGD step on the inner problem
+        start_inner, state_inner_sampler = inner_sampler(**state_inner_sampler)
+        grad_inner_var = grad_inner_fun(inner_var, outer_var, start_inner)
+        inner_var_old = inner_var.copy()
+        inner_var -= inner_lr * grad_inner_var
+
+        # Step.2 - SGD step on the auxillary variable v
+        start_inner2, state_inner_sampler = inner_sampler(
+            **state_inner_sampler
+        )
+        _, hvp_fun = jax.vjp(
+            lambda z: grad_inner_fun(z, outer_var, start_inner2), inner_var
+        )
+
+        start_outer, state_outer_sampler = outer_sampler(**state_outer_sampler)
+        grad_outer_in, _ = grad_outer_fun(inner_var, outer_var, start_outer)
+        v_old = v.copy()
+        v -= inner_lr * (hvp_fun(v)[0] - grad_outer_in)
+
+        # Step.3 - compute the implicit gradient estimates, for the old
+        # and new variables
+        start_outer2, state_outer_sampler = outer_sampler(
+            **state_outer_sampler
+        )
+        _, impl_grad = grad_outer_fun(
+            inner_var, outer_var, start_outer2
+        )
+        _, impl_grad_old = grad_outer_fun(
+            inner_var_old, memory_outer[0], start_outer2
+        )
+        start_inner3, state_inner_sampler = inner_sampler(
+            **state_inner_sampler
+        )
+        _, cross_v_fun = jax.vjp(
+            lambda x: grad_inner_fun(inner_var, x, start_inner3), outer_var
+        )
+        _, cross_v_fun_old = jax.vjp(
+            lambda x: grad_inner_fun(inner_var_old, x, start_inner3),
+            memory_outer[0]
+        )
+        impl_grad -= cross_v_fun(v)[0]
+        impl_grad_old -= cross_v_fun_old(v_old)[0]
+
+        # Step.4 - update direction with momentum
+        memory_outer = memory_outer.at[1].set(
+            impl_grad + (1-eta) * (memory_outer[1] - impl_grad_old)
+        )
+
+        # Step.5 - update the outer variable
+        memory_outer = memory_outer.at[0].set(outer_var)
+        outer_var -= outer_lr * memory_outer[1]
+
+        # #Use prox to make sure we do not diverge
+        # # inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)
+
+        carry = inner_var, outer_var, v, memory_outer, state_lr, \
+            state_inner_sampler, state_outer_sampler
+
+        return carry, _
+
+    init = (inner_var, outer_var, v, memory_outer, state_lr,
+            state_inner_sampler, state_outer_sampler)
+    carry, _ = jax.lax.scan(
+        fsla_one_iter,
+        init=init,
+        xs=None,
+        length=max_iter,
+    )
+    return carry[0], carry[1], carry[2], carry[3], dict(
+        state_lr=carry[4],
+        state_inner_sampler=carry[5],
+        state_outer_sampler=carry[6]
+    )

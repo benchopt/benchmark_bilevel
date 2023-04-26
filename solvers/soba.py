@@ -9,14 +9,13 @@ with safe_import_context() as import_ctx:
     from numba.experimental import jitclass
 
     from benchmark_utils import constants
-    from benchmark_utils.learning_rate_scheduler import update_lr
     from benchmark_utils.minibatch_sampler import init_sampler
+    from benchmark_utils.learning_rate_scheduler import update_lr
     from benchmark_utils.minibatch_sampler import MinibatchSampler
     from benchmark_utils.minibatch_sampler import spec as mbs_spec
-    from benchmark_utils.learning_rate_scheduler import LearningRateScheduler
     from benchmark_utils.learning_rate_scheduler import spec as sched_spec
-
     from benchmark_utils.oracles import MultiLogRegOracle, DataCleaningOracle
+    from benchmark_utils.learning_rate_scheduler import LearningRateScheduler
 
     import jax
     import jax.numpy as jnp
@@ -38,7 +37,7 @@ class Solver(BaseSolver):
         'batch_size': [64],
         'eval_freq': [128],
         'random_state': [1],
-        'framework': [None, 'numba'],
+        'framework': [None],
     }
 
     @staticmethod

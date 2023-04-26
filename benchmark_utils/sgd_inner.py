@@ -1,14 +1,29 @@
-def sgd_inner(inner_oracle, inner_var, outer_var, step_size, inner_sampler,
-              n_inner_step):
+import jax
+from functools import partial
 
-    for i in range(n_inner_step):
-        inner_slice, _ = inner_sampler.get_batch()
+
+def sgd_inner(inner_oracle, inner_var, outer_var, step_size, sampler=None,
+              n_steps=1):
+
+    for i in range(n_steps):
+        inner_slice, _ = sampler.get_batch()
         grad_inner = inner_oracle.grad_inner_var(
             inner_var, outer_var, inner_slice
         )
         inner_var -= step_size * grad_inner
 
     return inner_var
+
+
+@partial(jax.jit, static_argnums=(0, ), static_argnames=('sampler', 'n_steps'))
+def sgd_inner_jax(grad_inner, inner_var, outer_var, state_sampler, step_size,
+                  sampler=None, n_steps=1):
+
+    for _ in range(n_steps):
+        start, state_sampler = sampler(**state_sampler)
+        inner_var -= step_size * grad_inner(inner_var, outer_var, start)
+
+    return inner_var, state_sampler
 
 
 def sgd_inner_vrbo(joint_shia, inner_oracle, outer_oracle, inner_var,
