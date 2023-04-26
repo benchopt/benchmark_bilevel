@@ -68,23 +68,24 @@ class MinibatchSampler():
 
 
 @jit
-def keep_ibatch(i, key):
-    return i + 1, key
+def keep_ibatch(i, batch_order, key=None):
+    return i + 1, batch_order, key
 
 
 @jit
-def reset_ibatch(i, key):
-    return 0, jax.random.split(key, 1)[0]
+def reset_ibatch(i, batch_order, key=1):
+    return 0, jax.random.permutation(key, batch_order),\
+        jax.random.split(key, 1)[0]
 
 
-@partial(jit, static_argnames=('n_batches', 'batch_size'))
-def _sampler(n_batches=10, batch_size=1, **state):
+@jit
+def _sampler(n_batches=10, **state):
     """Jax version of the minibatch sampler."""
-    idx = jax.random.permutation(state['key'], n_batches - 1)[state['i_batch']]
+    idx = state['batch_order'][state['i_batch']]
     start = state['i_batch'] * idx
-    state['i_batch'], state['key'] = jax.lax.cond(
+    state['i_batch'], state['batch_order'], state['key'] = jax.lax.cond(
         state['i_batch'] == n_batches, reset_ibatch, keep_ibatch,
-        state['i_batch'], state['key']
+        state['i_batch'], state['batch_order'], state['key']
     )
 
     return start, state
@@ -94,8 +95,9 @@ def init_sampler(n_samples=10, batch_size=1, random_state=1):
     """Initialize the minibatch sampler."""
     n_batches = (n_samples + batch_size - 1) // batch_size
     state = dict(
+        batch_order=jnp.arange(n_batches),
         i_batch=jnp.array(0),
         key=jax.random.PRNGKey(random_state),
     )
 
-    return jit(lambda **state: _sampler(n_batches, batch_size, **state)), state
+    return jit(lambda **state: _sampler(n_batches, **state)), state
