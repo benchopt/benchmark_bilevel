@@ -191,6 +191,7 @@ class Solver(BaseSolver):
             if self.framework == 'jax':
                 inner_var, outer_var, carry = self.bsa(
                         self.f_inner, self.f_outer, inner_var, outer_var,
+                        n_inner_steps=self.n_inner_steps,
                         n_hia_steps=self.n_hia_steps, max_iter=eval_freq,
                         **carry
                     )
@@ -271,12 +272,13 @@ def _bsa(sgd_inner, hia, inner_oracle, outer_oracle, inner_var, outer_var,
 
 
 @partial(jax.jit, static_argnums=(0, 1),
-         static_argnames=('hia', 'sgd_inner', 'n_hia_steps', 'inner_sampler',
-                          'outer_sampler', 'max_iter'))
+         static_argnames=('hia', 'sgd_inner', 'n_hia_steps', 'n_inner_steps',
+                          'inner_sampler', 'outer_sampler', 'max_iter'))
 def bsa_jax(f_inner, f_outer, inner_var, outer_var,
             state_inner_sampler=None, state_outer_sampler=None,
             state_lr=None, hia=None, sgd_inner=None, n_hia_steps=1,
-            inner_sampler=None, outer_sampler=None, key=None, max_iter=1):
+            n_inner_steps=1, inner_sampler=None, outer_sampler=None, key=None,
+            max_iter=1):
     def bsa_one_iter(carry, _):
         grad_inner_fun = jax.grad(f_inner, argnums=0)
         grad_outer_fun = jax.grad(f_outer, argnums=(0, 1))
@@ -305,7 +307,7 @@ def bsa_jax(f_inner, f_outer, inner_var, outer_var,
         inner_var, state_inner_sampler = sgd_inner(inner_var, outer_var,
                                                    state_inner_sampler,
                                                    step_size=inner_lr,
-                                                   n_steps=n_hia_steps)
+                                                   n_steps=n_inner_steps)
 
         carry = inner_var, outer_var, state_lr, state_inner_sampler, \
             state_outer_sampler, key

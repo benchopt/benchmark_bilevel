@@ -11,8 +11,8 @@ with safe_import_context() as import_ctx:
     from benchmark_utils import constants
     from benchmark_utils.minibatch_sampler import init_sampler
     from benchmark_utils.hessian_approximation import joint_shia
-    from benchmark_utils.hessian_approximation import joint_shia_jax
     from benchmark_utils.learning_rate_scheduler import update_lr
+    from benchmark_utils.hessian_approximation import joint_shia_jax
     from benchmark_utils.minibatch_sampler import MinibatchSampler
     from benchmark_utils.minibatch_sampler import spec as mbs_spec
     from benchmark_utils.learning_rate_scheduler import spec as sched_spec
@@ -36,7 +36,7 @@ class Solver(BaseSolver):
     parameters = {
         'step_size': [.1],
         'outer_ratio': [1.],
-        'n_hia_steps': [10],
+        'n_shia_steps': [10],
         'batch_size': [64],
         'eta': [.5],
         'eval_freq': [128],
@@ -183,15 +183,15 @@ class Solver(BaseSolver):
                     carry = self.mrbo(
                         self.f_inner, self.f_outer, inner_var, outer_var,
                         memory_inner, memory_outer,
-                        n_hia_steps=self.n_hia_steps, max_iter=eval_freq,
+                        n_shia_steps=self.n_shia_steps, max_iter=eval_freq,
                         **carry
                     )
             else:
                 inner_var, outer_var, memory_inner, memory_outer = self.mrbo(
                     self.f_inner, self.f_outer, inner_var, outer_var,
                     memory_inner, memory_outer, inner_sampler, outer_sampler,
-                    lr_scheduler, self.n_hia_steps, max_iter=eval_freq,
-                    seed=rng.randint(constants.MAX_SEED)
+                    lr_scheduler, n_shia_steps=self.n_shia_steps,
+                    max_iter=eval_freq, seed=rng.randint(constants.MAX_SEED)
                 )
         self.beta = (inner_var, outer_var)
 
@@ -201,7 +201,7 @@ class Solver(BaseSolver):
 
 def _mrbo(joint_shia, inner_oracle, outer_oracle, inner_var, outer_var,
           memory_inner, memory_outer, inner_sampler, outer_sampler,
-          lr_scheduler, n_hia_steps, max_iter=1, seed=None):
+          lr_scheduler, n_shia_steps=1, max_iter=1, seed=None):
 
     # Set seed for randomness
     if seed is not None:
@@ -233,7 +233,7 @@ def _mrbo(joint_shia, inner_oracle, outer_oracle, inner_var, outer_var,
         ihvp, ihvp_old = joint_shia(
             inner_oracle, inner_var, outer_var, grad_outer,
             memory_inner[0], memory_outer[0], grad_outer_old,
-            hia_lr, sampler=inner_sampler, n_steps=n_hia_steps
+            hia_lr, sampler=inner_sampler, n_steps=n_shia_steps
         )
         impl_grad -= inner_oracle.cross(
             inner_var, outer_var, ihvp, slice_inner
@@ -261,12 +261,12 @@ def _mrbo(joint_shia, inner_oracle, outer_oracle, inner_var, outer_var,
 
 
 @partial(jax.jit, static_argnums=(0, 1),
-         static_argnames=('joint_shia', 'n_hia_steps', 'inner_sampler',
+         static_argnames=('joint_shia', 'n_shia_steps', 'inner_sampler',
                           'outer_sampler', 'max_iter'))
 def mrbo_jax(f_inner, f_outer, inner_var, outer_var, memory_inner,
              memory_outer, state_inner_sampler=None, state_outer_sampler=None,
-             state_lr=None, joint_shia=None, n_hia_steps=1, inner_sampler=None,
-             outer_sampler=None, max_iter=1):
+             state_lr=None, joint_shia=None, n_shia_steps=1,
+             inner_sampler=None, outer_sampler=None, max_iter=1):
     def mrbo_one_iter(carry, _):
         grad_inner_fun = jax.grad(f_inner, argnums=0)
         grad_outer_fun = jax.grad(f_outer, argnums=(0, 1))
@@ -303,7 +303,7 @@ def mrbo_jax(f_inner, f_outer, inner_var, outer_var, memory_inner,
             grad_inner_fun, inner_var, outer_var, grad_outer,
             memory_inner[0], memory_outer[0], grad_outer_old,
             state_inner_sampler, hia_lr, sampler=inner_sampler,
-            n_steps=n_hia_steps,
+            n_steps=n_shia_steps,
         )
         impl_grad -= vjp_fun(ihvp)[0]
         impl_grad_old -= vjp_fun_old(ihvp_old)[0]

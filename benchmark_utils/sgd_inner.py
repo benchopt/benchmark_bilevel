@@ -19,11 +19,13 @@ def sgd_inner(inner_oracle, inner_var, outer_var, step_size, sampler=None,
 def sgd_inner_jax(grad_inner, inner_var, outer_var, state_sampler, step_size,
                   sampler=None, n_steps=1):
 
-    for _ in range(n_steps):
-        start, state_sampler = sampler(**state_sampler)
-        inner_var -= step_size * grad_inner(inner_var, outer_var, start)
+    def iter(i, args):
+        start, args[0] = sampler(**args[0])
+        args[1] -= step_size * grad_inner(args[1], outer_var, start)
+        return args
+    res = jax.lax.fori_loop(0, n_steps, iter, [state_sampler, inner_var])
 
-    return inner_var, state_sampler
+    return res[1], res[0]
 
 
 def sgd_inner_vrbo(joint_shia, inner_oracle, outer_oracle, inner_var,
