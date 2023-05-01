@@ -73,15 +73,16 @@ def keep_ibatch(i, batch_order, key=None):
 
 @jit
 def reset_ibatch(i, batch_order, key=1):
-    return 0, jax.random.permutation(key, batch_order),\
+    return 0, jax.random.permutation(key, batch_order), \
         jax.random.split(key, 1)[0]
 
 
 @jit
-def _sampler(n_batches=10, **state):
+def _sampler(n_batches=10, batch_size=1, **state):
     """Jax version of the minibatch sampler."""
+    # print(state['batch_order'])
     idx = state['batch_order'][state['i_batch']]
-    start = state['i_batch'] * idx
+    start = batch_size * idx
     state['i_batch'], state['batch_order'], state['key'] = jax.lax.cond(
         state['i_batch'] == n_batches, reset_ibatch, keep_ibatch,
         state['i_batch'], state['batch_order'], state['key']
@@ -99,4 +100,4 @@ def init_sampler(n_samples=10, batch_size=1, random_state=1):
         key=jax.random.PRNGKey(random_state),
     )
 
-    return jit(lambda **state: _sampler(n_batches, **state)), state
+    return jit(lambda **state: _sampler(n_batches, batch_size, **state)), state
