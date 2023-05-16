@@ -12,6 +12,7 @@ from numba.experimental import jitclass
 
 import jax
 import jax.numpy as jnp
+from functools import partial
 from jax.nn import log_sigmoid
 
 from .base import BaseOracle
@@ -345,7 +346,8 @@ class LogisticRegressionOracle(BaseOracle):
 
         # Create a numba oracle and jax loss
         if isinstance(self.X, jnp.ndarray):
-            def jax_oracle(inner_var, outer_var, start, batch_size=1):
+            @partial(jax.jit, static_argnames=('batch_size'))
+            def jax_oracle(inner_var, outer_var, start=0, batch_size=1):
                 x = jax.lax.dynamic_slice(
                     self.X, (start, 0),
                     (batch_size, self.X.shape[1])
@@ -358,7 +360,18 @@ class LogisticRegressionOracle(BaseOracle):
                 elif self.reg == 'lin':
                     res += jnp.dot(outer_var * inner_var, inner_var)/2
                 return res
+
+            @jax.jit
+            def jax_oracle_fb(inner_var, outer_var):
+                res = jax_loss(inner_var, outer_var, self.X, self.y)
+                if self.reg == 'exp':
+                    res += jnp.dot(jnp.exp(outer_var) * inner_var, inner_var)/2
+                elif self.reg == 'lin':
+                    res += jnp.dot(outer_var * inner_var, inner_var)/2
+                return res
+            
             self.jax_oracle = jax_oracle
+            self.jax_oracle_fb = jax_oracle_fb
         else:
             if not sparse.issparse(self.X):
                 self.numba_oracle = LogisticRegressionOracleNumba(

@@ -120,7 +120,7 @@ class Dataset(BaseDataset):
                 inner_var, outer_var, X_test, y_test
             )
             val_acc = f_val.accuracy(
-                inner_var, outer_var, X_val, X_val
+                inner_var, outer_var, X_val, y_val
             )
             train_acc = f_val.accuracy(
                 inner_var, outer_var, X_train, y_train

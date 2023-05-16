@@ -15,9 +15,8 @@ with safe_import_context() as import_ctx:
     from benchmark_utils.minibatch_sampler import spec as mbs_spec
     from benchmark_utils.learning_rate_scheduler import spec as sched_spec
     from benchmark_utils.learning_rate_scheduler import LearningRateScheduler
-    from benchmark_utils.hessian_approximation import joint_hia, joint_hia_jax
-
     from benchmark_utils.oracles import MultiLogRegOracle, DataCleaningOracle
+    from benchmark_utils.hessian_approximation import joint_hia, joint_hia_jax
 
     import jax
     import jax.numpy as jnp
@@ -128,7 +127,7 @@ class Solver(BaseSolver):
 
     def run(self, callback):
         eval_freq = self.eval_freq
-        rng = np.random.RandomState(constants.RANDOM_STATE)
+        rng = np.random.RandomState(self.random_state)
 
         # Init variables
         inner_var = self.inner_var0.copy()

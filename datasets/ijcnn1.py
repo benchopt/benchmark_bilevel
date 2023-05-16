@@ -26,7 +26,7 @@ class Dataset(BaseDataset):
         X_train, y_train = fetch_libsvm('ijcnn1')
         X_val, y_val = fetch_libsvm('ijcnn1_test')
 
-        def get_inner_oracle(framework=None):
+        def get_inner_oracle(framework=None, get_fb=False):
             if self.oracle == 'logreg':
                 X = convert_array_framework(X_train, framework)
                 y = convert_array_framework(y_train, framework)
@@ -35,13 +35,14 @@ class Dataset(BaseDataset):
                     X,
                     y,
                     framework=framework,
+                    get_fb=get_fb,
                     reg=self.reg
                 )
             else:
                 raise ValueError(f"Oracle {self.oracle} not supported.")
             return oracle
 
-        def get_outer_oracle(framework=None):
+        def get_outer_oracle(framework=None, get_fb=False):
             if self.oracle == 'logreg':
                 X = convert_array_framework(X_val, framework)
                 y = convert_array_framework(y_val, framework)
@@ -49,7 +50,8 @@ class Dataset(BaseDataset):
                     oracles.LogisticRegressionOracle,
                     X,
                     y,
-                    framework=framework
+                    framework=framework,
+                    get_fb=get_fb
                 )
             else:
                 raise ValueError(f"Oracle {self.oracle} not supported.")

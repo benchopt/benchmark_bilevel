@@ -196,19 +196,14 @@ def soba(inner_oracle, outer_oracle, inner_var, outer_var, v,
         )
 
         slice_outer, _ = outer_sampler.get_batch()
-        grad_in_outer, impl_grad = outer_oracle.grad(
+        grad_in_outer, grad_out_outer = outer_oracle.grad(
             inner_var, outer_var, slice_outer
         )
-        impl_grad -= cross_v
 
-        # Step.2 - update inner variable with SGD.
+        # Step.2 - update the variables
         inner_var -= inner_step_size * grad_inner_var
-
-        # Step.3 - update auxillary variable v with SGD
-        v -= inner_step_size * (hvp - grad_in_outer)
-
-        # Step.4 - update outer_variable with SGD
-        outer_var -= outer_step_size * impl_grad
+        v -= inner_step_size * (hvp + grad_in_outer)
+        outer_var -= outer_step_size * (cross_v + grad_out_outer)
 
         # Use prox to make sure we do not diverge
         # inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)
@@ -238,19 +233,14 @@ def soba_jax(f_inner, f_outer, inner_var, outer_var, v,
         hvp, cross_v = vjp_train(v)
 
         start_outer, state_outer_sampler = outer_sampler(**state_outer_sampler)
-        grad_in_outer, impl_grad = grad_outer(
+        grad_in_outer, grad_out_outer = grad_outer(
             inner_var, outer_var, start_outer
         )
-        impl_grad -= cross_v
 
         # Step.2 - update inner variable with SGD.
         inner_var -= inner_step_size * grad_inner_var
-
-        # Step.3 - update auxillary variable v with SGD
-        v -= inner_step_size * (hvp - grad_in_outer)
-
-        # Step.4 - update outer_variable with SGD
-        outer_var -= outer_step_size * impl_grad
+        v -= inner_step_size * (hvp + grad_in_outer)
+        outer_var -= outer_step_size * (cross_v + grad_out_outer)
 
         # #Use prox to make sure we do not diverge
         # # inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)

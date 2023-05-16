@@ -30,17 +30,17 @@ def sgd_inner_jax(grad_inner, inner_var, outer_var, state_sampler, step_size,
 
 def sgd_inner_vrbo(joint_shia, inner_oracle, outer_oracle, inner_var,
                    outer_var, inner_lr, inner_sampler, outer_sampler,
-                   n_inner_step, memory_inner, memory_outer, n_hia_step,
+                   n_inner_steps, memory_inner, memory_outer, n_shia_steps,
                    hia_lr):
 
-    for i in range(n_inner_step):
+    for i in range(n_inner_steps):
         # Step.4.k.1 - Update direction for z
         slice_inner, _ = inner_sampler.get_batch()
         grad_inner_var = inner_oracle.grad_inner_var(
             inner_var, outer_var, slice_inner
         )
         grad_inner_var_old = inner_oracle.grad_inner_var(
-            memory_inner[0], memory_outer[0], slice_inner
+            memory_inner[0], outer_var, slice_inner
         )
         memory_inner[1] += grad_inner_var - grad_inner_var_old
 
@@ -50,18 +50,18 @@ def sgd_inner_vrbo(joint_shia, inner_oracle, outer_oracle, inner_var,
             inner_var, outer_var, slice_outer
         )
         grad_outer_old, impl_grad_old = outer_oracle.grad(
-            memory_inner[0], memory_outer[0], slice_outer
+            memory_inner[0], outer_var, slice_outer
         )
         ihvp, ihvp_old = joint_shia(
             inner_oracle, inner_var, outer_var, grad_outer,
-            memory_inner[0], memory_outer[0], grad_outer_old,
-            inner_sampler, n_hia_step, hia_lr
+            memory_inner[0], outer_var, grad_outer_old,
+            hia_lr, sampler=inner_sampler, n_steps=n_shia_steps
         )
         impl_grad -= inner_oracle.cross(
             inner_var, outer_var, ihvp, slice_inner
         )
         impl_grad_old -= inner_oracle.cross(
-            memory_inner[0], memory_outer[0], ihvp_old, slice_inner
+            memory_inner[0], outer_var, ihvp_old, slice_inner
         )
         memory_outer[1] += impl_grad - impl_grad_old
 

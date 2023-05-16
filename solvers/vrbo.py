@@ -30,13 +30,13 @@ class Solver(BaseSolver):
     parameters = {
         'step_size': [.1],
         'outer_ratio': [1.],
-        'n_hia_step': [10],
+        'n_shia_steps': [10],
         'batch_size': [64],
         'period_frac': [128],
         'eval_freq': [128],
         'n_inner_step': [10],
         'random_state': [1],
-        'framework': [None, "numba"]
+        'framework': [None, "numba", "jax"]
     }
 
     @staticmethod
@@ -61,7 +61,7 @@ class Solver(BaseSolver):
                       "Datacleaning."
         return False, None
 
-    def set_objective(self, f_train, f_val, inner_var0, outer_var0):
+    def set_objective(self, f_train, f_val, n_inner_samples, n_outer_samples, inner_var0, outer_var0):
         self.f_inner = f_train(framework=self.framework)
         self.f_outer = f_val(framework=self.framework)
         if self.framework == 'numba':
@@ -74,12 +74,12 @@ class Solver(BaseSolver):
             def njit_sgd_inner_vrbo(
                 inner_oracle, outer_oracle,  inner_var,  outer_var, inner_lr,
                 inner_sampler, outer_sampler, n_inner_step, memory_inner,
-                memory_outer, n_hia_step, hia_lr
+                memory_outer, n_shia_steps, hia_lr
             ):
                 return _sgd_inner_vrbo(
                     njit_joint_shia, inner_oracle, outer_oracle, inner_var,
                     outer_var, inner_lr, inner_sampler, outer_sampler,
-                    n_inner_step, memory_inner, memory_outer, n_hia_step,
+                    n_inner_step, memory_inner, memory_outer, n_shia_steps,
                     hia_lr
                 )
 
@@ -153,7 +153,7 @@ class Solver(BaseSolver):
                     self.f_inner, self.f_outer,
                     inner_var, outer_var, memory_inner, memory_outer,
                     eval_freq, inner_sampler, outer_sampler,
-                    lr_scheduler, self.n_hia_step, self.n_inner_step,
+                    lr_scheduler, self.n_shia_steps, self.n_inner_step,
                     i_min=i_min, period=period,
                     seed=rng.randint(constants.MAX_SEED)
                 )
@@ -166,7 +166,7 @@ class Solver(BaseSolver):
 def _vrbo(
     sgd_inner_vrbo, shia, inner_oracle, outer_oracle, inner_var,
     outer_var, memory_inner, memory_outer, max_iter, inner_sampler,
-    outer_sampler, lr_scheduler, n_hia_step, n_inner_steps, i_min=0,
+    outer_sampler, lr_scheduler, n_shia_steps, n_inner_steps, i_min=0,
     period=100, seed=None
 ):
 
@@ -190,7 +190,7 @@ def _vrbo(
                 inner_var, outer_var, slice_outer
             )
             ihvp = shia(
-                inner_oracle, inner_var, outer_var, grad_outer, n_hia_step,
+                inner_oracle, inner_var, outer_var, grad_outer, n_shia_steps,
                 hia_lr
             )
             impl_grad -= inner_oracle.cross(
@@ -199,7 +199,6 @@ def _vrbo(
             memory_outer[1] = impl_grad
 
         # Step.2 - Update outer variable and memory
-        memory_outer[0] = outer_var
         outer_var -= outer_lr * memory_outer[1]
 
         # Step.3 - Project back to the constraint set
@@ -208,7 +207,7 @@ def _vrbo(
         inner_var, outer_var, memory_inner, memory_outer = sgd_inner_vrbo(
             inner_oracle, outer_oracle, inner_var, outer_var, inner_lr,
             inner_sampler, outer_sampler, n_inner_steps, memory_inner,
-            memory_outer, n_hia_step, hia_lr
+            memory_outer, n_shia_steps, hia_lr
         )
 
     return inner_var, outer_var, memory_inner, memory_outer, i_min+max_iter
