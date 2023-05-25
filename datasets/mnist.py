@@ -89,7 +89,7 @@ class Dataset(BaseDataset):
         X_test = scaler.transform(X_test)
         X_val = scaler.transform(X_val)
 
-        def get_inner_oracle(framework=None):
+        def get_inner_oracle(framework="none"):
             if self.oracle == 'datacleaning':
                 oracle = get_oracle(
                     oracles.DataCleaningOracle,
@@ -101,7 +101,7 @@ class Dataset(BaseDataset):
                 raise ValueError(f"Oracle {self.oracle} not supported.")
             return oracle
 
-        def get_outer_oracle(framework=None):
+        def get_outer_oracle(framework="none"):
             if self.oracle == 'datacleaning':
                 oracle = get_oracle(
                     oracles.MultiLogRegOracle,
@@ -115,7 +115,7 @@ class Dataset(BaseDataset):
             return oracle
 
         def metrics(inner_var, outer_var):
-            f_val = get_outer_oracle(framework=None)
+            f_val = get_outer_oracle(framework="none")
             acc = f_val.accuracy(
                 inner_var, outer_var, X_test, y_test
             )

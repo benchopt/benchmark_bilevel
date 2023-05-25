@@ -40,7 +40,7 @@ class Solver(BaseSolver):
         'n_inner_steps': [10],
         'batch_size': [64],
         'random_state': [1],
-        'framework': [None]
+        'framework': ["none"]
     }
 
     @staticmethod
@@ -63,6 +63,8 @@ class Solver(BaseSolver):
             elif isinstance(f_val(), DataCleaningOracle):
                 return True, "Numba implementation not available for" \
                       "Datacleaning."
+        elif self.framework not in ['jax', 'none', 'numba']:
+            return True, f"Framework {self.framework} not supported."
         return False, None
 
     def set_objective(self, f_train, f_val, n_inner_samples, n_outer_samples,
@@ -93,7 +95,7 @@ class Solver(BaseSolver):
             def amigo(*args, **kwargs):
                 return njit_amigo(self.sgd_inner, self.sgd_v, *args, **kwargs)
             self.amigo = amigo
-        elif self.framework is None:
+        elif self.framework == "none":
             self.sgd_v = sgd_v
             self.sgd_inner = sgd_inner
             self.MinibatchSampler = MinibatchSampler
@@ -257,49 +259,55 @@ def amigo_jax(f_inner, f_outer, inner_var, outer_var, v,
     def amigo_one_iter(carry, _):
         grad_inner_fun = jax.grad(f_inner, argnums=0)
         grad_outer_fun = jax.grad(f_outer, argnums=(0, 1))
-        inner_var, outer_var, v, state_lr, state_inner_sampler, \
-            state_outer_sampler = carry
 
-        (inner_lr, v_lr, outer_lr), state_lr = update_lr(state_lr)
+        (inner_lr, v_lr, outer_lr), carry['state_lr'] = update_lr(
+            carry['state_lr']
+        )
 
         # Get outer gradient
-        start_outer, state_outer_sampler = outer_sampler(**state_outer_sampler)
-        grad_in, grad_out = grad_outer_fun(inner_var, outer_var, start_outer)
+        start_outer, carry['state_outer_sampler'] = outer_sampler(
+            **carry['state_outer_sampler']
+        )
+        grad_in, grad_out = grad_outer_fun(
+            carry['inner_var'], carry['outer_var'], start_outer
+        )
 
         # compute SGD for the auxillary variable
-        v, state_inner_sampler = sgd_v(
-            inner_var, outer_var, v, grad_in, state_inner_sampler, v_lr,
-            sampler=inner_sampler, n_steps=n_v_steps
+        carry['v'], carry['state_inner_sampler'] = sgd_v(
+            carry['inner_var'], carry['outer_var'], carry['v'], grad_in,
+            carry['state_inner_sampler'], v_lr, sampler=inner_sampler,
+            n_steps=n_v_steps
         )
-        start_inner, state_inner_sampler = inner_sampler(**state_inner_sampler)
+        start_inner, carry['state_inner_sampler'] = inner_sampler(
+            **carry['state_inner_sampler']
+        )
         _, vjp_fun = jax.vjp(
-            lambda x: grad_inner_fun(inner_var, x, start_inner), outer_var
+            lambda x: grad_inner_fun(carry['inner_var'], x, start_inner),
+            carry['outer_var']
         )
         implicit_grad = vjp_fun(v)[0]
         grad_outer_var = grad_out - implicit_grad
 
-        outer_var -= outer_lr * grad_outer_var
+        carry['outer_var'] -= outer_lr * grad_outer_var
         # inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)
 
-        inner_var, state_inner_sampler = sgd_inner(inner_var, outer_var,
-                                                   state_inner_sampler,
-                                                   step_size=inner_lr,
-                                                   n_steps=n_inner_steps)
-
-        carry = inner_var, outer_var, v, state_lr, state_inner_sampler, \
-            state_outer_sampler
+        carry['inner_var'], carry['state_inner_sampler'] = sgd_inner(
+            carry['inner_var'], outer_var, carry['state_inner_sampler'],
+            step_size=inner_lr, n_steps=n_inner_steps
+        )
         return carry, _
 
-    init = (inner_var, outer_var, v, state_lr, state_inner_sampler,
-            state_outer_sampler)
+    init = dict(
+        inner_var=inner_var, outer_var=outer_var, v=v, state_lr=state_lr,
+        state_inner_sampler=state_inner_sampler,
+        state_outer_sampler=state_outer_sampler
+    )
     carry, _ = jax.lax.scan(
         amigo_one_iter,
         init=init,
         xs=None,
         length=max_iter,
     )
-    return carry[0], carry[1], carry[2], dict(
-        state_lr=carry[3],
-        state_inner_sampler=carry[4],
-        state_outer_sampler=carry[5],
-    )
+    return carry['inner_var'], carry['outer_var'], carry['v'],\
+        {k: v for k, v in carry.items()
+         if k not in ['inner_var', 'outer_var', 'v']}

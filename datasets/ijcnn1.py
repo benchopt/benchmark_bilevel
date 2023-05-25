@@ -26,7 +26,7 @@ class Dataset(BaseDataset):
         X_train, y_train = fetch_libsvm('ijcnn1')
         X_val, y_val = fetch_libsvm('ijcnn1_test')
 
-        def get_inner_oracle(framework=None, get_fb=False):
+        def get_inner_oracle(framework="none", get_fb=False):
             if self.oracle == 'logreg':
                 X = convert_array_framework(X_train, framework)
                 y = convert_array_framework(y_train, framework)
@@ -42,7 +42,7 @@ class Dataset(BaseDataset):
                 raise ValueError(f"Oracle {self.oracle} not supported.")
             return oracle
 
-        def get_outer_oracle(framework=None, get_fb=False):
+        def get_outer_oracle(framework="none", get_fb=False):
             if self.oracle == 'logreg':
                 X = convert_array_framework(X_val, framework)
                 y = convert_array_framework(y_val, framework)
@@ -58,8 +58,8 @@ class Dataset(BaseDataset):
             return oracle
 
         def metrics(inner_var, outer_var):
-            f_train = get_inner_oracle(framework=None)
-            f_val = get_outer_oracle(framework=None)
+            f_train = get_inner_oracle(framework="none")
+            f_val = get_outer_oracle(framework="none")
             inner_star = f_train.get_inner_var_star(outer_var)
             value_function = f_val.get_value(inner_star, outer_var)
             grad_f_val_inner, grad_f_val_outer = f_val.get_grad(
