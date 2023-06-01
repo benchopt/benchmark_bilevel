@@ -95,7 +95,7 @@ def shia_fb(
     """
     s = v.copy()
     for i in range(n_steps):
-        inner_slice = slice(0, inner_oracle.n_samples)
+        inner_slice = slice(None)
         hvp = inner_oracle.hvp(inner_var, outer_var, v, inner_slice)
         v -= step_size * hvp
         s += v
@@ -121,7 +121,7 @@ def shia_fb_jax(grad_inner, inner_var, outer_var, v, step_size, n_steps=1):
         args[1] += args[0]
         return args
     res = jax.lax.fori_loop(0, n_steps, iter, [v, s])
-    return step_size * res[2], res[0]
+    return step_size * res[1]
 
 
 def sgd_v(inner_oracle, inner_var, outer_var, v, grad_out,

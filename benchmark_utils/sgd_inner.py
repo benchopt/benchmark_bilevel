@@ -30,10 +30,9 @@ def sgd_inner_jax(grad_inner, inner_var, outer_var, state_sampler, step_size,
 
 def sgd_inner_vrbo(joint_shia, inner_oracle, outer_oracle, inner_var,
                    outer_var, inner_lr, inner_sampler, outer_sampler,
-                   n_inner_steps, memory_inner, memory_outer, n_shia_steps,
+                   n_steps, memory_inner, memory_outer, n_shia_steps,
                    hia_lr):
-
-    for i in range(n_inner_steps):
+    for i in range(n_steps):
         # Step.4.k.1 - Update direction for z
         slice_inner, _ = inner_sampler.get_batch()
         grad_inner_var = inner_oracle.grad_inner_var(
@@ -75,14 +74,16 @@ def sgd_inner_vrbo(joint_shia, inner_oracle, outer_oracle, inner_var,
     return inner_var, outer_var, memory_inner, memory_outer
 
 
-@partial(jax.jit, static_argnums=(0, ), static_argnames=('sampler', 'n_steps'))
-def sgd_vrbo_jax(joint_shia, grad_inner_fun, grad_outer_fun, inner_var,
-                 outer_var, memory_inner, memory_outer, state_inner_sampler,
-                 state_outer_sampler, step_size, n_shia_steps, hia_lr,
-                 inner_sampler=None, outer_sampler=None, n_steps=1):
-
-    # args = (inner_var, memory_inner, memory_outer, state_inner_sampler,
-    #         state_outer_sampler)
+@partial(jax.jit, static_argnums=(0, 1), static_argnames=('sampler', 'n_steps',
+                                                          'joint_shia',
+                                                          'inner_sampler',
+                                                          'outer_sampler',
+                                                          'n_shia_steps'))
+def sgd_inner_vrbo_jax(grad_inner_fun, grad_outer_fun, inner_var,
+                       outer_var, inner_var_old, d_inner, d_outer,
+                       state_inner_sampler, state_outer_sampler, step_size,
+                       hia_lr, n_shia_steps=1, inner_sampler=None,
+                       outer_sampler=None, joint_shia=None, n_steps=1):
     def iter(i, args):
         # Update inner direction
         start_inner, args['state_inner_sampler'] = inner_sampler(
@@ -93,10 +94,10 @@ def sgd_vrbo_jax(joint_shia, grad_inner_fun, grad_outer_fun, inner_var,
             args['outer_var']
         )
         grad_inner_old, cross_v_old = jax.vjp(
-            lambda x: grad_inner_fun(args['memory_inner'][0], x, start_inner),
+            lambda x: grad_inner_fun(args['inner_var_old'], x, start_inner),
             args['outer_var']
         )
-        args['memory_inner'][1] += grad_inner - grad_inner_old
+        args['d_inner'] += grad_inner - grad_inner_old
 
         # Update outer direction
         start_outer, args['state_outer_sampler'] = outer_sampler(
@@ -106,30 +107,32 @@ def sgd_vrbo_jax(joint_shia, grad_inner_fun, grad_outer_fun, inner_var,
             args['inner_var'], args['outer_var'], start_outer
         )
         grad_outer_old, impl_grad_old = grad_outer_fun(
-            args['memory_inner'][0], args['outer_var'], start_outer
+            args['inner_var_old'], args['outer_var'], start_outer
         )
-
-        ihvp, ihvp_old = joint_shia(
+        ihvp, ihvp_old, args['state_inner_sampler'] = joint_shia(
             grad_inner_fun, args['inner_var'], args['outer_var'], grad_outer,
-            args['memory_inner'][0], args['outer_var'], grad_outer_old,
+            args['inner_var_old'], args['outer_var'], grad_outer_old,
             args['state_inner_sampler'], hia_lr, sampler=inner_sampler,
             n_steps=n_shia_steps
         )
 
-        impl_grad -= cross_v(ihvp)
-        impl_grad_old -= cross_v_old(ihvp_old)
+        impl_grad -= cross_v(ihvp)[0]
+        impl_grad_old -= cross_v_old(ihvp_old)[0]
 
-        args['memory_outer'][1] += impl_grad - impl_grad_old
+        args['d_outer'] += impl_grad - impl_grad_old
 
         # Update inner variable and memory
-        args['memory_inner'][0] = args['inner_var']
-        args['inner_var'] -= step_size * args['memory_inner'][1]
+        args['inner_var_old'] = args['inner_var'].copy()
+        args['inner_var'] -= step_size * args['d_inner']
 
         return args
     res = jax.lax.fori_loop(0, n_steps, iter, dict(
-        inner_var=inner_var, outer_var=outer_var, memory_inner=memory_inner,
-        memory_outer=memory_outer, state_inner_sampler=state_inner_sampler,
+        inner_var=inner_var, outer_var=outer_var, inner_var_old=inner_var_old,
+        d_inner=d_inner, d_outer=d_outer,
+        state_inner_sampler=state_inner_sampler,
         state_outer_sampler=state_outer_sampler
     ))
 
-    return res[1], res[0]
+    return res['inner_var'], res['inner_var_old'], \
+        res['d_inner'], res['d_outer'], res['state_inner_sampler'], \
+        res['state_outer_sampler']
