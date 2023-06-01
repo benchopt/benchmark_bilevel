@@ -1,7 +1,7 @@
 import jax.numpy as jnp
 
 
-def get_oracle(OracleClass, *args, framework=None, get_fb=False,
+def get_oracle(OracleClass, *args, framework="none", get_fb=False,
                **kwargs):
     oracle = OracleClass(*args, **kwargs)
     if framework == "numba":
@@ -11,7 +11,7 @@ def get_oracle(OracleClass, *args, framework=None, get_fb=False,
             oracle = oracle.jax_oracle, oracle.jax_oracle_fb
         else:
             oracle = oracle.jax_oracle
-    elif framework is not None:
+    elif framework != "none":
         raise ValueError(f"Framework {framework} not supported.")
     return oracle
 

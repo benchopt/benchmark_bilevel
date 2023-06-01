@@ -41,7 +41,7 @@ class Solver(BaseSolver):
         'eta': [.5],
         'eval_freq': [128],
         'random_state': [1],
-        'framework': [None]
+        'framework': ["none"]
     }
 
     @staticmethod
@@ -64,6 +64,8 @@ class Solver(BaseSolver):
             elif isinstance(f_val(), DataCleaningOracle):
                 return True, "Numba implementation not available for" \
                       "Datacleaning."
+        elif self.framework not in ['jax', 'none', 'numba']:
+            return True, f"Framework {self.framework} not supported."
         return False, None
 
     def set_objective(self, f_train, f_val, n_inner_samples, n_outer_samples,
@@ -92,7 +94,7 @@ class Solver(BaseSolver):
             def mrbo(*args, **kwargs):
                 return njit_mrbo(njit_joint_shia, *args, **kwargs)
             self.mrbo = mrbo
-        elif self.framework is None:
+        elif self.framework == "none":
             self.MinibatchSampler = MinibatchSampler
             self.LearningRateScheduler = LearningRateScheduler
 
@@ -270,76 +272,86 @@ def mrbo_jax(f_inner, f_outer, inner_var, outer_var, memory_inner,
     def mrbo_one_iter(carry, _):
         grad_inner_fun = jax.grad(f_inner, argnums=0)
         grad_outer_fun = jax.grad(f_outer, argnums=(0, 1))
-        inner_var, outer_var, memory_inner, memory_outer, state_lr,\
-            state_inner_sampler, state_outer_sampler = carry
 
-        (inner_lr, hia_lr, eta, outer_lr), state_lr = update_lr(state_lr)
+        (inner_lr, hia_lr, eta, outer_lr), carry['state_lr'] = update_lr(
+            carry['state_lr']
+        )
 
         # Step.1 - Update direction for z with momentum
-        start_inner, state_inner_sampler = inner_sampler(**state_inner_sampler)
+        start_inner, carry['state_inner_sampler'] = inner_sampler(
+            **carry['state_inner_sampler']
+        )
         grad_inner_var, vjp_fun = jax.vjp(
-            lambda x: grad_inner_fun(inner_var, x, start_inner), outer_var
+            lambda x: grad_inner_fun(carry['inner_var'], x, start_inner),
+            carry['outer_var']
         )
         grad_inner_var_old, vjp_fun_old = jax.vjp(
-            lambda x: grad_inner_fun(memory_inner[0], x, start_inner),
-            memory_outer[0]
+            lambda x: grad_inner_fun(carry['memory_inner'][0], x, start_inner),
+            carry['memory_outer'][0]
         )
 
-        memory_inner = memory_inner.at[1].set(
-            eta * grad_inner_var
-            + (1-eta) * (memory_inner[1] + grad_inner_var - grad_inner_var_old)
+        carry['memory_inner'] = carry['memory_inner'].at[1].set(
+            grad_inner_var
+            + (1-eta) * (carry['memory_inner'][1] - grad_inner_var_old)
         )
 
         # Step.2 - Compute implicit grad approximation with HIA
-        start_outer, state_outer_sampler = outer_sampler(**state_outer_sampler)
+        start_outer, carry['state_outer_sampler'] = outer_sampler(
+            **carry['state_outer_sampler']
+        )
         grad_outer, impl_grad = grad_outer_fun(
-            inner_var, outer_var, start_outer
+            carry['inner_var'], carry['outer_var'], start_outer
         )
         grad_outer_old, impl_grad_old = grad_outer_fun(
-            memory_inner[0], memory_outer[0], start_outer
+            carry['memory_inner'][0], carry['memory_outer'][0], start_outer
         )
 
-        ihvp, ihvp_old, state_inner_sampler = joint_shia(
-            grad_inner_fun, inner_var, outer_var, grad_outer,
-            memory_inner[0], memory_outer[0], grad_outer_old,
-            state_inner_sampler, hia_lr, sampler=inner_sampler,
+        ihvp, ihvp_old, carry['state_inner_sampler'] = joint_shia(
+            grad_inner_fun, carry['inner_var'], carry['outer_var'], grad_outer,
+            carry['memory_inner'][0], carry['memory_outer'][0], grad_outer_old,
+            carry['state_inner_sampler'], hia_lr, sampler=inner_sampler,
             n_steps=n_shia_steps,
         )
         impl_grad -= vjp_fun(ihvp)[0]
         impl_grad_old -= vjp_fun_old(ihvp_old)[0]
 
         # Step.3 - Update direction for x with momentum
-        memory_outer = memory_outer.at[1].set(
+        carry['memory_outer'] = carry['memory_outer'].at[1].set(
             eta * impl_grad
-            + (1-eta) * (memory_outer[1] + impl_grad - impl_grad_old)
+            + (1-eta) * (carry['memory_outer'][1] + impl_grad - impl_grad_old)
         )
 
         # Step.4 - Save the current variables
-        memory_inner = memory_inner.at[0].set(inner_var)
-        memory_outer = memory_outer.at[0].set(outer_var)
+        carry['memory_inner'] = carry['memory_inner'].at[0].set(
+            carry['inner_var']
+        )
+        carry['memory_outer'] = carry['memory_outer'].at[0].set(
+            carry['outer_var']
+        )
 
         # Step.5 - update the variables with the directions
-        inner_var -= inner_lr * memory_inner[1]
-        outer_var -= outer_lr * memory_outer[1]
+        carry['inner_var'] -= inner_lr * carry['memory_inner'][1]
+        carry['outer_var'] -= outer_lr * carry['memory_outer'][1]
 
         # #Use prox to make sure we do not diverge
         # # inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)
 
-        carry = inner_var, outer_var, memory_inner, memory_outer, state_lr,\
-            state_inner_sampler, state_outer_sampler
-
         return carry, _
 
-    init = (inner_var, outer_var, memory_inner, memory_outer, state_lr,
-            state_inner_sampler, state_outer_sampler)
+    init = dict(
+        inner_var=inner_var, outer_var=outer_var, memory_inner=memory_inner,
+        memory_outer=memory_outer, state_lr=state_lr,
+        state_inner_sampler=state_inner_sampler,
+        state_outer_sampler=state_outer_sampler
+    )
     carry, _ = jax.lax.scan(
         mrbo_one_iter,
         init=init,
         xs=None,
         length=max_iter,
     )
-    return carry[0], carry[1], carry[2], carry[3], dict(
-        state_lr=carry[4],
-        state_inner_sampler=carry[5],
-        state_outer_sampler=carry[6]
-    )
+    return carry['inner_var'], carry['outer_var'], carry['memory_inner'],\
+        carry['memory_outer'], \
+        {k: v for k, v in carry.items()
+         if k not in ['inner_var', 'outer_var', 'memory_inner',
+                      'memory_outer']}

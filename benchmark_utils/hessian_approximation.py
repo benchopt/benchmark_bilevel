@@ -102,6 +102,28 @@ def shia_fb(
     return step_size * s
 
 
+@partial(jax.jit, static_argnums=(0, ), static_argnames=('n_steps'))
+def shia_fb_jax(grad_inner, inner_var, outer_var, v, step_size, n_steps=1):
+    """Hessian Inverse Approximation subroutine from [Ji2021] (jax version).
+
+    This implement Algorithm.3
+    """
+    s = v.copy()
+
+    def hvp(v):
+        _, hvp_fun = jax.vjp(
+                lambda z: grad_inner(z, outer_var), inner_var
+            )
+        return hvp_fun(v)[0]
+
+    def iter(i, args):
+        args[0] -= step_size * hvp(args[0])
+        args[1] += args[0]
+        return args
+    res = jax.lax.fori_loop(0, n_steps, iter, [v, s])
+    return step_size * res[2], res[0]
+
+
 def sgd_v(inner_oracle, inner_var, outer_var, v, grad_out,
           step_size, sampler=None, n_steps=1):
     r"""SGD for the inverse Hessian approximation.

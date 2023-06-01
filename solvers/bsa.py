@@ -284,8 +284,6 @@ def bsa_jax(f_inner, f_outer, inner_var, outer_var,
     def bsa_one_iter(carry, _):
         grad_inner_fun = jax.grad(f_inner, argnums=0)
         grad_outer_fun = jax.grad(f_outer, argnums=(0, 1))
-        # inner_var, outer_var, state_lr, state_inner_sampler, \
-        #     state_outer_sampler, key = carry
 
         (inner_lr, hia_lr, outer_lr), carry['state_lr'] = update_lr(
             carry['state_lr']

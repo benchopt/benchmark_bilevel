@@ -38,7 +38,7 @@ class Solver(BaseSolver):
         'period_frac': [128],
         'eval_freq': [128],
         'random_state': [1],
-        'framework': [None],
+        'framework': ["none"],
     }
 
     @staticmethod
@@ -61,6 +61,8 @@ class Solver(BaseSolver):
             elif isinstance(f_val(), DataCleaningOracle):
                 return True, "Numba implementation not available for" \
                       "Datacleaning."
+        elif self.framework not in ['jax', 'none', 'numba']:
+            return True, f"Framework {self.framework} not supported."
         return False, None
 
     def set_objective(self, f_train, f_val, n_inner_samples, n_outer_samples,
@@ -87,7 +89,7 @@ class Solver(BaseSolver):
             self.LearningRateScheduler = jitclass(LearningRateScheduler,
                                                   sched_spec)
 
-        elif self.framework is None:
+        elif self.framework == 'none':
             self.f_inner = f_train(framework=self.framework)
             self.f_outer = f_val(framework=self.framework)
             self.srba = srba
@@ -160,10 +162,10 @@ class Solver(BaseSolver):
 
             # Init sampler and lr scheduler
             inner_sampler = self.MinibatchSampler(
-                self.f_inner.n_samples, batch_size=self.batch_size
+                self.f_inner.n_samples, batch_size=self.batch_size_inner
             )
             outer_sampler = self.MinibatchSampler(
-                self.f_outer.n_samples, batch_size=self.batch_size
+                self.f_outer.n_samples, batch_size=self.batch_size_outer
             )
             step_sizes = np.array(  # (inner_ss, hia_lr, outer_ss)
                 [
@@ -191,7 +193,9 @@ class Solver(BaseSolver):
         i_min = 0
         # Start algorithm
         while callback((inner_var, outer_var)):
+            # print("===")
             if self.framework == "jax":
+                # with jax.disable_jit():
                 inner_var, outer_var, v, inner_var_old, outer_var_old, \
                     v_old, d_inner, d_v, d_outer, carry = self.srba(
                         self.f_inner, self.f_outer, self.f_inner_fb,
@@ -248,7 +252,7 @@ def srba(
                 outer_var,
                 slice_outer
             )
-
+            # print(np.linalg.norm(hvp), np.linalg.norm(grad_outer_in))
             d_v = hvp + grad_outer_in
             d_outer = cross_v + grad_outer_out
 
@@ -307,7 +311,6 @@ def srba_jax(f_inner, f_outer, f_inner_fb, f_outer_fb, inner_var, outer_var, v,
         hvp, cross_v = vjp_train(v)
         grad_outer_in, grad_outer_out = jax.grad(
             f_outer_fb, argnums=(0, 1))(inner_var, outer_var)
-
         d_v = hvp + grad_outer_in
         d_outer = cross_v + grad_outer_out
         return d_inner, d_v, d_outer, state_inner_sampler, state_outer_sampler
@@ -342,51 +345,50 @@ def srba_jax(f_inner, f_outer, f_inner_fb, f_outer_fb, inner_var, outer_var, v,
         return d_inner, d_v, d_outer, state_inner_sampler, state_outer_sampler
 
     def srba_one_iter(carry, i):
-        inner_var, outer_var, v, inner_var_old, outer_var_old, v_old, d_inner,\
-            d_v, d_outer, state_lr, state_inner_sampler, \
-            state_outer_sampler = carry
-
-        (inner_lr, outer_lr), state_lr = update_lr(state_lr)
-
-        d_inner, d_v, d_outer, state_inner_sampler, state_outer_sampler = \
+        (inner_lr, outer_lr), carry['state_lr'] = update_lr(carry['state_lr'])
+        carry['d_inner'], carry['d_v'], carry['d_outer'], \
+            carry['state_inner_sampler'], carry['state_outer_sampler'] = \
             jax.lax.cond(
                 i % period == 0, fb_directions, srba_directions,
-                inner_var, outer_var, v, inner_var_old, outer_var_old,
-                v_old, d_inner, d_v, d_outer, state_inner_sampler,
-                state_outer_sampler
+                carry['inner_var'], carry['outer_var'], carry['v'],
+                carry['inner_var_old'], carry['outer_var_old'],
+                carry['v_old'], carry['d_inner'], carry['d_v'],
+                carry['d_outer'], carry['state_inner_sampler'],
+                carry['state_outer_sampler']
             )
 
-        inner_var_old = inner_var.copy()
-        v_old = v.copy()
-        outer_var_old = outer_var.copy()
+        carry['inner_var_old'] = carry['inner_var'].copy()
+        carry['v_old'] = carry['v'].copy()
+        carry['outer_var_old'] = carry['outer_var'].copy()
 
         # Update of the variables
-        inner_var -= inner_lr * d_inner
-        v -= inner_lr * d_v
-        outer_var -= outer_lr * d_outer
+        carry['inner_var'] -= inner_lr * carry['d_inner']
+        carry['v'] -= inner_lr * carry['d_v']
+        carry['outer_var'] -= outer_lr * carry['d_outer']
 
         # #Use prox to make sure we do not diverge
         # # inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)
-
-        carry = inner_var, outer_var, v, inner_var_old, outer_var_old, v_old, \
-            d_inner, d_v, d_outer, state_lr, state_inner_sampler, \
-            state_outer_sampler
         return carry, None
 
-    init = (inner_var, outer_var, v, inner_var_old, outer_var_old, v_old,
-            d_inner, d_v, d_outer, state_lr, state_inner_sampler,
-            state_outer_sampler)
+    init = dict(
+        inner_var=inner_var, outer_var=outer_var, v=v,
+        inner_var_old=inner_var_old, outer_var_old=outer_var_old, v_old=v_old,
+        d_inner=d_inner, d_v=d_v, d_outer=d_outer, state_lr=state_lr,
+        state_inner_sampler=state_inner_sampler,
+        state_outer_sampler=state_outer_sampler,
+        i_min=i_min
+    )
     carry, _ = jax.lax.scan(
         srba_one_iter,
         init=init,
-        xs=jnp.arange(0, max_iter) + i_min,
+        xs=jnp.arange(0, max_iter) + init['i_min'],
         length=max_iter,
     )
-    i_min += max_iter
-    return carry[0], carry[1], carry[2], carry[3], carry[4], carry[5], \
-        carry[6], carry[7], carry[8], dict(
-        state_lr=carry[9],
-        state_inner_sampler=carry[10],
-        state_outer_sampler=carry[11],
-        i_min=i_min,
-    )
+    carry['i_min'] += max_iter
+    return carry['inner_var'], carry['outer_var'], carry['v'], \
+        carry['inner_var_old'], carry['outer_var_old'], carry['v_old'], \
+        carry['d_inner'], carry['d_v'], carry['d_outer'], \
+        {k: v for k, v in carry.items()
+         if k not in ['inner_var', 'outer_var', 'v',
+                      'inner_var_old', 'outer_var_old', 'v_old',
+                      'd_inner', 'd_v', 'd_outer']}

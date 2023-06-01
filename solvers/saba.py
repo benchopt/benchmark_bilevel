@@ -39,7 +39,7 @@ class Solver(BaseSolver):
         'batch_size': [64],
         'eval_freq': [128],
         'random_state': [1],
-        'framework': [None],
+        'framework': ["none"],
         'init_memory': ["zero"],
     }
 
@@ -63,6 +63,8 @@ class Solver(BaseSolver):
             elif isinstance(f_val(), DataCleaningOracle):
                 return True, "Numba implementation not available for" \
                       "Datacleaning."
+        elif self.framework not in ['jax', 'none', 'numba']:
+            return True, f"Framework {self.framework} not supported."
         return False, None
 
     def set_objective(self, f_train, f_val, n_inner_samples, n_outer_samples,
@@ -99,7 +101,7 @@ class Solver(BaseSolver):
             def saba(*args, **kwargs):
                 return njit_saba(njit_vr, *args, **kwargs)
             self.saba = saba
-        elif self.framework is None:
+        elif self.framework == "none":
             self.MinibatchSampler = MinibatchSampler
             self.LearningRateScheduler = LearningRateScheduler
 
@@ -202,7 +204,6 @@ class Solver(BaseSolver):
                 )
 
         # Start algorithm
-        # with jax.profiler.trace("/tmp/jax-trace", create_perfetto_link=True):
         while callback((inner_var, outer_var)):
             if self.framework == 'jax':
                 inner_var, outer_var, v, memory_inner_grad, memory_hvp,\
@@ -436,7 +437,6 @@ def _saba(variance_reduction, inner_oracle, outer_oracle, inner_var, outer_var,
         inner_step_size, outer_step_size = lr_scheduler.get_lr()
 
         # Get all gradient for the batch
-
         slice_inner, vr_inner = inner_sampler.get_batch()
         _, grad_inner_var, hvp, cross_v = inner_oracle.oracles(
             inner_var, outer_var, v, slice_inner, inverse='id'
@@ -450,7 +450,6 @@ def _saba(variance_reduction, inner_oracle, outer_oracle, inner_var, outer_var,
         grad_inner_var = variance_reduction(
             grad_inner_var, memory_inner_grad, vr_inner
         )
-
         hvp = variance_reduction(hvp, memory_hvp, vr_inner)
         grad_in_outer = variance_reduction(
             grad_in_outer, memory_grad_in_outer, vr_outer
@@ -488,72 +487,83 @@ def saba_jax(f_inner, f_outer, inner_var, outer_var, v, memory_inner_grad,
     def saba_one_iter(carry, _):
         grad_inner = jax.grad(f_inner, argnums=0)
         grad_outer = jax.grad(f_outer, argnums=(0, 1))
-        inner_var, outer_var, v, memory_inner_grad, memory_hvp,\
-            memory_cross_v, memory_grad_in_outer, memory_grad_out_outer,\
-            state_lr, state_inner_sampler, state_outer_sampler = carry
-        (inner_step_size, outer_step_size), state_lr = update_lr(state_lr)
+        (inner_step_size, outer_step_size), carry['state_lr'] = update_lr(
+            carry['state_lr']
+        )
 
         # Get all gradient for the batch
-        start_inner, state_inner_sampler = inner_sampler(**state_inner_sampler)
-        grad_inner_var, vjp_train = jax.vjp(
-            lambda z, x: grad_inner(z, x, start_inner), inner_var,
-            outer_var
+        start_inner, carry['state_inner_sampler'] = inner_sampler(
+            **carry['state_inner_sampler']
         )
-        hvp, cross_v = vjp_train(v)
+        grad_inner_var, vjp_train = jax.vjp(
+            lambda z, x: grad_inner(z, x, start_inner), carry['inner_var'],
+            carry['outer_var']
+        )
+        hvp, cross_v = vjp_train(carry['v'])
 
-        start_outer, state_outer_sampler = outer_sampler(**state_outer_sampler)
-        grad_in_outer, grad_out_outer = grad_outer(inner_var,
-                                                   outer_var,
+        start_outer, carry['state_outer_sampler'] = outer_sampler(
+            **carry['state_outer_sampler']
+        )
+        grad_in_outer, grad_out_outer = grad_outer(carry['inner_var'],
+                                                   carry['outer_var'],
                                                    start_outer)
         # here memory_*[-1] corresponds to the running average of
         # the gradients
-        id_inner = state_inner_sampler['batch_order'][
-            state_inner_sampler['i_batch']
+        id_inner = carry['state_inner_sampler']['batch_order'][
+            carry['state_inner_sampler']['i_batch']
         ]
-        id_outer = state_outer_sampler['batch_order'][
-            state_outer_sampler['i_batch']
+        id_outer = carry['state_outer_sampler']['batch_order'][
+            carry['state_outer_sampler']['i_batch']
         ]
-        grad_inner_var, memory_inner_grad = variance_reduction(
-            grad_inner_var, memory_inner_grad, id_inner, weight_inner
+        grad_inner_var, carry['memory_inner_grad'] = variance_reduction(
+            grad_inner_var, carry['memory_inner_grad'], id_inner, weight_inner
         )
-        hvp, memory_hvp = variance_reduction(
-            hvp, memory_hvp, id_inner, weight_inner
+        hvp, carry['memory_hvp'] = variance_reduction(
+            hvp, carry['memory_hvp'], id_inner, weight_inner
         )
-        cross_v, memory_cross_v = variance_reduction(
-            cross_v, memory_cross_v, id_inner, weight_inner
+        cross_v, carry['memory_cross_v'] = variance_reduction(
+            cross_v, carry['memory_cross_v'], id_inner, weight_inner
         )
 
-        grad_in_outer, memory_grad_in_outer = variance_reduction(
-            grad_in_outer, memory_grad_in_outer, id_outer, weight_outer
+        grad_in_outer, carry['memory_grad_in_outer'] = variance_reduction(
+            grad_in_outer, carry['memory_grad_in_outer'], id_outer,
+            weight_outer
         )
-        grad_out_outer, memory_grad_out_outer = variance_reduction(
-            grad_out_outer, memory_grad_out_outer, id_outer, weight_outer
+        grad_out_outer, carry['memory_grad_out_outer'] = variance_reduction(
+            grad_out_outer, carry['memory_grad_out_outer'], id_outer,
+            weight_outer
         )
 
         # Update the variables
-        inner_var -= inner_step_size * grad_inner_var
-        v -= inner_step_size * (hvp + grad_in_outer)
-        outer_var -= outer_step_size * (cross_v + grad_out_outer)
+        carry['inner_var'] -= inner_step_size * grad_inner_var
+        carry['v'] -= inner_step_size * (hvp + grad_in_outer)
+        carry['outer_var'] -= outer_step_size * (cross_v + grad_out_outer)
 
         # #Use prox to make sure we do not diverge
         # # inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)
-        carry = inner_var, outer_var, v, memory_inner_grad, memory_hvp,\
-            memory_cross_v, memory_grad_in_outer, memory_grad_out_outer,\
-            state_lr, state_inner_sampler, state_outer_sampler
         return carry, _
 
-    init = (inner_var, outer_var, v, memory_inner_grad, memory_hvp,
-            memory_cross_v, memory_grad_in_outer, memory_grad_out_outer,
-            state_lr, state_inner_sampler, state_outer_sampler)
+    init = dict(
+        inner_var=inner_var, outer_var=outer_var, v=v,
+        memory_inner_grad=memory_inner_grad, memory_hvp=memory_hvp,
+        memory_cross_v=memory_cross_v,
+        memory_grad_in_outer=memory_grad_in_outer,
+        memory_grad_out_outer=memory_grad_out_outer,
+        state_lr=state_lr, state_inner_sampler=state_inner_sampler,
+        state_outer_sampler=state_outer_sampler,
+        weight_inner=weight_inner, weight_outer=weight_outer,
+    )
     carry, _ = jax.lax.scan(
         saba_one_iter,
         init=init,
         xs=None,
         length=max_iter,
     )
-    return carry[0], carry[1], carry[2], carry[3], carry[4], carry[5],\
-        carry[6], carry[7], dict(state_lr=carry[8],
-                                 state_inner_sampler=carry[9],
-                                 state_outer_sampler=carry[10],
-                                 weight_inner=weight_inner,
-                                 weight_outer=weight_outer)
+    return carry['inner_var'], carry['outer_var'], carry['v'], \
+        carry['memory_inner_grad'], carry['memory_hvp'], \
+        carry['memory_cross_v'], carry['memory_grad_in_outer'], \
+        carry['memory_grad_out_outer'], \
+        {k: v for k, v in carry.items()
+         if k not in ['inner_var', 'outer_var', 'v', 'memory_inner_grad', 
+                      'memory_hvp', 'memory_cross_v', 'memory_grad_in_outer', 
+                      'memory_grad_out_outer']},

@@ -369,7 +369,7 @@ class LogisticRegressionOracle(BaseOracle):
                 elif self.reg == 'lin':
                     res += jnp.dot(outer_var * inner_var, inner_var)/2
                 return res
-            
+
             self.jax_oracle = jax_oracle
             self.jax_oracle_fb = jax_oracle_fb
         else:

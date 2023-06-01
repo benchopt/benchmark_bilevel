@@ -40,7 +40,7 @@ class Solver(BaseSolver):
         'batch_size': [64],
         'eval_freq': [128],
         'random_state': [1],
-        'framework': [None]
+        'framework': ["none"]
     }
 
     @staticmethod
@@ -63,6 +63,8 @@ class Solver(BaseSolver):
             elif isinstance(f_val(), DataCleaningOracle):
                 return True, "Numba implementation not available for" \
                       "Datacleaning."
+        elif self.framework not in ['jax', 'none', 'numba']:
+            return True, f"Framework {self.framework} not supported."
         return False, None
 
     def set_objective(self, f_train, f_val, n_inner_samples, n_outer_samples,
@@ -92,7 +94,7 @@ class Solver(BaseSolver):
             def ttsa(*args, **kwargs):
                 return njit_ttsa(njit_hia, *args, **kwargs)
             self.ttsa = ttsa
-        elif self.framework is None:
+        elif self.framework == 'none':
             self.MinibatchSampler = MinibatchSampler
             self.LearningRateScheduler = LearningRateScheduler
 
@@ -259,52 +261,65 @@ def ttsa_jax(f_inner, f_outer, inner_var, outer_var,
     def ttsa_one_iter(carry, _):
         grad_inner_fun = jax.grad(f_inner, argnums=0)
         grad_outer_fun = jax.grad(f_outer, argnums=(0, 1))
-        inner_var, outer_var, state_lr, state_inner_sampler, \
-            state_outer_sampler, key = carry
+        # inner_var, outer_var, state_lr, state_inner_sampler, \
+        #     state_outer_sampler, key = carry
 
-        (inner_lr, hia_lr, outer_lr), state_lr = update_lr(state_lr)
+        (inner_lr, hia_lr, outer_lr), carry['state_lr'] = update_lr(
+            carry['state_lr']
+        )
 
         # Step.1 - Update direction for z with momentum
-        start_inner, state_inner_sampler = inner_sampler(**state_inner_sampler)
-        grad_inner_var = grad_inner_fun(inner_var, outer_var, start_inner)
+        start_inner, carry['state_inner_sampler'] = inner_sampler(
+            **carry['state_inner_sampler']
+        )
+        grad_inner_var = grad_inner_fun(
+            carry['inner_var'], carry['outer_var'],
+            start_inner
+        )
 
         # Step.2 - Update the inner variable
-        inner_var -= inner_lr * grad_inner_var
+        carry['inner_var'] -= inner_lr * grad_inner_var
 
         # Step.3 - Compute implicit grad approximation with HIA
-        start_outer, state_outer_sampler = outer_sampler(**state_outer_sampler)
-        grad_in, grad_out = grad_outer_fun(inner_var, outer_var, start_outer)
+        start_outer, carry['state_outer_sampler'] = outer_sampler(
+            **carry['state_outer_sampler']
+        )
+        grad_in, grad_out = grad_outer_fun(
+            carry['inner_var'], carry['outer_var'], start_outer
+        )
 
-        v, key, state_inner_sampler = hia(
-            grad_inner_fun, inner_var, outer_var, grad_in, state_inner_sampler,
-            hia_lr, n_steps=n_hia_steps, sampler=inner_sampler, key=key
+        v, key, carry['state_inner_sampler'] = hia(
+            grad_inner_fun, carry['inner_var'], carry['outer_var'], grad_in,
+            carry['state_inner_sampler'],
+            hia_lr, n_steps=n_hia_steps, sampler=inner_sampler,
+            key=carry['key']
         )
 
         _, vjp_fun = jax.vjp(
-            lambda x: grad_inner_fun(inner_var, x, start_inner), outer_var
+            lambda x: grad_inner_fun(carry['inner_var'], x, start_inner),
+            carry['outer_var']
         )
         implicit_grad = vjp_fun(v)[0]
         grad_outer_var = grad_out - implicit_grad
 
         # Step.4 - update the outer variables
-        outer_var -= outer_lr * grad_outer_var
+        carry['outer_var'] -= outer_lr * grad_outer_var
         # inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)
 
-        carry = inner_var, outer_var, state_lr, state_inner_sampler, \
-            state_outer_sampler, key
         return carry, _
 
-    init = (inner_var, outer_var, state_lr, state_inner_sampler,
-            state_outer_sampler, key)
+    init = dict(
+        inner_var=inner_var, outer_var=outer_var, state_lr=state_lr,
+        state_inner_sampler=state_inner_sampler,
+        state_outer_sampler=state_outer_sampler,
+        key=key
+    )
     carry, _ = jax.lax.scan(
         ttsa_one_iter,
         init=init,
         xs=None,
         length=max_iter,
     )
-    return carry[0], carry[1], dict(
-        state_lr=carry[2],
-        state_inner_sampler=carry[3],
-        state_outer_sampler=carry[4],
-        key=carry[5]
-    )
+    return carry['inner_var'], carry['outer_var'], \
+        {k: v for k, v in carry.items()
+         if k not in ['inner_var', 'outer_var']}
