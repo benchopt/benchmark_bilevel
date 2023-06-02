@@ -21,12 +21,13 @@ class Solver(BaseSolver):
     def get_next(stop_val):
         return stop_val + 1
 
-    def set_objective(self, f_train, f_val, inner_var0, outer_var0):
+    def set_objective(self, f_train, f_val, n_inner_samples, n_outer_samples,
+                      inner_var0, outer_var0):
         self.inner_var0 = inner_var0
         self.outer_var0 = outer_var0
 
-        self.f_inner = f_train(framework=None)
-        self.f_outer = f_val(framework=None)
+        self.f_inner = f_train(framework='none')
+        self.f_outer = f_val(framework='none')
 
     def run(self, n_iter):
         optuna.logging.set_verbosity(optuna.logging.WARNING)

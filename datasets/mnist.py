@@ -89,25 +89,27 @@ class Dataset(BaseDataset):
         X_test = scaler.transform(X_test)
         X_val = scaler.transform(X_val)
 
-        def get_inner_oracle(framework="none"):
+        def get_inner_oracle(framework="none", get_fb=False):
             if self.oracle == 'datacleaning':
                 oracle = get_oracle(
                     oracles.DataCleaningOracle,
                     X_train,
                     y_train,
                     framework=framework,
+                    get_fb=get_fb,
                 )
             else:
                 raise ValueError(f"Oracle {self.oracle} not supported.")
             return oracle
 
-        def get_outer_oracle(framework="none"):
+        def get_outer_oracle(framework="none", get_fb=False):
             if self.oracle == 'datacleaning':
                 oracle = get_oracle(
                     oracles.MultiLogRegOracle,
                     X_val,
                     y_val,
                     framework=framework,
+                    get_fb=get_fb,
                     reg="none"
                 )
             else:

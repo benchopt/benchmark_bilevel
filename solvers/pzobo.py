@@ -64,7 +64,6 @@ class Solver(BaseSolver):
 
     def set_objective(self, f_train, f_val, n_inner_samples, n_outer_samples,
                       inner_var0, outer_var0):
-
         self.f_inner = f_train(framework=self.framework, get_fb=True)
         self.f_outer = f_val(framework=self.framework, get_fb=True)
 
@@ -171,7 +170,8 @@ def _pzobo(gd_inner, inner_oracle, outer_oracle, inner_var, outer_var, mu=.1,
     # Set seed for randomness
     if seed is not None:
         np.random.seed(seed)
-    p = inner_var.shape[0]
+    inner_var_shape = inner_var.shape[0]
+    outer_var_shape = outer_var.shape[0]
     for i in range(max_iter):
         lr_inner, lr_outer = lr_scheduler.get_lr()
         inner_var_old = inner_var.copy()
@@ -181,9 +181,9 @@ def _pzobo(gd_inner, inner_oracle, outer_oracle, inner_var, outer_var, mu=.1,
                              n_steps=n_inner_steps)
 
         # Sample gaussian vectors and perform ES estimation
-        U = np.random.randn(n_gaussian_vectors, p)
+        U = np.random.randn(n_gaussian_vectors, outer_var_shape)
         outer_var_aux = outer_var + mu * U
-        deltas = np.zeros((n_gaussian_vectors, p))
+        deltas = np.zeros((n_gaussian_vectors, inner_var_shape))
         for q in range(n_gaussian_vectors):
             deltas[q] = gd_inner(inner_oracle, inner_var_old,
                                  outer_var_aux[q], lr_inner,
@@ -212,7 +212,8 @@ def pzobo_jax(f_inner, f_outer, inner_var, outer_var, mu=.1,
     grad_outer = jax.grad(f_outer, argnums=(0, 1))
 
     def pzobo_one_iter(carry, _):
-        p = inner_var.shape[0]
+        inner_var_shape = inner_var.shape[0]
+        outer_var_shape = outer_var.shape[0]
         carry['key'] = jax.random.split(carry['key'], 1)[0]
         (inner_step_size, outer_step_size), carry['state_lr'] = update_lr(
             carry['state_lr']
@@ -225,7 +226,8 @@ def pzobo_jax(f_inner, f_outer, inner_var, outer_var, mu=.1,
                                       carry['outer_var'], inner_step_size,
                                       n_steps=n_inner_steps)
 
-        U = jax.random.normal(carry['key'], (n_gaussian_vectors, p))
+        U = jax.random.normal(carry['key'], (n_gaussian_vectors,
+                                             outer_var_shape))
         outer_var_aux = carry['outer_var'] + mu * U
 
         def iter_fun(q, deltas):
@@ -235,7 +237,8 @@ def pzobo_jax(f_inner, f_outer, inner_var, outer_var, mu=.1,
             return deltas
 
         deltas = jax.lax.fori_loop(0, n_gaussian_vectors, iter_fun,
-                                   jnp.zeros((n_gaussian_vectors, p)))
+                                   jnp.zeros((n_gaussian_vectors,
+                                              inner_var_shape)))
         deltas /= mu
         grad_outer_in, grad_outer_out = grad_outer(carry['inner_var'],
                                                    carry['outer_var'])
