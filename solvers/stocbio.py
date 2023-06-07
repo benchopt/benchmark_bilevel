@@ -263,7 +263,6 @@ def _stocbio(sgd_inner, shia, inner_oracle, outer_oracle, inner_var, outer_var,
         grad_outer_var = grad_out - implicit_grad
 
         outer_var -= outer_lr * grad_outer_var
-        # inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)
 
         inner_var = sgd_inner(
             inner_oracle, inner_var, outer_var, step_size=inner_lr,
