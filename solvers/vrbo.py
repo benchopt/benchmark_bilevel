@@ -145,11 +145,14 @@ class Solver(BaseSolver):
                 = init_sampler(n_samples=n_outer_samples,
                                batch_size=self.batch_size_outer)
             self.sgd_inner = partial(sgd_inner_vrbo_jax,
-                                     jax.grad(self.f_inner, argnums=0),
-                                     jax.grad(self.f_outer, argnums=(0, 1)),
                                      joint_shia=joint_shia_jax,
                                      inner_sampler=inner_sampler,
-                                     outer_sampler=outer_sampler)
+                                     outer_sampler=outer_sampler,
+                                     grad_inner_fun=jax.grad(self.f_inner,
+                                                             argnums=0),
+                                     grad_outer_fun=jax.grad(self.f_outer,
+                                                             argnums=(0, 1)))
+
             self.vrbo = partial(
                 vrbo_jax,
                 shia=shia_fb_jax,
@@ -316,8 +319,8 @@ def vrbo_jax(f_inner, f_outer, f_inner_fb, f_outer_fb, inner_var, outer_var,
             inner_var, outer_var
         )
         v = shia(
-            grad_inner_fun, inner_var, outer_var, grad_outer_in, hia_lr,
-            n_steps=n_shia_steps
+            inner_var, outer_var, grad_outer_in, hia_lr,
+            n_steps=n_shia_steps, grad_inner=grad_inner_fun
         )
         d_inner = grad_inner
         d_outer = grad_outer_out - cross_v(v)[0]

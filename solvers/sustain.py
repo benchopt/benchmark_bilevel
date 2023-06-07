@@ -298,10 +298,10 @@ def sustain_jax(f_inner, f_outer, inner_var, outer_var, memory_inner,
         )
 
         ihvp, ihvp_old, carry['key'], carry['state_inner_sampler'] = joint_hia(
-            grad_inner_fun, carry['inner_var'], carry['outer_var'], grad_outer,
+            carry['inner_var'], carry['outer_var'], grad_outer,
             carry['memory_inner'][0], carry['memory_outer'][0], grad_outer_old,
             carry['state_inner_sampler'], hia_lr, sampler=inner_sampler,
-            n_steps=n_hia_steps, key=carry['key']
+            n_steps=n_hia_steps, key=carry['key'], grad_inner=grad_inner_fun
         )
         impl_grad -= vjp_fun(ihvp)[0]
         impl_grad_old -= vjp_fun_old(ihvp_old)[0]

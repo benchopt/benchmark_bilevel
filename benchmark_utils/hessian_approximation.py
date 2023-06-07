@@ -62,10 +62,10 @@ def shia(
     return step_size * s
 
 
-@partial(jax.jit, static_argnums=(0, ), static_argnames=('sampler', 'n_steps'))
+@partial(jax.jit, static_argnames=('sampler', 'n_steps', 'grad_inner'))
 def shia_jax(
-    grad_inner, inner_var, outer_var, v, state_sampler, step_size,
-    sampler=None, n_steps=1
+    inner_var, outer_var, v, state_sampler, step_size,
+    sampler=None, n_steps=1, grad_inner=None
 ):
     """Hessian Inverse Approximation subroutine from [Ji2021] with
     stochastic Neumann iterations (jax version).
@@ -106,8 +106,9 @@ def shia_fb(
     return step_size * s
 
 
-@partial(jax.jit, static_argnums=(0, ), static_argnames=('n_steps'))
-def shia_fb_jax(grad_inner, inner_var, outer_var, v, step_size, n_steps=1):
+@partial(jax.jit, static_argnames=('n_steps', 'grad_inner'))
+def shia_fb_jax(inner_var, outer_var, v, step_size, n_steps=1,
+                grad_inner=None):
     """Hessian Inverse Approximation subroutine from [Ji2021] with
     stochastic Neumann iterations (jax version).
 
@@ -146,9 +147,9 @@ def sgd_v(inner_oracle, inner_var, outer_var, v, grad_out,
     return v
 
 
-@partial(jax.jit, static_argnums=(0, ), static_argnames=('sampler', 'n_steps'))
-def sgd_v_jax(grad_inner, inner_var, outer_var, v, grad_out, state_sampler,
-              step_size, sampler=None, n_steps=1):
+@partial(jax.jit, static_argnames=('sampler', 'n_steps', 'grad_inner'))
+def sgd_v_jax(inner_var, outer_var, v, grad_out, state_sampler,
+              step_size, sampler=None, n_steps=1, grad_inner=None):
     r"""SGD for the inverse Hessian approximation.
 
     This function solves the following problem
@@ -195,10 +196,10 @@ def joint_shia(
     return step_size * s, step_size * s_old
 
 
-@partial(jax.jit, static_argnums=(0, ), static_argnames=('sampler', 'n_steps'))
+@partial(jax.jit, static_argnames=('sampler', 'n_steps', 'grad_inner'))
 def joint_shia_jax(
-    grad_inner, inner_var, outer_var, v, inner_var_old, outer_var_old, v_old,
-    state_sampler, step_size, sampler=None, n_steps=1
+    inner_var, outer_var, v, inner_var_old, outer_var_old, v_old,
+    state_sampler, step_size, sampler=None, n_steps=1, grad_inner=None
 ):
     """Hessian Inverse Approximation subroutine from [Ji2021] with
     stochastic Neumann iterations (jax version).
@@ -256,10 +257,11 @@ def joint_hia(inner_oracle, inner_var, outer_var, v,
     return n_steps * step_size * v, n_steps * step_size * v_old
 
 
-@partial(jax.jit, static_argnums=(0, ), static_argnames=('sampler', 'n_steps'))
+@partial(jax.jit, static_argnames=('sampler', 'n_steps', 'grad_inner'))
 def joint_hia_jax(
-    grad_inner, inner_var, outer_var, v, inner_var_old, outer_var_old, v_old,
-    state_sampler, step_size, sampler=None, n_steps=1, key=None
+    inner_var, outer_var, v, inner_var_old, outer_var_old, v_old,
+    state_sampler, step_size, sampler=None, n_steps=1, key=None,
+    grad_inner=None
 ):
     """Hessian Inverse Approximation subroutine from [Ji2021] with
     stochastic Neumann iterations (jax version).

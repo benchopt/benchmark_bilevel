@@ -15,9 +15,9 @@ def sgd_inner(inner_oracle, inner_var, outer_var, step_size, sampler=None,
     return inner_var
 
 
-@partial(jax.jit, static_argnums=(0, ), static_argnames=('sampler', 'n_steps'))
-def sgd_inner_jax(grad_inner, inner_var, outer_var, state_sampler, step_size,
-                  sampler=None, n_steps=1):
+@partial(jax.jit, static_argnames=('sampler', 'n_steps', 'grad_inner'))
+def sgd_inner_jax(inner_var, outer_var, state_sampler, step_size,
+                  sampler=None, n_steps=1, grad_inner=None):
 
     def iter(i, args):
         start, args[0] = sampler(**args[0])
@@ -68,22 +68,19 @@ def sgd_inner_vrbo(joint_shia, inner_oracle, outer_oracle, inner_var,
         memory_inner[0] = inner_var
         inner_var -= inner_lr * memory_inner[1]
 
-        # Step.4.k.4 - project back to the constraint set
-        # inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)
-
     return inner_var, outer_var, memory_inner, memory_outer
 
 
-@partial(jax.jit, static_argnums=(0, 1), static_argnames=('sampler', 'n_steps',
-                                                          'joint_shia',
-                                                          'inner_sampler',
-                                                          'outer_sampler',
-                                                          'n_shia_steps'))
-def sgd_inner_vrbo_jax(grad_inner_fun, grad_outer_fun, inner_var,
+@partial(jax.jit, static_argnames=('sampler', 'n_steps', 'joint_shia',
+                                   'inner_sampler', 'outer_sampler',
+                                   'n_shia_steps', 'grad_inner_fun',
+                                   'grad_outer_fun'))
+def sgd_inner_vrbo_jax(inner_var,
                        outer_var, inner_var_old, d_inner, d_outer,
                        state_inner_sampler, state_outer_sampler, step_size,
                        hia_lr, n_shia_steps=1, inner_sampler=None,
-                       outer_sampler=None, joint_shia=None, n_steps=1):
+                       outer_sampler=None, joint_shia=None, n_steps=1,
+                       grad_inner_fun=None, grad_outer_fun=None):
     def iter(i, args):
         # Update inner direction
         start_inner, args['state_inner_sampler'] = inner_sampler(
@@ -110,10 +107,10 @@ def sgd_inner_vrbo_jax(grad_inner_fun, grad_outer_fun, inner_var,
             args['inner_var_old'], args['outer_var'], start_outer
         )
         ihvp, ihvp_old, args['state_inner_sampler'] = joint_shia(
-            grad_inner_fun, args['inner_var'], args['outer_var'], grad_outer,
+            args['inner_var'], args['outer_var'], grad_outer,
             args['inner_var_old'], args['outer_var'], grad_outer_old,
             args['state_inner_sampler'], hia_lr, sampler=inner_sampler,
-            n_steps=n_shia_steps
+            n_steps=n_shia_steps, grad_inner=grad_inner_fun
         )
 
         impl_grad -= cross_v(ihvp)[0]

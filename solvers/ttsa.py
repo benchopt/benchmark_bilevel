@@ -284,10 +284,10 @@ def ttsa_jax(f_inner, f_outer, inner_var, outer_var,
         )
 
         v, key, carry['state_inner_sampler'] = hia(
-            grad_inner_fun, carry['inner_var'], carry['outer_var'], grad_in,
+            carry['inner_var'], carry['outer_var'], grad_in,
             carry['state_inner_sampler'],
             hia_lr, n_steps=n_hia_steps, sampler=inner_sampler,
-            key=carry['key']
+            key=carry['key'], grad_inner=grad_inner_fun
         )
 
         _, vjp_fun = jax.vjp(

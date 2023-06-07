@@ -122,7 +122,7 @@ class Solver(BaseSolver):
                                batch_size=self.batch_size_outer)
             self.sgd_inner = partial(
                 sgd_inner_jax,
-                jax.grad(self.f_inner, argnums=0),
+                grad_inner=jax.grad(self.f_inner, argnums=0),
                 sampler=inner_sampler
             )
             self.stocbio = partial(
@@ -297,9 +297,9 @@ def stocbio_jax(f_inner, f_outer, inner_var, outer_var,
                                            start_outer)
 
         implicit_grad, carry['state_inner_sampler'] = shia(
-            grad_inner_fun, carry['inner_var'], carry['outer_var'], grad_in,
+            carry['inner_var'], carry['outer_var'], grad_in,
             carry['state_inner_sampler'], hia_lr, n_steps=n_shia_steps,
-            sampler=inner_sampler
+            sampler=inner_sampler, grad_inner=grad_inner_fun
         )
         start_inner, carry['state_inner_sampler'] = inner_sampler(
             **carry['state_inner_sampler']

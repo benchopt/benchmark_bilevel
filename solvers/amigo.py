@@ -114,12 +114,12 @@ class Solver(BaseSolver):
                                batch_size=self.batch_size_outer)
             self.sgd_inner = partial(
                 sgd_inner_jax,
-                jax.grad(self.f_inner, argnums=0),
+                grad_inner=jax.grad(self.f_inner, argnums=0),
                 sampler=inner_sampler
             )
             self.sgd_v = partial(
                 sgd_v_jax,
-                jax.grad(self.f_inner, argnums=0),
+                grad_inner=jax.grad(self.f_inner, argnums=0),
                 sampler=inner_sampler
             )
             self.amigo = partial(
