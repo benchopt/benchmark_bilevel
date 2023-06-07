@@ -38,11 +38,13 @@ def hia_jax(
         return hvp_fun(v)[0]
 
     def iter(i, args):
-        start, args[0] = sampler(**args[0])
-        args[1] -= step_size * hvp(args[1], start)
-        return args
-    res = jax.lax.fori_loop(0, p[0], iter, [state_sampler, v])
-    return n_steps * step_size * res[1], jax.random.split(key, 1)[0], res[0]
+        state_sampler, v = args
+        print(v)
+        start, state_sampler = sampler(**state_sampler)
+        v -= step_size * hvp(v, start)
+        return state_sampler, v
+    state_sampler, v = jax.lax.fori_loop(0, p[0], iter, (state_sampler, v))
+    return n_steps * step_size * v, jax.random.split(key, 1)[0], state_sampler
 
 
 def shia(
@@ -81,12 +83,14 @@ def shia_jax(
         return hvp_fun(v)[0]
 
     def iter(i, args):
-        start, args[0] = sampler(**args[0])
-        args[1] -= step_size * hvp(args[1], start)
-        args[2] += args[1]
-        return args
-    res = jax.lax.fori_loop(0, n_steps, iter, [state_sampler, v, s])
-    return step_size * res[2], res[0]
+        state_sampler, v, s = args
+        start, state_sampler = sampler(**state_sampler)
+        v -= step_size * hvp(v, start)
+        s += v
+        return state_sampler, v, s
+    state_sampler, _, s = jax.lax.fori_loop(0, n_steps, iter,
+                                            (state_sampler, v, s))
+    return step_size * s, state_sampler
 
 
 def shia_fb(
@@ -123,11 +127,12 @@ def shia_fb_jax(inner_var, outer_var, v, step_size, n_steps=1,
         return hvp_fun(v)[0]
 
     def iter(i, args):
-        args[0] -= step_size * hvp(args[0])
-        args[1] += args[0]
-        return args
-    res = jax.lax.fori_loop(0, n_steps, iter, [v, s])
-    return step_size * res[1]
+        v, s = args
+        v -= step_size * hvp(v)
+        s += v
+        return v, s
+    _, s = jax.lax.fori_loop(0, n_steps, iter, (v, s))
+    return step_size * s
 
 
 def sgd_v(inner_oracle, inner_var, outer_var, v, grad_out,
@@ -165,11 +170,12 @@ def sgd_v_jax(inner_var, outer_var, v, grad_out, state_sampler,
         return hvp_fun(v)[0]
 
     def iter(i, args):
-        start, args[0] = sampler(**args[0])
-        args[1] -= step_size * (hvp(args[1], start) - grad_out)
-        return args
-    res = jax.lax.fori_loop(0, n_steps, iter, [state_sampler, v])
-    return res[1], res[0]
+        state_sampler, v = args
+        start, state_sampler = sampler(**state_sampler)
+        v -= step_size * (hvp(v, start) - grad_out)
+        return state_sampler, v
+    state_sampler, v = jax.lax.fori_loop(0, n_steps, iter, (state_sampler, v))
+    return v, state_sampler
 
 
 def joint_shia(
@@ -222,17 +228,18 @@ def joint_shia_jax(
         return hvp_fun(v)[0]
 
     def iter(i, args):
-        start, args[0] = sampler(**args[0])
-        args[1] -= step_size * hvp(args[1], start)
-        args[2] += args[1]
-        args[3] -= step_size * hvp_old(args[3], start)
-        args[4] += args[3]
-        return args
-    res = jax.lax.fori_loop(
-        0, n_steps, iter, [state_sampler, v, s, v_old, s_old]
+        state_sampler, v, s, v_old, s_old = args
+        start, state_sampler = sampler(**state_sampler)
+        v -= step_size * hvp(v, start)
+        s += v
+        v_old -= step_size * hvp_old(v_old, start)
+        s_old += v_old
+        return state_sampler, v, s, v_old, s_old
+    state_sampler, _, s, _, s_old = jax.lax.fori_loop(
+        0, n_steps, iter, (state_sampler, v, s, v_old, s_old)
     )
 
-    return step_size * res[2], step_size * res[4], res[0]
+    return step_size * s, step_size * s_old, state_sampler
 
 
 def joint_hia(inner_oracle, inner_var, outer_var, v,
@@ -268,8 +275,6 @@ def joint_hia_jax(
 
     This implement Algorithm.3
     """
-    s = v.copy()
-    s_old = v_old.copy()
     p = jax.random.randint(key, shape=(1,), minval=0, maxval=n_steps)
 
     def hvp(v, start):
@@ -285,13 +290,14 @@ def joint_hia_jax(
         return hvp_fun(v)[0]
 
     def iter(i, args):
-        start, args[0] = sampler(**args[0])
-        args[1] -= step_size * hvp(args[1], start)
-        args[2] -= step_size * hvp_old(args[2], start)
-        return args
-    res = jax.lax.fori_loop(
-        0, p[0], iter, [state_sampler, v, s, v_old, s_old]
+        state_sampler, v, v_old = args
+        start, state_sampler = sampler(**state_sampler)
+        v -= step_size * hvp(v, start)
+        v_old -= step_size * hvp_old(v_old, start)
+        return state_sampler, v, v_old
+    state_sampler, v, v_old = jax.lax.fori_loop(
+        0, p[0], iter, (state_sampler, v, v_old)
     )
 
-    return n_steps * step_size * res[1], n_steps * step_size * res[2], \
-        jax.random.split(key, 1)[0], res[0]
+    return n_steps * step_size * v, n_steps * step_size * v_old, \
+        jax.random.split(key, 1)[0], state_sampler

@@ -80,7 +80,6 @@ def reset_ibatch(i, batch_order, key=jax.random.PRNGKey(1)):
 @jit
 def _sampler(n_batches=10, batch_size=1, **state):
     """Jax version of the minibatch sampler."""
-    # print(state['batch_order'])
     idx = state['batch_order'][state['i_batch']]
     start = batch_size * idx
     state['i_batch'], state['batch_order'], state['key'] = jax.lax.cond(
