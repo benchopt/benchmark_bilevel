@@ -48,18 +48,13 @@ class Solver(BaseSolver):
         if self.framework == 'numba':
             if self.batch_size == 'full':
                 return True, "Numba is not useful for full bach resolution."
-            elif isinstance(f_train(), MultiLogRegOracle):
+            elif isinstance(f_train(),
+                            (MultiLogRegOracle, DataCleaningOracle)):
                 return True, "Numba implementation not available for " \
-                      "Multiclass Logistic Regression."
-            elif isinstance(f_val(), MultiLogRegOracle):
+                      "this oracle."
+            elif isinstance(f_val(), (MultiLogRegOracle, DataCleaningOracle)):
                 return True, "Numba implementation not available for" \
-                      "Multiclass Logistic Regression."
-            elif isinstance(f_train(), DataCleaningOracle):
-                return True, "Numba implementation not available for " \
-                      "Datacleaning."
-            elif isinstance(f_val(), DataCleaningOracle):
-                return True, "Numba implementation not available for" \
-                      "Datacleaning."
+                      "this oracle."
         elif self.framework not in ['jax', 'none', 'numba']:
             return True, f"Framework {self.framework} not supported."
         return False, None
@@ -206,9 +201,6 @@ def soba(inner_oracle, outer_oracle, inner_var, outer_var, v,
         inner_var -= inner_step_size * grad_inner_var
         v -= inner_step_size * (hvp + grad_in_outer)
         outer_var -= outer_step_size * (cross_v + grad_out_outer)
-
-        # Use prox to make sure we do not diverge
-        # inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)
 
     return inner_var, outer_var, v
 

@@ -52,18 +52,13 @@ class Solver(BaseSolver):
         if self.framework == 'numba':
             if self.batch_size == 'full':
                 return True, "Numba is not useful for full bach resolution."
-            elif isinstance(f_train(), MultiLogRegOracle):
+            elif isinstance(f_train(),
+                            (MultiLogRegOracle, DataCleaningOracle)):
                 return True, "Numba implementation not available for " \
-                      "Multiclass Logistic Regression."
-            elif isinstance(f_val(), MultiLogRegOracle):
+                      "this oracle."
+            elif isinstance(f_val(), (MultiLogRegOracle, DataCleaningOracle)):
                 return True, "Numba implementation not available for" \
-                      "Multiclass Logistic Regression."
-            elif isinstance(f_train(), DataCleaningOracle):
-                return True, "Numba implementation not available for " \
-                      "Datacleaning."
-            elif isinstance(f_val(), DataCleaningOracle):
-                return True, "Numba implementation not available for" \
-                      "Datacleaning."
+                      "this oracle."
         elif self.framework not in ['jax', 'none', 'numba']:
             return True, f"Framework {self.framework} not supported."
         return False, None
@@ -264,7 +259,6 @@ def _bsa(sgd_inner, hia, inner_oracle, outer_oracle, inner_var, outer_var,
         grad_outer_var = grad_out - implicit_grad
 
         outer_var -= outer_lr * grad_outer_var
-        # inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)
 
         inner_var = sgd_inner(
             inner_oracle, inner_var, outer_var, step_size=inner_lr,
@@ -315,7 +309,7 @@ def bsa_jax(f_inner, f_outer, inner_var, outer_var,
 
         carry['inner_var'], state_inner_sampler = sgd_inner(
             carry['inner_var'], carry['outer_var'],
-            carry['state_inner_sampler'], step_size=inner_lr, 
+            carry['state_inner_sampler'], step_size=inner_lr,
             n_steps=n_inner_steps
         )
 

@@ -56,18 +56,13 @@ class Solver(BaseSolver):
         if self.framework == 'numba':
             if self.batch_size == 'full':
                 return True, "Numba is not useful for full bach resolution."
-            elif isinstance(f_train(), MultiLogRegOracle):
+            elif isinstance(f_train(),
+                            (MultiLogRegOracle, DataCleaningOracle)):
                 return True, "Numba implementation not available for " \
-                      "Multiclass Logistic Regression."
-            elif isinstance(f_val(), MultiLogRegOracle):
+                      "this oracle."
+            elif isinstance(f_val(), (MultiLogRegOracle, DataCleaningOracle)):
                 return True, "Numba implementation not available for" \
-                      "Multiclass Logistic Regression."
-            elif isinstance(f_train(), DataCleaningOracle):
-                return True, "Numba implementation not available for " \
-                      "Datacleaning."
-            elif isinstance(f_val(), DataCleaningOracle):
-                return True, "Numba implementation not available for" \
-                      "Datacleaning."
+                      "this oracle."
         elif self.framework not in ['jax', 'none', 'numba']:
             return True, f"Framework {self.framework} not supported."
         return False, None
@@ -292,9 +287,6 @@ def _vrbo(
 
         # Step.2 - Update outer variable
         outer_var -= outer_lr * memory_outer[1]
-
-        # Step.3 - Project back to the constraint set
-        # inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)
 
         inner_var, outer_var, memory_inner, memory_outer = sgd_inner_vrbo(
             inner_oracle, outer_oracle, inner_var, outer_var, inner_lr,

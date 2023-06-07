@@ -46,18 +46,12 @@ class Solver(BaseSolver):
 
     def skip(self, f_train, f_val, **kwargs):
         if self.framework == 'numba':
-            if isinstance(f_train(), MultiLogRegOracle):
+            if isinstance(f_train(), (MultiLogRegOracle, DataCleaningOracle)):
                 return True, "Numba implementation not available for " \
-                      "Multiclass Logistic Regression."
-            elif isinstance(f_val(), MultiLogRegOracle):
+                      "this oracle."
+            elif isinstance(f_val(), (MultiLogRegOracle, DataCleaningOracle)):
                 return True, "Numba implementation not available for" \
-                      "Multiclass Logistic Regression."
-            elif isinstance(f_train(), DataCleaningOracle):
-                return True, "Numba implementation not available for " \
-                      "Datacleaning."
-            elif isinstance(f_val(), DataCleaningOracle):
-                return True, "Numba implementation not available for" \
-                      "Datacleaning."
+                      "this oracle."
         elif self.framework not in ['jax', 'none', 'numba']:
             return True, f"Framework {self.framework} not supported."
         return False, None
