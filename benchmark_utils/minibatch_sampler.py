@@ -67,12 +67,12 @@ class MinibatchSampler():
 
 
 @jit
-def keep_ibatch(i, batch_order, key=None):
+def keep_ibatch(i, batch_order, key=jax.random.PRNGKey(1)):
     return i + 1, batch_order, key
 
 
 @jit
-def reset_ibatch(i, batch_order, key=1):
+def reset_ibatch(i, batch_order, key=jax.random.PRNGKey(1)):
     return 0, jax.random.permutation(key, batch_order), \
         jax.random.split(key, 1)[0]
 
