@@ -142,7 +142,6 @@ class Solver(BaseSolver):
 
     def run(self, callback):
         eval_freq = self.eval_freq  # // self.batch_size
-        rng = np.random.RandomState(self.random_state)
 
         # Init variables
         outer_var = self.outer_var0.copy()
@@ -169,6 +168,7 @@ class Solver(BaseSolver):
                 state_outer_sampler=self.state_outer_sampler
             )
         else:
+            rng = np.random.RandomState(self.random_state)
             inner_sampler = self.MinibatchSampler(
                 self.f_inner.n_samples, batch_size=self.batch_size_inner
             )

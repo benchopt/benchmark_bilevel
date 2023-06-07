@@ -100,7 +100,6 @@ class Solver(BaseSolver):
 
     def run(self, callback):
         eval_freq = self.eval_freq
-        rng = np.random.RandomState(self.random_state)
 
         # Init variables
         inner_var = self.inner_var0.copy()
@@ -120,6 +119,7 @@ class Solver(BaseSolver):
                 key=jax.random.PRNGKey(self.random_state)
             )
         else:
+            rng = np.random.RandomState(self.random_state)
             # Init lr scheduler
             step_sizes = np.array(
                 [self.step_size, self.step_size / self.outer_ratio]

@@ -125,7 +125,6 @@ class Solver(BaseSolver):
 
     def run(self, callback):
         eval_freq = self.eval_freq
-        rng = np.random.RandomState(self.random_state)
 
         # Init variables
         inner_var = self.inner_var0.copy()
@@ -145,6 +144,7 @@ class Solver(BaseSolver):
                 key=jax.random.PRNGKey(self.random_state)
             )
         else:
+            rng = np.random.RandomState(self.random_state)
             inner_sampler = self.MinibatchSampler(
                 self.f_inner.n_samples, batch_size=self.batch_size_inner
             )

@@ -167,7 +167,6 @@ class Solver(BaseSolver):
 
     def run(self, callback):
         eval_freq = self.eval_freq  # // self.batch_size
-        rng = np.random.RandomState(self.random_state)
 
         # Init variables
         inner_var = self.inner_var0.copy()
@@ -199,6 +198,7 @@ class Solver(BaseSolver):
                 i_min=0
             )
         else:
+            rng = np.random.RandomState(self.random_state)
             memory_inner = np.zeros((2, *inner_var.shape), inner_var.dtype)
             memory_outer = np.zeros((2, *outer_var.shape), outer_var.dtype)
 
