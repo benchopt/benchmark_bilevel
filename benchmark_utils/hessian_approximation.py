@@ -6,7 +6,8 @@ from functools import partial
 
 def hia(inner_oracle, inner_var, outer_var, v, step_size, n_steps=1,
         sampler=None):
-    """Hessian Inverse Approximation subroutine from [Ghadimi2018].
+    """Hessian Inverse Approximation subroutine from [Ghadimi2018] with
+    stochastic Neumann iterations.
 
     This implement Algorithm.3
     """
@@ -18,13 +19,13 @@ def hia(inner_oracle, inner_var, outer_var, v, step_size, n_steps=1,
     return n_steps * step_size * v
 
 
-@partial(jax.jit, static_argnums=(0, ), static_argnames=('sampler', 'n_steps'))
+@partial(jax.jit, static_argnames=('sampler', 'n_steps', 'grad_inner'))
 def hia_jax(
-    grad_inner, inner_var, outer_var, v, state_sampler, step_size,
-    sampler=None, n_steps=1, key=None
+    inner_var, outer_var, v, state_sampler, step_size,
+    sampler=None, n_steps=1, key=None, grad_inner=None
 ):
-    """Hessian Inverse Approximation subroutine from [Ghadimi2018]
-    (jax version).
+    """Hessian Inverse Approximation subroutine from [Ghadimi2018] with
+    stochastic Neumann iterations (jax version).
 
     This implement Algorithm.3
     """
@@ -47,7 +48,8 @@ def hia_jax(
 def shia(
     inner_oracle, inner_var, outer_var, v, step_size, sampler=None, n_steps=1
 ):
-    """Hessian Inverse Approximation subroutine from [Ji2021].
+    """Hessian Inverse Approximation subroutine from [Ji2021] with
+    stochastic Neumann iterations.
 
     This implement Algorithm.3
     """
@@ -65,7 +67,8 @@ def shia_jax(
     grad_inner, inner_var, outer_var, v, state_sampler, step_size,
     sampler=None, n_steps=1
 ):
-    """Hessian Inverse Approximation subroutine from [Ji2021] (jax version).
+    """Hessian Inverse Approximation subroutine from [Ji2021] with
+    stochastic Neumann iterations (jax version).
 
     This implement Algorithm.3
     """
@@ -89,7 +92,8 @@ def shia_jax(
 def shia_fb(
     inner_oracle, inner_var, outer_var, v, n_steps, step_size
 ):
-    """Hessian Inverse Approximation subroutine from [Ji2021].
+    """Hessian Inverse Approximation subroutine from [Ji2021] with
+    stochastic Neumann iterations.
 
     This implement Algorithm.3
     """
@@ -104,7 +108,8 @@ def shia_fb(
 
 @partial(jax.jit, static_argnums=(0, ), static_argnames=('n_steps'))
 def shia_fb_jax(grad_inner, inner_var, outer_var, v, step_size, n_steps=1):
-    """Hessian Inverse Approximation subroutine from [Ji2021] (jax version).
+    """Hessian Inverse Approximation subroutine from [Ji2021] with
+    stochastic Neumann iterations (jax version).
 
     This implement Algorithm.3
     """
@@ -170,7 +175,8 @@ def joint_shia(
     inner_oracle, inner_var, outer_var, v, inner_var_old, outer_var_old, v_old,
     step_size, sampler=None, n_steps=1
 ):
-    """Hessian Inverse Approximation subroutine from [Ji2021].
+    """Hessian Inverse Approximation subroutine from [Ji2021] with
+    stochastic Neumann iterations.
 
     This implement Algorithm.3
     """
@@ -194,7 +200,8 @@ def joint_shia_jax(
     grad_inner, inner_var, outer_var, v, inner_var_old, outer_var_old, v_old,
     state_sampler, step_size, sampler=None, n_steps=1
 ):
-    """Hessian Inverse Approximation subroutine from [Ji2021] (jax version).
+    """Hessian Inverse Approximation subroutine from [Ji2021] with
+    stochastic Neumann iterations (jax version).
 
     This implement Algorithm.3
     """
@@ -230,7 +237,8 @@ def joint_shia_jax(
 def joint_hia(inner_oracle, inner_var, outer_var, v,
               inner_var_old, outer_var_old, v_old,
               inner_sampler, n_steps, step_size):
-    """Hessian Inverse Approximation subroutine from [Ghadimi2018].
+    """Hessian Inverse Approximation subroutine from [Ghadimi2018] with
+    stochastic Neumann iterations.
 
     This is a modification that jointly compute the HIA with the same samples
     for the current estimates and the one from the previous iteration, in
@@ -253,7 +261,8 @@ def joint_hia_jax(
     grad_inner, inner_var, outer_var, v, inner_var_old, outer_var_old, v_old,
     state_sampler, step_size, sampler=None, n_steps=1, key=None
 ):
-    """Hessian Inverse Approximation subroutine from [Ji2021] (jax version).
+    """Hessian Inverse Approximation subroutine from [Ji2021] with
+    stochastic Neumann iterations (jax version).
 
     This implement Algorithm.3
     """
