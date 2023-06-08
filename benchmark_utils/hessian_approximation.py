@@ -31,17 +31,17 @@ def hia_jax(
     """
     p = jax.random.randint(key, shape=(1,), minval=0, maxval=n_steps)
 
-    def hvp(v, start):
+    def hvp(v, start_idx):
         _, hvp_fun = jax.vjp(
-            lambda z: grad_inner(z, outer_var, start), inner_var
+            lambda z: grad_inner(z, outer_var, start_idx), inner_var
         )
         return hvp_fun(v)[0]
 
     def iter(i, args):
         state_sampler, v = args
         print(v)
-        start, state_sampler = sampler(**state_sampler)
-        v -= step_size * hvp(v, start)
+        start_idx, state_sampler = sampler(**state_sampler)
+        v -= step_size * hvp(v, start_idx)
         return state_sampler, v
     state_sampler, v = jax.lax.fori_loop(0, p[0], iter, (state_sampler, v))
     return n_steps * step_size * v, jax.random.split(key, 1)[0], state_sampler
@@ -76,16 +76,16 @@ def shia_jax(
     """
     s = v.copy()
 
-    def hvp(v, start):
+    def hvp(v, start_idx):
         _, hvp_fun = jax.vjp(
-                lambda z: grad_inner(z, outer_var, start), inner_var
+                lambda z: grad_inner(z, outer_var, start_idx), inner_var
             )
         return hvp_fun(v)[0]
 
     def iter(i, args):
         state_sampler, v, s = args
-        start, state_sampler = sampler(**state_sampler)
-        v -= step_size * hvp(v, start)
+        start_idx, state_sampler = sampler(**state_sampler)
+        v -= step_size * hvp(v, start_idx)
         s += v
         return state_sampler, v, s
     state_sampler, _, s = jax.lax.fori_loop(0, n_steps, iter,
@@ -163,16 +163,16 @@ def sgd_v_jax(inner_var, outer_var, v, grad_out, state_sampler,
 
         \min_v v^\top H v - \nabla_{out}^\top v
     """
-    def hvp(v, start):
+    def hvp(v, start_idx):
         _, hvp_fun = jax.vjp(
-                lambda z: grad_inner(z, outer_var, start), inner_var
+                lambda z: grad_inner(z, outer_var, start_idx), inner_var
             )
         return hvp_fun(v)[0]
 
     def iter(i, args):
         state_sampler, v = args
-        start, state_sampler = sampler(**state_sampler)
-        v -= step_size * (hvp(v, start) - grad_out)
+        start_idx, state_sampler = sampler(**state_sampler)
+        v -= step_size * (hvp(v, start_idx) - grad_out)
         return state_sampler, v
     state_sampler, v = jax.lax.fori_loop(0, n_steps, iter, (state_sampler, v))
     return v, state_sampler
@@ -215,24 +215,24 @@ def joint_shia_jax(
     s = v.copy()
     s_old = v_old.copy()
 
-    def hvp(v, start):
+    def hvp(v, start_idx):
         _, hvp_fun = jax.vjp(
-                lambda z: grad_inner(z, outer_var, start), inner_var
+                lambda z: grad_inner(z, outer_var, start_idx), inner_var
             )
         return hvp_fun(v)[0]
 
-    def hvp_old(v, start):
+    def hvp_old(v, start_idx):
         _, hvp_fun = jax.vjp(
-            lambda z: grad_inner(z, outer_var_old, start), inner_var_old
+            lambda z: grad_inner(z, outer_var_old, start_idx), inner_var_old
         )
         return hvp_fun(v)[0]
 
     def iter(i, args):
         state_sampler, v, s, v_old, s_old = args
-        start, state_sampler = sampler(**state_sampler)
-        v -= step_size * hvp(v, start)
+        start_idx, state_sampler = sampler(**state_sampler)
+        v -= step_size * hvp(v, start_idx)
         s += v
-        v_old -= step_size * hvp_old(v_old, start)
+        v_old -= step_size * hvp_old(v_old, start_idx)
         s_old += v_old
         return state_sampler, v, s, v_old, s_old
     state_sampler, _, s, _, s_old = jax.lax.fori_loop(
@@ -277,23 +277,23 @@ def joint_hia_jax(
     """
     p = jax.random.randint(key, shape=(1,), minval=0, maxval=n_steps)
 
-    def hvp(v, start):
+    def hvp(v, start_idx):
         _, hvp_fun = jax.vjp(
-                lambda z: grad_inner(z, outer_var, start), inner_var
+                lambda z: grad_inner(z, outer_var, start_idx), inner_var
             )
         return hvp_fun(v)[0]
 
-    def hvp_old(v, start):
+    def hvp_old(v, start_idx):
         _, hvp_fun = jax.vjp(
-            lambda z: grad_inner(z, outer_var_old, start), inner_var_old
+            lambda z: grad_inner(z, outer_var_old, start_idx), inner_var_old
         )
         return hvp_fun(v)[0]
 
     def iter(i, args):
         state_sampler, v, v_old = args
-        start, state_sampler = sampler(**state_sampler)
-        v -= step_size * hvp(v, start)
-        v_old -= step_size * hvp_old(v_old, start)
+        start_idx, state_sampler = sampler(**state_sampler)
+        v -= step_size * hvp(v, start_idx)
+        v_old -= step_size * hvp_old(v_old, start_idx)
         return state_sampler, v, v_old
     state_sampler, v, v_old = jax.lax.fori_loop(
         0, p[0], iter, (state_sampler, v, v_old)

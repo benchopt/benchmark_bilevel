@@ -21,8 +21,8 @@ def sgd_inner_jax(inner_var, outer_var, state_sampler, step_size,
 
     def iter(i, args):
         state_sampler, inner_var = args
-        start, state_sampler = sampler(**state_sampler)
-        inner_var -= step_size * grad_inner(inner_var, outer_var, start)
+        start_idx, state_sampler = sampler(**state_sampler)
+        inner_var -= step_size * grad_inner(inner_var, outer_var, start_idx)
         return state_sampler, inner_var
     state_sampler, inner_var = jax.lax.fori_loop(0, n_steps, iter,
                                                  (state_sampler, inner_var))
