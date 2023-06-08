@@ -38,7 +38,7 @@ class Solver(BaseSolver):
         'batch_size': [64],
         'eval_freq': [128],
         'random_state': [1],
-        'framework': ["none"],
+        'framework': ["jax"],
     }
 
     @staticmethod

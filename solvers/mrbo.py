@@ -41,7 +41,7 @@ class Solver(BaseSolver):
         'eta': [.5],
         'eval_freq': [128],
         'random_state': [1],
-        'framework': ["none"]
+        'framework': ["jax"]
     }
 
     @staticmethod

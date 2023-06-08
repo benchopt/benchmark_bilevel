@@ -40,7 +40,7 @@ class Solver(BaseSolver):
         'n_inner_steps': [10],
         'batch_size': [64],
         'random_state': [1],
-        'framework': ["none"]
+        'framework': ["jax"]
     }
 
     @staticmethod

@@ -45,7 +45,7 @@ class Solver(BaseSolver):
         'eval_freq': [128],
         'n_inner_steps': [10],
         'random_state': [1],
-        'framework': ['none']
+        'framework': ['jax']
     }
 
     @staticmethod

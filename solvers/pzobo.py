@@ -37,7 +37,7 @@ class Solver(BaseSolver):
         'mu': [.1],
         'n_inner_steps': [10],
         'n_gaussian_vectors': [1],
-        'framework': ["none"],
+        'framework': ["jax"],
     }
 
     @staticmethod
