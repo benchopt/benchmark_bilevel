@@ -264,17 +264,18 @@ def mrbo_jax(f_inner, f_outer, inner_var, outer_var, memory_inner,
              memory_outer, state_inner_sampler=None, state_outer_sampler=None,
              state_lr=None, joint_shia=None, n_shia_steps=1,
              inner_sampler=None, outer_sampler=None, max_iter=1):
+    grad_inner_fun = jax.grad(f_inner, argnums=0)
+    grad_outer_fun = jax.grad(f_outer, argnums=(0, 1))
+
     def mrbo_one_iter(carry, _):
-        grad_inner_fun = jax.grad(f_inner, argnums=0)
-        grad_outer_fun = jax.grad(f_outer, argnums=(0, 1))
 
         (inner_lr, hia_lr, eta, outer_lr), carry['state_lr'] = update_lr(
             carry['state_lr']
         )
 
         # Step.1 - Update direction for z with momentum
-        start_inner, carry['state_inner_sampler'] = inner_sampler(
-            **carry['state_inner_sampler']
+        start_inner, *_, carry['state_inner_sampler'] = inner_sampler(
+            carry['state_inner_sampler']
         )
         grad_inner_var, vjp_fun = jax.vjp(
             lambda x: grad_inner_fun(carry['inner_var'], x, start_inner),
@@ -291,8 +292,8 @@ def mrbo_jax(f_inner, f_outer, inner_var, outer_var, memory_inner,
         )
 
         # Step.2 - Compute implicit grad approximation with HIA
-        start_outer, carry['state_outer_sampler'] = outer_sampler(
-            **carry['state_outer_sampler']
+        start_outer, *_, carry['state_outer_sampler'] = outer_sampler(
+            carry['state_outer_sampler']
         )
         grad_outer, impl_grad = grad_outer_fun(
             carry['inner_var'], carry['outer_var'], start_outer

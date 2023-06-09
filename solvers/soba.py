@@ -210,17 +210,19 @@ def soba(inner_oracle, outer_oracle, inner_var, outer_var, v,
 def soba_jax(f_inner, f_outer, inner_var, outer_var, v,
              state_inner_sampler=None, state_outer_sampler=None, state_lr=None,
              inner_sampler=None, outer_sampler=None, max_iter=1):
+
+    grad_inner = jax.grad(f_inner, argnums=0)
+    grad_outer = jax.grad(f_outer, argnums=(0, 1))
+
     def soba_one_iter(carry, _):
-        grad_inner = jax.grad(f_inner, argnums=0)
-        grad_outer = jax.grad(f_outer, argnums=(0, 1))
 
         (inner_step_size, outer_step_size), carry['state_lr'] = update_lr(
             carry['state_lr']
         )
 
         # Step.1 - get all gradients and compute the implicit gradient.
-        start_inner, carry['state_inner_sampler'] = inner_sampler(
-            **carry['state_inner_sampler']
+        start_inner, *_, carry['state_inner_sampler'] = inner_sampler(
+            carry['state_inner_sampler']
         )
         grad_inner_var, vjp_train = jax.vjp(
             lambda z, x: grad_inner(z, x, start_inner), carry['inner_var'],
@@ -228,8 +230,8 @@ def soba_jax(f_inner, f_outer, inner_var, outer_var, v,
         )
         hvp, cross_v = vjp_train(carry['v'])
 
-        start_outer, carry['state_outer_sampler'] = outer_sampler(
-            **carry['state_outer_sampler']
+        start_outer, *_, carry['state_outer_sampler'] = outer_sampler(
+            carry['state_outer_sampler']
         )
         grad_in_outer, grad_out_outer = grad_outer(
             carry['inner_var'], carry['outer_var'], start_outer

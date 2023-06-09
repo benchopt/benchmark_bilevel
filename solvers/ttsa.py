@@ -253,19 +253,18 @@ def ttsa_jax(f_inner, f_outer, inner_var, outer_var,
              state_lr=None, hia=None, sgd_inner=None, n_hia_steps=1,
              n_inner_steps=1, inner_sampler=None, outer_sampler=None, key=None,
              max_iter=1):
+    grad_inner_fun = jax.grad(f_inner, argnums=0)
+    grad_outer_fun = jax.grad(f_outer, argnums=(0, 1))
+
     def ttsa_one_iter(carry, _):
-        grad_inner_fun = jax.grad(f_inner, argnums=0)
-        grad_outer_fun = jax.grad(f_outer, argnums=(0, 1))
-        # inner_var, outer_var, state_lr, state_inner_sampler, \
-        #     state_outer_sampler, key = carry
 
         (inner_lr, hia_lr, outer_lr), carry['state_lr'] = update_lr(
             carry['state_lr']
         )
 
         # Step.1 - Update direction for z with momentum
-        start_inner, carry['state_inner_sampler'] = inner_sampler(
-            **carry['state_inner_sampler']
+        start_inner, *_, carry['state_inner_sampler'] = inner_sampler(
+            carry['state_inner_sampler']
         )
         grad_inner_var = grad_inner_fun(
             carry['inner_var'], carry['outer_var'],
@@ -276,8 +275,8 @@ def ttsa_jax(f_inner, f_outer, inner_var, outer_var,
         carry['inner_var'] -= inner_lr * grad_inner_var
 
         # Step.3 - Compute implicit grad approximation with HIA
-        start_outer, carry['state_outer_sampler'] = outer_sampler(
-            **carry['state_outer_sampler']
+        start_outer, *_, carry['state_outer_sampler'] = outer_sampler(
+            carry['state_outer_sampler']
         )
         grad_in, grad_out = grad_outer_fun(
             carry['inner_var'], carry['outer_var'], start_outer
