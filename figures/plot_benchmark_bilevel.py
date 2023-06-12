@@ -24,14 +24,16 @@ mpl.rcParams.update({
 
 
 STYLES = {
-    '*': dict(lw=2),
+    '*': dict(lw=1.5),
 
     'amigo': dict(color='#5778a4', label=r'AmIGO'),
     'mrbo': dict(color='#e49444', label=r'MRBO'),
     'vrbo': dict(color='#e7ca60', label=r'VRBO'),
     'saba': dict(color='#d1615d', label=r'SABA'),
     'stocbio': dict(color='#85b6b2', label=r'StocBiO'),
-    'bio-sarah': dict(color='#6a9f58', label=r'\textbf{SRBA}', lw=2.5),
+    'srba': dict(color='#6a9f58', label=r'\textbf{SRBA}', lw=2),
+    'pzobo': dict(color='#17becf', label=r'PZOBO'),
+    'optuna': dict(color='#bcbd22', label=r'Optuna'),
 }
 
 N_CALLS = {
@@ -49,8 +51,7 @@ N_CALLS = {
     # Our solves
     'saba': (3, 2),
     'bio-svrg': (3, 2),
-    'bio-sarah': (3, 2),
-    # 'soba full batch': (3, 2),
+    'srba': (3, 2),
 }
 
 LEGEND_OUTSIDE = False
@@ -58,6 +59,27 @@ LEGEND_OUTSIDE = False
 DEFAULT_WIDTH = 3.25
 DEFAULT_DOUBLE_WIDTH = 6.75
 DEFAULT_HEIGHT = 2.
+
+
+def get_param(name, param='period_frac'):
+    params = {}
+    for vals in name.split("[", maxsplit=1)[1][:-1].split(","):
+        k, v = vals.split("=")
+        if v.replace(".", "").isnumeric():
+            params[k] = float(v)
+        else:
+            params[k] = v
+    return params[param]
+
+
+def drop_param(name, param='period_frac'):
+    params = {}
+    new_name = name.split("[", maxsplit=1)[0] + '['
+    for vals in name.split("[", maxsplit=1)[1][:-1].split(","):
+        k, v = vals.split("=")
+        if k != param:
+            new_name += f'{k}={v},'
+    return new_name[:-1] + ']'
 
 
 if __name__ == "__main__":
@@ -88,15 +110,15 @@ if __name__ == "__main__":
 
     BENCHMARKS_CONFIG = dict(
         ijcnn1=(
-            "ijcnn1_sarah_svrg_vrbo.parquet", 'objective_value_func',
+            "ijcnn1_resubmission_last.parquet", 'objective_value_func',
             'objective_value_func', ((1, 480), (0, 2e9)), 1e-4,
             r'Optimality ~$h(x^t) -h^*$', 'log', ('linear', 'linear'), None,
             64, 2**17, 49_990, 91_701
         ),
         datacleaning0_5=(
-            "datacleaning0_5_sarah_svrg_vrbo.parquet",
+            "datacleaning0_5_full_pzobo_optuna.parquet",
             'objective_value', 'objective_test_accuracy',
-            ((.05, 900), (2e4, 5e7)), None, 'Test error', 'log',
+            ((.1, 900), (2e4, 5e7)), None, 'Test error', 'log',
             ('log', 'log'), (None, 40), 64, 2**5, 20_000, 5_000
         ),
         datacleaning0_7=(
@@ -112,10 +134,10 @@ if __name__ == "__main__":
             ('log', 'log'), (None, 40), 64, 2**5, 20_000, 5_000
         ),
         covtype=(
-            "covtype_sarah_svrg.parquet",
+            "covtype_full_pzobo_optuna.parquet",
             'objective_value', 'objective_test_accuracy',
-            ((.1, 1200), (5e4, 1e8)), None, 'Test error', 'log',
-            ('log', 'log'), (27, 40), 512, 2**5, 371_847, 92_962
+            ((.01, 1200), (5e4, 1e8)), None, 'Test error', 'log',
+            ('log', 'log'), (27, 45), 512, 2**5, 371_847, 92_962
         ),
     )
 
@@ -135,12 +157,11 @@ if __name__ == "__main__":
         lambda x: x.split('[')[0].lower()
     )
     df['seed'] = df['solver_name'].apply(
-        lambda x: int(x.split(',')[-2].split("=")[-1])
+        lambda x: get_param(x, 'random_state')
     )
 
     df['solver_name'] = df['solver_name'].apply(
-        lambda x: x.split('[')[0] + '['
-        + ''.join([s + ',' for s in x.split(',')[1:-2]]) + x.split(',')[-1]
+        lambda x: drop_param(x, 'random_state')
     )
 
     # keep only runs all the random seeds
@@ -199,7 +220,7 @@ if __name__ == "__main__":
     if eps is not None:
         c_star = (
             df.groupby(['solver', 'stop_val'])
-            .median().loc[:, metric_plot].min() - eps
+            .median(numeric_only=True).loc[:, metric_plot].min() - eps
         )
 
     # if metric == 'objective_value':
