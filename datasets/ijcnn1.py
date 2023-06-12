@@ -5,7 +5,6 @@ with safe_import_context() as import_ctx:
     import numpy as np
     from benchmark_utils import oracles
     from libsvmdata import fetch_libsvm
-    from benchmark_utils.oracle_utils import get_oracle
     from benchmark_utils.oracle_utils import convert_array_framework
 
 
@@ -30,32 +29,19 @@ class Dataset(BaseDataset):
             if self.oracle == 'logreg':
                 X = convert_array_framework(X_train, framework)
                 y = convert_array_framework(y_train, framework)
-                oracle = get_oracle(
-                    oracles.LogisticRegressionOracle,
-                    X,
-                    y,
-                    framework=framework,
-                    get_fb=get_fb,
-                    reg=self.reg
-                )
+                oracle = oracles.LogisticRegressionOracle(X, y, reg=self.reg)
             else:
                 raise ValueError(f"Oracle {self.oracle} not supported.")
-            return oracle
+            return oracle.get_oracle(framework=framework, get_fb=get_fb)
 
         def get_outer_oracle(framework="none", get_fb=False):
             if self.oracle == 'logreg':
                 X = convert_array_framework(X_val, framework)
                 y = convert_array_framework(y_val, framework)
-                oracle = get_oracle(
-                    oracles.LogisticRegressionOracle,
-                    X,
-                    y,
-                    framework=framework,
-                    get_fb=get_fb
-                )
+                oracle = oracles.LogisticRegressionOracle(X, y)
             else:
                 raise ValueError(f"Oracle {self.oracle} not supported.")
-            return oracle
+            return oracle.get_oracle(framework=framework, get_fb=get_fb)
 
         def metrics(inner_var, outer_var):
             f_train = get_inner_oracle(framework="none")
