@@ -39,8 +39,7 @@ def hia_jax(
 
     def iter(i, args):
         state_sampler, v = args
-        print(v)
-        start_idx, state_sampler = sampler(**state_sampler)
+        start_idx, *_, state_sampler = sampler(state_sampler)
         v -= step_size * hvp(v, start_idx)
         return state_sampler, v
     state_sampler, v = jax.lax.fori_loop(0, p[0], iter, (state_sampler, v))
@@ -84,7 +83,7 @@ def shia_jax(
 
     def iter(i, args):
         state_sampler, v, s = args
-        start_idx, state_sampler = sampler(**state_sampler)
+        start_idx, *_, state_sampler = sampler(state_sampler)
         v -= step_size * hvp(v, start_idx)
         s += v
         return state_sampler, v, s
@@ -171,7 +170,7 @@ def sgd_v_jax(inner_var, outer_var, v, grad_out, state_sampler,
 
     def iter(i, args):
         state_sampler, v = args
-        start_idx, state_sampler = sampler(**state_sampler)
+        start_idx, *_, state_sampler = sampler(state_sampler)
         v -= step_size * (hvp(v, start_idx) - grad_out)
         return state_sampler, v
     state_sampler, v = jax.lax.fori_loop(0, n_steps, iter, (state_sampler, v))
@@ -229,7 +228,7 @@ def joint_shia_jax(
 
     def iter(i, args):
         state_sampler, v, s, v_old, s_old = args
-        start_idx, state_sampler = sampler(**state_sampler)
+        start_idx, *_, state_sampler = sampler(state_sampler)
         v -= step_size * hvp(v, start_idx)
         s += v
         v_old -= step_size * hvp_old(v_old, start_idx)
@@ -291,7 +290,7 @@ def joint_hia_jax(
 
     def iter(i, args):
         state_sampler, v, v_old = args
-        start_idx, state_sampler = sampler(**state_sampler)
+        start_idx, *_, state_sampler = sampler(state_sampler)
         v -= step_size * hvp(v, start_idx)
         v_old -= step_size * hvp_old(v_old, start_idx)
         return state_sampler, v, v_old

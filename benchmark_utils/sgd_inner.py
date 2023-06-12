@@ -21,7 +21,7 @@ def sgd_inner_jax(inner_var, outer_var, state_sampler, step_size,
 
     def iter(i, args):
         state_sampler, inner_var = args
-        start_idx, state_sampler = sampler(**state_sampler)
+        start_idx, *_, state_sampler = sampler(state_sampler)
         inner_var -= step_size * grad_inner(inner_var, outer_var, start_idx)
         return state_sampler, inner_var
     state_sampler, inner_var = jax.lax.fori_loop(0, n_steps, iter,
@@ -85,8 +85,8 @@ def sgd_inner_vrbo_jax(inner_var,
                        grad_inner_fun=None, grad_outer_fun=None):
     def iter(i, args):
         # Update inner direction
-        start_inner, args['state_inner_sampler'] = inner_sampler(
-            **args['state_inner_sampler']
+        start_inner, *_, args['state_inner_sampler'] = inner_sampler(
+            args['state_inner_sampler']
         )
         grad_inner, cross_v = jax.vjp(
             lambda x: grad_inner_fun(args['inner_var'], x, start_inner),
@@ -99,8 +99,8 @@ def sgd_inner_vrbo_jax(inner_var,
         args['d_inner'] += grad_inner - grad_inner_old
 
         # Update outer direction
-        start_outer, args['state_outer_sampler'] = outer_sampler(
-            **args['state_outer_sampler']
+        start_outer, *_, args['state_outer_sampler'] = outer_sampler(
+            args['state_outer_sampler']
         )
         grad_outer, impl_grad = grad_outer_fun(
             args['inner_var'], args['outer_var'], start_outer
