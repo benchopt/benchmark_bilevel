@@ -16,7 +16,6 @@ class Dataset(BaseDataset):
     requirements = ['pip:libsvmdata', 'scikit-learn']
 
     parameters = {
-        'oracle': ['logreg'],
         'reg': ['exp'],
         'n_reg': ['full'],
     }
@@ -26,22 +25,16 @@ class Dataset(BaseDataset):
         X_val, y_val = fetch_libsvm('ijcnn1_test')
 
         def get_inner_oracle(framework="none", get_full_batch=False):
-            if self.oracle == 'logreg':
-                X = convert_array_framework(X_train, framework)
-                y = convert_array_framework(y_train, framework)
-                oracle = oracles.LogisticRegressionOracle(X, y, reg=self.reg)
-            else:
-                raise ValueError(f"Oracle {self.oracle} not supported.")
+            X = convert_array_framework(X_train, framework)
+            y = convert_array_framework(y_train, framework)
+            oracle = oracles.LogisticRegressionOracle(X, y, reg=self.reg)
             return oracle.get_oracle(framework=framework,
                                      get_full_batch=get_full_batch)
 
         def get_outer_oracle(framework="none", get_full_batch=False):
-            if self.oracle == 'logreg':
-                X = convert_array_framework(X_val, framework)
-                y = convert_array_framework(y_val, framework)
-                oracle = oracles.LogisticRegressionOracle(X, y)
-            else:
-                raise ValueError(f"Oracle {self.oracle} not supported.")
+            X = convert_array_framework(X_val, framework)
+            y = convert_array_framework(y_val, framework)
+            oracle = oracles.LogisticRegressionOracle(X, y)
             return oracle.get_oracle(framework=framework,
                                      get_full_batch=get_full_batch)
 

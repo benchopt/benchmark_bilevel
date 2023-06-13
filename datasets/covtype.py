@@ -44,21 +44,15 @@ class Dataset(BaseDataset):
         def get_inner_oracle(framework="none", get_full_batch=False):
             X = convert_array_framework(X_train, framework)
             y = convert_array_framework(y_train, framework)
-            if self.oracle == 'multilogreg':
-                oracle = oracles.MultiLogRegOracle(X, y,
-                                                   reg=self.reg)
-            else:
-                raise ValueError(f"Oracle {self.oracle} not supported.")
+            oracle = oracles.MultiLogRegOracle(X, y,
+                                               reg=self.reg)
             return oracle.get_oracle(framework=framework,
                                      get_full_batch=get_full_batch)
 
         def get_outer_oracle(framework="none", get_full_batch=False):
             X = convert_array_framework(X_val, framework)
             y = convert_array_framework(y_val, framework)
-            if self.oracle == 'multilogreg':
-                oracle = oracles.MultiLogRegOracle(X, y, reg='none')
-            else:
-                raise ValueError(f"Oracle {self.oracle} not supported.")
+            oracle = oracles.MultiLogRegOracle(X, y, reg='none')
             return oracle.get_oracle(framework=framework,
                                      get_full_batch=get_full_batch)
 
