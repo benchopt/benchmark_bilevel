@@ -261,8 +261,8 @@ def fsla_jax(f_inner, f_outer, inner_var, outer_var, v, memory_outer,
         carry['inner_var'] -= inner_lr * grad_inner_var
 
         # Step.2 - SGD step on the auxillary variable v
-        start_inner2, carry['state_inner_sampler'] = inner_sampler(
-            **carry['state_inner_sampler']
+        start_inner2, *_, carry['state_inner_sampler'] = inner_sampler(
+            carry['state_inner_sampler']
         )
         _, hvp_fun = jax.vjp(
             lambda z: grad_inner_fun(z, carry['outer_var'], start_inner2),
@@ -280,8 +280,8 @@ def fsla_jax(f_inner, f_outer, inner_var, outer_var, v, memory_outer,
 
         # Step.3 - compute the implicit gradient estimates, for the old
         # and new variables
-        start_outer2, carry['state_outer_sampler'] = outer_sampler(
-            **carry['state_outer_sampler']
+        start_outer2, *_, carry['state_outer_sampler'] = outer_sampler(
+            carry['state_outer_sampler']
         )
         _, impl_grad = grad_outer_fun(
             carry['inner_var'], carry['outer_var'], start_outer2
@@ -289,8 +289,8 @@ def fsla_jax(f_inner, f_outer, inner_var, outer_var, v, memory_outer,
         _, impl_grad_old = grad_outer_fun(
             inner_var_old, carry['memory_outer'][0], start_outer2
         )
-        start_inner3, carry['state_inner_sampler'] = inner_sampler(
-            **carry['state_inner_sampler']
+        start_inner3, *_, carry['state_inner_sampler'] = inner_sampler(
+            carry['state_inner_sampler']
         )
         _, cross_v_fun = jax.vjp(
             lambda x: grad_inner_fun(carry['inner_var'], x, start_inner3),

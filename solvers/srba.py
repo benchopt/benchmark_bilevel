@@ -313,8 +313,10 @@ def srba_jax(f_inner, f_outer, f_inner_fb, f_outer_fb, inner_var, outer_var, v,
     def srba_directions(inner_var, outer_var, v, inner_var_old, outer_var_old,
                         v_old, d_inner, d_v, d_outer, state_inner_sampler,
                         state_outer_sampler):
-        start_inner, state_inner_sampler = inner_sampler(**state_inner_sampler)
-        start_outer, state_outer_sampler = outer_sampler(**state_outer_sampler)
+        start_inner, *_, state_inner_sampler = (
+            inner_sampler(state_inner_sampler))
+        start_outer, *_, state_outer_sampler = (
+            outer_sampler(state_outer_sampler))
         grad_inner_var, vjp_train = jax.vjp(
             lambda z, x: jax.grad(f_inner, argnums=0)(z, x, start_inner),
             inner_var, outer_var
