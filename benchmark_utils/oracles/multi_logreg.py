@@ -3,12 +3,16 @@ from sklearn.utils.extmath import safe_sparse_dot
 from sklearn.preprocessing import OneHotEncoder
 
 import scipy.special as sc
-from scipy.sparse import issparse
 from scipy.sparse import linalg as splinalg
 
 from .base import BaseOracle
 
 import warnings
+
+import jax
+import jax.numpy as jnp
+from functools import partial
+from jax.nn import logsumexp
 
 warnings.filterwarnings("error", category=RuntimeWarning)
 
@@ -28,6 +32,23 @@ def softmax_hvp(z, v):
     """
     prod = z * v
     return prod - z * np.sum(prod, axis=1, keepdims=True)
+
+
+@jax.jit
+def jax_loss_sample(inner_var_flat, outer_var, x, y):
+    n_classes = y.shape[0]
+    n_features = x.shape[0]
+    inner_var = inner_var_flat.reshape(n_features, n_classes)
+    prod = jnp.dot(x, inner_var)
+    lse = logsumexp(prod)
+    loss = -jnp.where(y == 1, prod, 0).sum() + lse
+    return loss
+
+
+@jax.jit
+def jax_loss(theta, lmbda, X, y):
+    batched_loss = jax.vmap(jax_loss_sample, in_axes=(None, None, 0, 0))
+    return jnp.mean(batched_loss(theta, lmbda, X, y), axis=0)
 
 
 class MultiLogRegOracle(BaseOracle):
@@ -55,8 +76,6 @@ class MultiLogRegOracle(BaseOracle):
 
         # Store info for other
         self.X = X
-        if not issparse(self.X):
-            self.X = np.ascontiguousarray(X)
         self.y = y.astype(np.float64)
         self.reg = reg
 
@@ -66,6 +85,44 @@ class MultiLogRegOracle(BaseOracle):
         self.variables_shape = np.array(
             [[self.n_features * self.n_classes], [self.n_classes]]
         )
+
+        if isinstance(self.X, jnp.ndarray):
+            @partial(jax.jit, static_argnames=('batch_size'))
+            def jax_oracle(inner_var, outer_var, start=0, batch_size=1):
+                x = jax.lax.dynamic_slice(
+                    self.X, (start, 0),
+                    (batch_size, self.X.shape[1])
+                )
+                y = jax.lax.dynamic_slice(
+                    self.y, (start, 0), (batch_size, self.y.shape[1]))
+                res = jax_loss(inner_var, outer_var, x, y)
+                if self.reg == 'exp':
+                    inner_var = inner_var.reshape(self.n_features,
+                                                  self.n_classes)
+                    reg = jnp.exp(outer_var)
+                    res += reg @ (inner_var * inner_var).sum(axis=0)/2
+                elif self.reg == 'lin':
+                    inner_var = inner_var.reshape(self.n_features,
+                                                  self.n_classes)
+                    res += outer_var @ (inner_var * inner_var).sum(axis=0)/2
+                return res
+
+            @jax.jit
+            def jax_oracle_fb(inner_var, outer_var):
+                res = jax_loss(inner_var, outer_var, self.X, self.y)
+                if self.reg == 'exp':
+                    inner_var = inner_var.reshape(self.n_features,
+                                                  self.n_classes)
+                    reg = jnp.exp(outer_var)
+                    res += reg @ (inner_var * inner_var).sum(axis=0)/2
+                elif self.reg == 'lin':
+                    inner_var = inner_var.reshape(self.n_features,
+                                                  self.n_classes)
+                    res += outer_var @ (inner_var * inner_var).sum(axis=0)/2
+                return res
+
+            self.jax_oracle = jax_oracle
+            self.jax_oracle_fb = jax_oracle_fb
 
     def value(self, theta_flat, lmbda, idx):
         x = self.X[idx]
@@ -229,6 +286,6 @@ class MultiLogRegOracle(BaseOracle):
     def accuracy(self, theta_flat, lmbda, x, y):
         if y.ndim == 2:
             y = y.argmax(axis=1)
-        theta = theta_flat.reshape(self.n_features, self.n_classes)
+        theta = np.array(theta_flat).reshape(self.n_features, self.n_classes)
         prod = x @ theta
         return np.mean(np.argmax(prod, axis=1) != y)

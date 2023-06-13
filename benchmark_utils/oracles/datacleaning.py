@@ -2,13 +2,16 @@ import numpy as np
 from sklearn.preprocessing import OneHotEncoder
 
 import scipy.special as sc
-from scipy.sparse import issparse
 from scipy.sparse import linalg as splinalg
 
 from .base import BaseOracle
 
-from benchopt.utils import profile
 import warnings
+
+import jax
+import jax.numpy as jnp
+from functools import partial
+from jax.nn import logsumexp, sigmoid
 
 warnings.filterwarnings("error", category=RuntimeWarning)
 
@@ -51,6 +54,23 @@ def datacleaning_oracle(X, Y, theta, Lbda, v, idx):
     return loss, grad_theta, grad_lbda, hvp, jvp
 
 
+@jax.jit
+def jax_loss_sample(inner_var_flat, outer_var, x, y):
+    n_classes = y.shape[0]
+    n_features = x.shape[0]
+    inner_var = inner_var_flat.reshape(n_features, n_classes)
+    prod = jnp.dot(x, inner_var)
+    lse = logsumexp(prod)
+    loss = -jnp.where(y == 1, prod, 0).sum() + lse
+    return sigmoid(outer_var) * loss
+
+
+@jax.jit
+def jax_loss(theta, lmbda, X, y):
+    batched_loss = jax.vmap(jax_loss_sample, in_axes=(None, 0, 0, 0))
+    return jnp.mean(batched_loss(theta, lmbda, X, y), axis=0)
+
+
 class DataCleaningOracle(BaseOracle):
     """Class defining the oracles for datacleaning
 
@@ -73,8 +93,6 @@ class DataCleaningOracle(BaseOracle):
 
         # Store info for other
         self.X = X
-        if not issparse(self.X):
-            self.X = np.ascontiguousarray(X)
         self.y = y.astype(np.float64)
 
         # attributes
@@ -84,6 +102,27 @@ class DataCleaningOracle(BaseOracle):
             [[self.n_features * self.n_classes], [self.n_samples]]
         )
         self.reg = reg
+        if isinstance(self.X, jnp.ndarray):
+            @partial(jax.jit, static_argnames=('batch_size'))
+            def jax_oracle(inner_var, outer_var, start=0, batch_size=1):
+                x = jax.lax.dynamic_slice(
+                    self.X, (start, 0),
+                    (batch_size, self.X.shape[1])
+                )
+                y = jax.lax.dynamic_slice(
+                    self.y, (start, 0), (batch_size, self.y.shape[1]))
+                outer_var_batch = jax.lax.dynamic_slice(
+                    outer_var, (start, ), (batch_size,))
+                res = jax_loss(inner_var, outer_var_batch, x, y)
+                return res + self.reg * jnp.dot(inner_var, inner_var)
+
+            @jax.jit
+            def jax_oracle_fb(inner_var, outer_var):
+                res = jax_loss(inner_var, outer_var, self.X, self.y)
+                return res + self.reg * jnp.dot(inner_var, inner_var)
+
+            self.jax_oracle = jax_oracle
+            self.jax_oracle_fb = jax_oracle_fb
 
     def value(self, theta_flat, lmbda, idx):
         theta = theta_flat.reshape(self.n_features, self.n_classes)
@@ -205,7 +244,6 @@ class DataCleaningOracle(BaseOracle):
             print("CG did not converge to the desired precision")
         return Hv
 
-    @profile
     def oracles(self, theta_flat, lmbda, v_flat, idx, inverse="id"):
         """Returns the value, the gradient,"""
         theta = theta_flat.reshape(self.n_features, self.n_classes)

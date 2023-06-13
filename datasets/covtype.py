@@ -5,9 +5,9 @@ with safe_import_context() as import_ctx:
     import numpy as np
     from benchmark_utils import oracles
     from sklearn.datasets import fetch_covtype
-    from benchmark_utils.oracle_utils import get_oracle
     from sklearn.preprocessing import StandardScaler
     from sklearn.model_selection import train_test_split
+    from benchmark_utils.oracle_utils import convert_array_framework
 
 
 class Dataset(BaseDataset):
@@ -42,31 +42,23 @@ class Dataset(BaseDataset):
         X_val = scaler.transform(X_val)
 
         def get_inner_oracle(framework="none", get_fb=False):
+            X = convert_array_framework(X_train, framework)
+            y = convert_array_framework(y_train, framework)
             if self.oracle == 'multilogreg':
-                oracle = get_oracle(
-                    oracles.MultiLogRegOracle,
-                    X_train,
-                    y_train,
-                    framework=framework,
-                    get_fb=get_fb,
-                    reg=self.reg
-                )
+                oracle = oracles.MultiLogRegOracle(X, y,
+                                                   reg=self.reg)
             else:
                 raise ValueError(f"Oracle {self.oracle} not supported.")
-            return oracle
+            return oracle.get_oracle(framework=framework, get_fb=get_fb)
 
         def get_outer_oracle(framework="none", get_fb=False):
+            X = convert_array_framework(X_val, framework)
+            y = convert_array_framework(y_val, framework)
             if self.oracle == 'multilogreg':
-                oracle = get_oracle(
-                    oracles.MultiLogRegOracle,
-                    X_val,
-                    y_val,
-                    framework=framework,
-                    get_fb=get_fb,
-                )
+                oracle = oracles.MultiLogRegOracle(X, y, reg='none')
             else:
                 raise ValueError(f"Oracle {self.oracle} not supported.")
-            return oracle
+            return oracle.get_oracle(framework=framework, get_fb=get_fb)
 
         def metrics(inner_var, outer_var):
             f_val = get_outer_oracle(framework="none")

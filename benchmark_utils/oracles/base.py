@@ -111,6 +111,17 @@ class BaseOracle(ABC):
             raise RuntimeError()
         return inner_var_star
 
+    def get_oracle(self, framework='none', get_fb=False):
+        if framework == 'none':
+            return self
+        elif framework == 'jax':
+            if get_fb:
+                return self.jax_oracle, self.jax_oracle_fb
+            else:
+                return self.jax_oracle
+        elif framework == 'numba':
+            return self.numba_oracle
+
     def __getattr__(self, name):
         # construct get_* and get_batch_* for all methods in this list:
 

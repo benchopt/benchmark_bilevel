@@ -492,14 +492,3 @@ class LogisticRegressionOracle(BaseOracle):
     def lipschitz_inner(self, theta, lmbda):
         Hop = _get_hvp_op(self.X, self.y, theta, self.reg, lmbda)
         return svds(Hop, k=1, return_singular_vectors=False)
-
-    def get_oracle(self, framework='none', get_fb=False):
-        if framework == 'none':
-            return self
-        elif framework == 'jax':
-            if get_fb:
-                return self.jax_oracle, self.jax_oracle_fb
-            else:
-                return self.jax_oracle
-        elif framework == 'numba':
-            return self.numba_oracle
