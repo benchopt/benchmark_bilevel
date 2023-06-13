@@ -92,10 +92,10 @@ class Solver(BaseSolver):
             self.LearningRateScheduler = LearningRateScheduler
         elif self.framework == 'jax':
             self.f_inner, self.f_inner_fb = f_train(
-                framework=self.framework, get_fb=True
+                framework=self.framework, get_full_batch=True
             )
             self.f_outer, self.f_outer_fb = f_val(
-                framework=self.framework, get_fb=True
+                framework=self.framework, get_full_batch=True
             )
             self.f_inner = jax.jit(
                 partial(self.f_inner, batch_size=self.batch_size_inner)

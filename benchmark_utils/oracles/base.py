@@ -111,11 +111,11 @@ class BaseOracle(ABC):
             raise RuntimeError()
         return inner_var_star
 
-    def get_oracle(self, framework='none', get_fb=False):
+    def get_oracle(self, framework='none', get_full_batch=False):
         if framework == 'none':
             return self
         elif framework == 'jax':
-            if get_fb:
+            if get_full_batch:
                 return self.jax_oracle, self.jax_oracle_fb
             else:
                 return self.jax_oracle
