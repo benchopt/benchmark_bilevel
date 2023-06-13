@@ -17,6 +17,7 @@ with safe_import_context() as import_ctx:
     from benchmark_utils.minibatch_sampler import MinibatchSampler
     from benchmark_utils.minibatch_sampler import spec as mbs_spec
     from benchmark_utils.hessian_approximation import joint_shia_jax
+    from benchmark_utils.learning_rate_scheduler import init_lr_scheduler
     from benchmark_utils.hessian_approximation import shia_fb, joint_shia
     from benchmark_utils.learning_rate_scheduler import spec as sched_spec
     from benchmark_utils.learning_rate_scheduler import LearningRateScheduler
@@ -192,8 +193,7 @@ class Solver(BaseSolver):
                 ]
             )
             exponents = jnp.zeros(3)
-            state_lr = dict(constants=step_sizes, exponents=exponents,
-                            i_step=0)
+            state_lr = init_lr_scheduler(step_sizes, exponents)
             carry = dict(
                 state_lr=state_lr,
                 state_inner_sampler=self.state_inner_sampler,

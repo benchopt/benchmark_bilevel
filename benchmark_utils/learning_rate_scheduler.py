@@ -53,3 +53,12 @@ def update_lr(state):
     lr = state['constants'] / ((state['i_step'] + 1) ** state['exponents'])
     state['i_step'] += 1
     return lr, state
+
+
+def init_lr_scheduler(constants, exponents):
+    """Initialize a learning rate scheduler."""
+    return {
+        'i_step': 0,
+        'constants': constants,
+        'exponents': exponents
+    }

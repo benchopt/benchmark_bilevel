@@ -16,6 +16,7 @@ with safe_import_context() as import_ctx:
     from benchmark_utils.sgd_inner import sgd_inner, sgd_inner_jax
     from benchmark_utils.minibatch_sampler import spec as mbs_spec
     from benchmark_utils.hessian_approximation import shia, shia_jax
+    from benchmark_utils.learning_rate_scheduler import init_lr_scheduler
     from benchmark_utils.learning_rate_scheduler import spec as sched_spec
     from benchmark_utils.learning_rate_scheduler import LearningRateScheduler
     from benchmark_utils.oracles import MultiLogRegOracle, DataCleaningOracle
@@ -153,8 +154,7 @@ class Solver(BaseSolver):
                  self.step_size / self.outer_ratio]
             )
             exponents = jnp.zeros(3)
-            state_lr = dict(constants=step_sizes, exponents=exponents,
-                            i_step=0)
+            state_lr = init_lr_scheduler(step_sizes, exponents)
 
             # Start algorithm
             inner_var, self.state_inner_sampler = self.sgd_inner(
