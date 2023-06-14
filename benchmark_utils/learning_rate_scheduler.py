@@ -56,7 +56,7 @@ def update_lr(state):
 
 
 def init_lr_scheduler(constants, exponents):
-    """Initialize a learning rate scheduler."""
+    """Initialize a state of the learning rate scheduler."""
     return {
         'i_step': 0,
         'constants': constants,

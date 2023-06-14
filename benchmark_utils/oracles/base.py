@@ -130,7 +130,7 @@ class BaseOracle(ABC):
 
         Returns
         -------
-        oracle : Oracle class of func
+        oracle : Oracle class of callable
             The oracle in the desired framework. If framewors is 'none' or
             'numba', returns an Oracle class. If framework is 'jax', returns a
             differentiable function.
