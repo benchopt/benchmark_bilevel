@@ -21,7 +21,7 @@ class Dataset(BaseDataset):
         'oracle': ['multilogreg'],
         'reg': ['exp'],
         'n_reg': ['full'],
-        'random_state': [2442]
+        'random_state': [2442],
     }
 
     def get_data(self):
@@ -76,7 +76,7 @@ class Dataset(BaseDataset):
         data = dict(
             get_inner_oracle=get_inner_oracle,
             get_outer_oracle=get_outer_oracle,
-            oracle=self.oracle,
+            oracle='multilogreg',
             metrics=metrics,
             n_reg=self.n_reg,
         )

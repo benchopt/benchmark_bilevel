@@ -18,6 +18,7 @@ class Dataset(BaseDataset):
     parameters = {
         'reg': ['exp'],
         'n_reg': ['full'],
+        'oracle': ['logreg'],
     }
 
     def get_data(self):
@@ -61,7 +62,7 @@ class Dataset(BaseDataset):
         data = dict(
             get_inner_oracle=get_inner_oracle,
             get_outer_oracle=get_outer_oracle,
-            oracle=self.oracle,
+            oracle='logreg',
             metrics=metrics,
             n_reg=self.n_reg,
         )

@@ -5,9 +5,6 @@ with safe_import_context() as import_ctx:
     import numpy as np
     from sklearn.utils import check_random_state
 
-    import jax
-    jax.config.update("jax_enable_x64", True)
-
 
 class Objective(BaseObjective):
     name = "Bilevel Optimization"

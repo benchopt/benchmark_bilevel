@@ -344,23 +344,38 @@ class LogisticRegressionOracle(BaseOracle):
         self.y = y.astype(np.float64)
         self.reg = reg
 
-        # Create a numba oracle and jax loss
-        if isinstance(self.X, jnp.ndarray):
-            @partial(jax.jit, static_argnames=('batch_size'))
-            def jax_oracle(inner_var, outer_var, start=0, batch_size=1):
-                x = jax.lax.dynamic_slice(
-                    self.X, (start, 0),
-                    (batch_size, self.X.shape[1])
-                )
-                y = jax.lax.dynamic_slice(
-                    self.y, (start, ), (batch_size, ))
-                res = jax_loss(inner_var, outer_var, x, y)
-                if self.reg == 'exp':
-                    res += jnp.dot(jnp.exp(outer_var) * inner_var, inner_var)/2
-                elif self.reg == 'lin':
-                    res += jnp.dot(outer_var * inner_var, inner_var)/2
-                return res
+        # attributes
+        self.n_samples, self.n_features = X.shape
+        self.variables_shape = np.array([
+            [self.n_features], [self.n_features]
+        ])
 
+        # else:
+        #     if not sparse.issparse(self.X):
+        #         self.numba_oracle = LogisticRegressionOracleNumba(
+        #             np.ascontiguousarray(self.X), self.y, self.reg
+        #         )
+
+    def _get_jax_oracle(self, get_full_batch=False):
+        if sparse.issparse(self.X):
+            raise "Jax does not support sparse matrices"
+
+        @partial(jax.jit, static_argnames=('batch_size'))
+        def jax_oracle(inner_var, outer_var, start=0, batch_size=1):
+            x = jax.lax.dynamic_slice(
+                self.X, (start, 0),
+                (batch_size, self.X.shape[1])
+            )
+            y = jax.lax.dynamic_slice(
+                self.y, (start, ), (batch_size, ))
+            res = jax_loss(inner_var, outer_var, x, y)
+            if self.reg == 'exp':
+                res += jnp.dot(jnp.exp(outer_var) * inner_var, inner_var)/2
+            elif self.reg == 'lin':
+                res += jnp.dot(outer_var * inner_var, inner_var)/2
+            return res
+
+        if get_full_batch:
             @jax.jit
             def jax_oracle_fb(inner_var, outer_var):
                 res = jax_loss(inner_var, outer_var, self.X, self.y)
@@ -369,20 +384,16 @@ class LogisticRegressionOracle(BaseOracle):
                 elif self.reg == 'lin':
                     res += jnp.dot(outer_var * inner_var, inner_var)/2
                 return res
-
-            self.jax_oracle = jax_oracle
-            self.jax_oracle_fb = jax_oracle_fb
+            return jax_oracle, jax_oracle_fb
         else:
-            if not sparse.issparse(self.X):
-                self.numba_oracle = LogisticRegressionOracleNumba(
-                    np.ascontiguousarray(self.X), self.y, self.reg
-                )
+            return jax_oracle
 
-        # attributes
-        self.n_samples, self.n_features = X.shape
-        self.variables_shape = np.array([
-            [self.n_features], [self.n_features]
-        ])
+    def _get_numba_oracle(self):
+        if sparse.issparse(self.X):
+            raise "Numba does not support sparse matrices"
+        return LogisticRegressionOracleNumba(
+            np.ascontiguousarray(self.X), self.y, self.reg
+        )
 
     def value(self, theta, lmbda, idx):
         x = self.X[idx]

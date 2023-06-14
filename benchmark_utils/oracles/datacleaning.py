@@ -1,6 +1,7 @@
 import numpy as np
 from sklearn.preprocessing import OneHotEncoder
 
+from scipy import sparse
 import scipy.special as sc
 from scipy.sparse import linalg as splinalg
 
@@ -102,27 +103,35 @@ class DataCleaningOracle(BaseOracle):
             [[self.n_features * self.n_classes], [self.n_samples]]
         )
         self.reg = reg
-        if isinstance(self.X, jnp.ndarray):
-            @partial(jax.jit, static_argnames=('batch_size'))
-            def jax_oracle(inner_var, outer_var, start=0, batch_size=1):
-                x = jax.lax.dynamic_slice(
-                    self.X, (start, 0),
-                    (batch_size, self.X.shape[1])
-                )
-                y = jax.lax.dynamic_slice(
-                    self.y, (start, 0), (batch_size, self.y.shape[1]))
-                outer_var_batch = jax.lax.dynamic_slice(
-                    outer_var, (start, ), (batch_size,))
-                res = jax_loss(inner_var, outer_var_batch, x, y)
-                return res + self.reg * jnp.dot(inner_var, inner_var)
 
+    def _get_numba_oracle(self):
+        raise "Numba not available for this oracle"
+
+    def _get_jax_oracle(self, get_full_batch=False):
+        if sparse.issparse(self.X):
+            raise "Jax does not support sparse matrices"
+
+        @partial(jax.jit, static_argnames=('batch_size'))
+        def jax_oracle(inner_var, outer_var, start=0, batch_size=1):
+            x = jax.lax.dynamic_slice(
+                self.X, (start, 0),
+                (batch_size, self.X.shape[1])
+            )
+            y = jax.lax.dynamic_slice(
+                self.y, (start, 0), (batch_size, self.y.shape[1]))
+            outer_var_batch = jax.lax.dynamic_slice(
+                outer_var, (start, ), (batch_size,))
+            res = jax_loss(inner_var, outer_var_batch, x, y)
+            return res + self.reg * jnp.dot(inner_var, inner_var)
+
+        if get_full_batch:
             @jax.jit
             def jax_oracle_fb(inner_var, outer_var):
                 res = jax_loss(inner_var, outer_var, self.X, self.y)
                 return res + self.reg * jnp.dot(inner_var, inner_var)
-
-            self.jax_oracle = jax_oracle
-            self.jax_oracle_fb = jax_oracle_fb
+            return jax_oracle, jax_oracle_fb
+        else:
+            return jax_oracle
 
     def value(self, theta_flat, lmbda, idx):
         theta = theta_flat.reshape(self.n_features, self.n_classes)

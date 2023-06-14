@@ -111,6 +111,14 @@ class BaseOracle(ABC):
             raise RuntimeError()
         return inner_var_star
 
+    @abstractmethod
+    def _get_numba_oracle(self):
+        pass
+
+    @abstractmethod
+    def _get_jax_oracle(self, get_full_batch=False):
+        pass
+
     def get_oracle(self, framework='none', get_full_batch=False):
         """
         Returns the oracle in the desired framework.
@@ -138,12 +146,9 @@ class BaseOracle(ABC):
         if framework == 'none':
             return self
         elif framework == 'jax':
-            if get_full_batch:
-                return self.jax_oracle, self.jax_oracle_fb
-            else:
-                return self.jax_oracle
+            return self._get_jax_oracle(get_full_batch=get_full_batch)
         elif framework == 'numba':
-            return self.numba_oracle
+            return self._get_numba_oracle()
 
     def __getattr__(self, name):
         # construct get_* and get_batch_* for all methods in this list:

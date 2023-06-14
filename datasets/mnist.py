@@ -57,6 +57,7 @@ class Dataset(BaseDataset):
     parameters = {
         'ratio': [0.5, 0.7, 0.9],
         'random_state': [32],
+        'oracle': ['datacleaning'],
     }
 
     def get_data(self):
@@ -122,7 +123,7 @@ class Dataset(BaseDataset):
         data = dict(
             get_inner_oracle=get_inner_oracle,
             get_outer_oracle=get_outer_oracle,
-            oracle=self.oracle,
+            oracle='datacleaning',
             metrics=metrics,
             n_reg=None
         )
