@@ -112,6 +112,29 @@ class BaseOracle(ABC):
         return inner_var_star
 
     def get_oracle(self, framework='none', get_full_batch=False):
+        """
+        Returns the oracle in the desired framework.
+
+        Parameters
+        ----------
+        framework : str, default='none'
+            The framework in which the oracle should be returned. Should be in
+            ['none', 'jax', 'numba'].
+        get_full_batch : bool, default=False
+            If False, returns the oracle with the batch size defined in
+            __init__.
+            If True, returns a tuple (oracle, oracle_fb) where oracle is the
+            oracle with the batch size defined in __init__ and oracle_fb is the
+            oracle with a batch size equal to the number of samples. It is
+            useful only for the jax framework.
+
+        Returns
+        -------
+        oracle : Oracle class of func
+            The oracle in the desired framework. If framewors is 'none' or
+            'numba', returns an Oracle class. If framework is 'jax', returns a
+            differentiable function.
+        """
         if framework == 'none':
             return self
         elif framework == 'jax':
