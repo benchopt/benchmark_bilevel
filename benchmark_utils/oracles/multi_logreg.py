@@ -88,11 +88,12 @@ class MultiLogRegOracle(BaseOracle):
         )
 
     def _get_numba_oracle(self):
-        raise "Numba not available for this oracle"
+        raise NotImplementedError("No Numba implementation for datacleaning  "
+                                  + "oracle available")
 
     def _get_jax_oracle(self, get_full_batch=False):
         if sparse.issparse(self.X):
-            raise "Jax does not support sparse matrices"
+            raise ValueError("X should not be sparse")
 
         @partial(jax.jit, static_argnames=('batch_size'))
         def jax_oracle(inner_var, outer_var, start=0, batch_size=1):

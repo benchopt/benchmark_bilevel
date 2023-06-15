@@ -358,7 +358,7 @@ class LogisticRegressionOracle(BaseOracle):
 
     def _get_jax_oracle(self, get_full_batch=False):
         if sparse.issparse(self.X):
-            raise "Jax does not support sparse matrices"
+            raise ValueError("X should not be sparse")
 
         @partial(jax.jit, static_argnames=('batch_size'))
         def jax_oracle(inner_var, outer_var, start=0, batch_size=1):
@@ -390,7 +390,7 @@ class LogisticRegressionOracle(BaseOracle):
 
     def _get_numba_oracle(self):
         if sparse.issparse(self.X):
-            raise "Numba does not support sparse matrices"
+            raise ValueError("X should not be sparse")
         return LogisticRegressionOracleNumba(
             np.ascontiguousarray(self.X), self.y, self.reg
         )
