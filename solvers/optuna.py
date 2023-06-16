@@ -16,17 +16,21 @@ class Solver(BaseSolver):
 
     install_cmd = 'conda'
     requirements = ['pip:optuna']
+    parameters = {
+        'random_state': [1],
+    }
 
     @staticmethod
     def get_next(stop_val):
         return stop_val + 1
 
-    def set_objective(self, f_train, f_val, inner_var0, outer_var0):
+    def set_objective(self, f_train, f_val, n_inner_samples, n_outer_samples,
+                      inner_var0, outer_var0):
         self.inner_var0 = inner_var0
         self.outer_var0 = outer_var0
 
-        self.f_inner = f_train(framework=None)
-        self.f_outer = f_val(framework=None)
+        self.f_inner = f_train(framework='none')
+        self.f_outer = f_val(framework='none')
 
     def run(self, n_iter):
         optuna.logging.set_verbosity(optuna.logging.WARNING)
@@ -45,7 +49,8 @@ class Solver(BaseSolver):
                 inner_var = self.f_inner.get_inner_var_star(outer_var)
                 return self.f_outer.get_value(inner_var, outer_var)
 
-            study = optuna.create_study(direction='minimize')
+            sampler = optuna.samplers.TPESampler(seed=self.random_state)
+            study = optuna.create_study(direction='minimize', sampler=sampler)
             study.optimize(obj_optuna, n_trials=n_iter)
             trial = study.best_trial
             outer_var = np.array(list(trial.params.values())).reshape(

@@ -44,7 +44,6 @@ class Objective(BaseObjective):
             # XXX: Try random inits
 
     def compute(self, beta):
-
         inner_var, outer_var = beta
 
         if np.isnan(outer_var).any():
@@ -56,6 +55,8 @@ class Objective(BaseObjective):
         return dict(
             f_train=self.get_inner_oracle,
             f_val=self.get_outer_oracle,
+            n_inner_samples=self.get_inner_oracle().n_samples,
+            n_outer_samples=self.get_outer_oracle().n_samples,
             inner_var0=self.inner_var0,
             outer_var0=self.outer_var0,
         )
