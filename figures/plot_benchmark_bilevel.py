@@ -73,7 +73,6 @@ def get_param(name, param='period_frac'):
 
 
 def drop_param(name, param='period_frac'):
-    params = {}
     new_name = name.split("[", maxsplit=1)[0] + '['
     for vals in name.split("[", maxsplit=1)[1][:-1].split(","):
         k, v = vals.split("=")
