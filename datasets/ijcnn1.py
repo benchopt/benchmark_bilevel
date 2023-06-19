@@ -29,15 +29,15 @@ class Dataset(BaseDataset):
             X = convert_array_framework(X_train, framework)
             y = convert_array_framework(y_train, framework)
             oracle = oracles.LogisticRegressionOracle(X, y, reg=self.reg)
-            return oracle.get_oracle(framework=framework,
-                                     get_full_batch=get_full_batch)
+            return oracle.get_framework(framework=framework,
+                                        get_full_batch=get_full_batch)
 
         def get_outer_oracle(framework="none", get_full_batch=False):
             X = convert_array_framework(X_val, framework)
             y = convert_array_framework(y_val, framework)
             oracle = oracles.LogisticRegressionOracle(X, y)
-            return oracle.get_oracle(framework=framework,
-                                     get_full_batch=get_full_batch)
+            return oracle.get_framework(framework=framework,
+                                        get_full_batch=get_full_batch)
 
         def metrics(inner_var, outer_var):
             f_train = get_inner_oracle(framework="none")

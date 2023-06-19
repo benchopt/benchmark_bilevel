@@ -119,7 +119,7 @@ class BaseOracle(ABC):
     def _get_jax_oracle(self, get_full_batch=False):
         pass
 
-    def get_oracle(self, framework='none', get_full_batch=False):
+    def get_framework(self, framework='none', get_full_batch=False):
         """
         Returns the oracle in the desired framework.
 
