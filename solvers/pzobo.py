@@ -59,8 +59,8 @@ class Solver(BaseSolver):
 
     def set_objective(self, f_train, f_val, n_inner_samples, n_outer_samples,
                       inner_var0, outer_var0):
-        self.f_inner = f_train(framework=self.framework, get_fb=True)
-        self.f_outer = f_val(framework=self.framework, get_fb=True)
+        self.f_inner = f_train(framework=self.framework, get_full_batch=True)
+        self.f_outer = f_val(framework=self.framework, get_full_batch=True)
 
         if self.framework == 'numba':
             # JIT necessary functions and classes
