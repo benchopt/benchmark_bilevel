@@ -1,18 +1,22 @@
 objective:
-  - Bilevel Optimization[model=logreg,n_reg=full,numba=True,reg=exp,task=classif]
+  - Bilevel Optimization
 dataset:
   - ijcnn1
 solver:
-  - AmIGO[batch_size=[64],n_inner_step=[10],eval_freq=[131072],step_size=[0.03125, 0.0625, 0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0],outer_ratio=[0.01, 0.03162277660168379, 0.1, 0.31622776601683794, 1.0, 3.1622776601683795, 10.0]]
-  - BSA[batch_size=[64],n_inner_step=[10],n_hia_step=[10],eval_freq=[131072],step_size=[0.03125, 0.0625, 0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0],outer_ratio=[0.01, 0.03162277660168379, 0.1, 0.31622776601683794, 1.0, 3.1622776601683795, 10.0]]
-  - FSLA[batch_size=[64],eval_freq=[131072],step_size=[0.03125, 0.0625, 0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0],outer_ratio=[0.01, 0.03162277660168379, 0.1, 0.31622776601683794, 1.0, 3.1622776601683795, 10.0]]
-  - MRBO[batch_size=[64],n_hia_step=[10],eta=[0.5],eval_freq=[131072],step_size=[0.03125, 0.0625, 0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0],outer_ratio=[0.01, 0.03162277660168379, 0.1, 0.31622776601683794, 1.0, 3.1622776601683795, 10.0]]
-  - SABA[batch_size=[64],eval_freq=[131072],step_size=[0.03125, 0.0625, 0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0],outer_ratio=[0.01, 0.03162277660168379, 0.1, 0.31622776601683794, 1.0, 3.1622776601683795, 10.0]]
-  - SOBA[batch_size=[64, 'full'],eval_freq=[131072],step_size=[0.03125, 0.0625, 0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0],outer_ratio=[0.01, 0.03162277660168379, 0.1, 0.31622776601683794, 1.0, 3.1622776601683795, 10.0]]
-  - StocBiO[batch_size=[64],n_inner_step=[10],n_shia_steps=[10],eval_freq=[131072],step_size=[0.03125, 0.0625, 0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0],outer_ratio=[0.01, 0.03162277660168379, 0.1, 0.31622776601683794, 1.0, 3.1622776601683795, 10.0]]
-  - SUSTAIN[batch_size=[64],n_hia_step=[10],eta=[0.5],eval_freq=[131072],step_size=[0.03125, 0.0625, 0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0],outer_ratio=[0.01, 0.03162277660168379, 0.1, 0.31622776601683794, 1.0, 3.1622776601683795, 10.0]]
-  - TTSA[batch_size=[64],n_hia_step=[10],eval_freq=[131072],step_size=[0.03125, 0.0625, 0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0],outer_ratio=[0.01, 0.03162277660168379, 0.1, 0.31622776601683794, 1.0, 3.1622776601683795, 10.0]]
-n-repetitions: 10
+  - BSA[batch_size=64,n_inner_steps=10,n_hia_steps=10,eval_freq=131072,step_size=[0.0625, 0.03125, 0.125, 0.25, 0.5],outer_ratio=[0.01, 0.03162277660168379, 0.1, 0.31622776601683794, 1.0],random_state=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],framework=numba]
+  - FSLA[batch_size=64,eval_freq=131072,step_size=[0.0625, 0.03125, 0.125, 0.25, 0.5],outer_ratio=[0.01, 0.03162277660168379, 0.1, 0.31622776601683794, 1.0],random_state=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],framework=numba]
+  - SOBA[batch_size=64,eval_freq=131072,step_size=[0.0625, 0.03125, 0.125, 0.25, 0.5],outer_ratio=[0.01, 0.03162277660168379, 0.1, 0.31622776601683794, 1.0],random_state=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],framework=numba]
+  - SUSTAIN[batch_size=64,n_hia_steps=10,eta=[0.5],eval_freq=131072,step_size=[0.0625, 0.03125, 0.125, 0.25, 0.5],outer_ratio=[0.01, 0.03162277660168379, 0.1, 0.31622776601683794, 1.0],random_state=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],framework=numba]
+  - TTSA[batch_size=64,n_hia_steps=10,eval_freq=131072,step_size=[0.0625, 0.03125, 0.125, 0.25, 0.5],outer_ratio=[0.01, 0.03162277660168379, 0.1, 0.31622776601683794, 1.0],random_state=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],framework=numba]
+  - AmIGO[batch_size=64,eval_freq=131072,n_inner_steps=10,outer_ratio=[0.01, 0.03162277660168379, 0.1, 0.31622776601683794, 1.0],step_size=[0.125, 0.25, 0.5, 1.0, 2.0],random_state=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],framework=numba]
+  - StocBiO[batch_size=64,eval_freq=131072,n_inner_steps=10,n_shia_steps=10,outer_ratio=[0.01, 0.03162277660168379, 0.1, 0.31622776601683794, 1.0],step_size=[0.125, 0.25, 0.5, 1.0, 2.0],random_state=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],framework=numba]
+  - SABA[batch_size=64,eval_freq=131072,outer_ratio=[0.01, 0.03162277660168379, 0.1, 0.31622776601683794, 1.0],step_size=[0.125, 0.25, 0.5, 1.0, 2.0],random_state=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],framework=numba]
+  - MRBO[batch_size=64,eta=0.5,eval_freq=131072,n_shia_steps=10,outer_ratio=[0.01, 0.03162277660168379, 0.1, 0.31622776601683794, 1.0],step_size=[0.125, 0.25, 0.5, 1.0, 2.0],random_state=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],framework=numba]
+  - SRBA[batch_size=64,period_frac=[0.5, 8.,64.,512.],eval_freq=131072,step_size=[0.125, 0.25, 0.5, 1.0, 2.0],outer_ratio=[0.01, 0.03162277660168379, 0.1, 0.31622776601683794, 1.0],random_state=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],framework=numba]
+  - VRBO[batch_size=64,period_frac=[.5,8.,64.,512.],n_shia_steps=10,eval_freq=131072,step_size=[0.0625, 0.03125, 0.125, 0.25, 0.5],outer_ratio=[0.01, 0.03162277660168379, 0.1, 0.31622776601683794, 1.0],random_state=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],framework=numba]
+  - Optuna[random_state=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]]
+  - PZOBO[eval_freq=1,outer_ratio=[0.01, 0.03162277660168379, 0.1, 0.31622776601683794, 1.0],step_size=[0.0625, 0.03125, 0.125, 0.25, 0.5], random_state=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10], mu=[.01, .1], n_gaussian_vectors=[1, 10],random_state=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],framework=numba]
+n-repetitions: 1
 max-runs: 1500
-timeout: 8000
+timeout: 900
 output: ijcnn1
