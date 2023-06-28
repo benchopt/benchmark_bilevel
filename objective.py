@@ -9,7 +9,7 @@ with safe_import_context() as import_ctx:
 class Objective(BaseObjective):
     name = "Bilevel Optimization"
 
-    min_benchopt_version = "1.2.1"
+    min_benchopt_version = "1.3.2"
 
     parameters = {
         'random_state': [2442]
