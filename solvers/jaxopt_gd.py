@@ -63,7 +63,7 @@ class Solver(BaseSolver):
                     fun=f, maxiter=n_steps, implicit_diff=True,
                 )
             else:
-                raise ValueError(f"Inner solver {self.inner_solver} not" 
+                raise ValueError(f"Inner solver {self.inner_solver} not"
                                  + "available")
             return solver.run(inner_var, outer_var).params
 

@@ -60,7 +60,7 @@ class Solver(BaseSolver):
                     acceleration=False, unroll=True
                 )
             else:
-                raise ValueError(f"Inner solver {self.inner_solver} not" 
+                raise ValueError(f"Inner solver {self.inner_solver} not"
                                  + "available")
             return solver.run(inner_var, outer_var).params
 
