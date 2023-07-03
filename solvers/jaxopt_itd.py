@@ -59,10 +59,9 @@ class Solver(BaseSolver):
                     fun=f, maxiter=n_steps, implicit_diff=False,
                     acceleration=False, unroll=True
                 )
-            elif self.inner_solver == 'lbfgs':
-                solver = jaxopt.LBFGS(
-                    fun=f, maxiter=n_steps, implicit_diff=False, unroll=True
-                )
+            else:
+                raise ValueError(f"Inner solver {self.inner_solver} not" 
+                                 + "available")
             return solver.run(inner_var, outer_var).params
 
         self.inner_solver_fun = partial(inner_solver_fun,
