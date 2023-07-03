@@ -19,17 +19,18 @@ class Solver(BaseSolver):
     """Two loops solver."""
     name = 'jaxopt'
 
+    requirements = ["pip:jaxopt"]
+
     stopping_criterion = SufficientProgressCriterion(
         patience=constants.PATIENCE, strategy='callback'
     )
 
     # any parameter defined here is accessible as a class attribute
     parameters = {
-        'inner_solver': ['gd'],
-        'step_size': [.1],
-        'outer_ratio': [1.],
+        'inner_solver': ['gd', 'lbfgs'],
+        'step_size_outer': [1.],
         'eval_freq': [1],
-        'n_inner_steps': [200],
+        'n_inner_steps': [100],
     }
 
     @staticmethod
@@ -52,17 +53,22 @@ class Solver(BaseSolver):
 
         @partial(jax.jit, static_argnames=("f", "n_steps"))
         def inner_solver_fun(outer_var, inner_var, f=None, n_steps=1, lr=.1):
-            solver = jaxopt.GradientDescent(
-                fun=f, maxiter=n_steps, implicit_diff=True,
-                acceleration=False, stepsize=lr,
-            )
+            if self.inner_solver == 'gd':
+                solver = jaxopt.GradientDescent(
+                    fun=f, maxiter=n_steps, implicit_diff=True,
+                    acceleration=False
+                )
+            elif self.inner_solver == 'lbfgs':
+                solver = jaxopt.LBFGS(
+                    fun=f, maxiter=n_steps, implicit_diff=True,
+                )
             return solver.run(inner_var, outer_var).params
 
-        self.inner_solver = partial(inner_solver_fun,
-                                    f=self.f_inner,
-                                    n_steps=self.n_inner_steps)
+        self.inner_solver_fun = partial(inner_solver_fun,
+                                        f=self.f_inner,
+                                        n_steps=self.n_inner_steps)
         self.jaxopt_solver = partial(jaxopt_bilevel_solver,
-                                     inner_solver=self.inner_solver)
+                                     inner_solver=self.inner_solver_fun)
 
         self.inner_var0 = inner_var0
         self.outer_var0 = outer_var0
@@ -76,10 +82,9 @@ class Solver(BaseSolver):
         outer_var = self.outer_var0.copy()
 
         step_sizes = jnp.array(
-            [self.step_size,
-                self.step_size / self.outer_ratio]
+            [self.step_size_outer]
         )
-        exponents = jnp.zeros(2)
+        exponents = jnp.zeros(1)
         state_lr = init_lr_scheduler(step_sizes, exponents)
 
         carry = dict(
@@ -89,8 +94,7 @@ class Solver(BaseSolver):
         while callback((inner_var, outer_var)):
             inner_var, outer_var, carry = self.jaxopt_solver(
                     self.f_inner, self.f_outer, inner_var, outer_var,
-                    n_inner_steps=self.n_inner_steps,
-                    max_iter=eval_freq,
+                    n_inner_steps=self.n_inner_steps, max_iter=eval_freq,
                     **carry
             )
 
@@ -109,7 +113,7 @@ def jaxopt_bilevel_solver(f_inner, f_outer, inner_var, outer_var,
     grad_outer = jax.grad(f_outer, argnums=(0, 1))
 
     def jaxopt_one_iter(carry, _):
-        (inner_lr, outer_lr), carry['state_lr'] = update_lr(
+        outer_lr, carry['state_lr'] = update_lr(
             carry['state_lr']
         )
 
