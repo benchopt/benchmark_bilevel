@@ -8,9 +8,8 @@ BenchOpt is a package to simplify and make more transparent and
 reproducible the comparisons of optimization algorithms.
 This benchmark is dedicated to solvers for bilevel optimization:
 
-$$
-\min_{x} f(x, z^*(x)) \quad with \quad z^*(x) = \arg\min_z g(x, z), 
-$$
+$$\\min_{x} f(x, z^*(x)) \\quad with \\quad z^*(x) = \\arg\\min_z g(x, z), $$
+
 where :math:`g` and :math:`f` are two functions of two variables.
 
 Different problems
