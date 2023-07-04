@@ -49,7 +49,7 @@ class Solver(BaseSolver):
         return stop_val + 1
 
     def skip(self, f_train, f_val, **kwargs):
-        if self.framework == 'Numba':
+        if self.framework == 'numba':
             if self.batch_size == 'full':
                 return True, "Numba is not useful for full bach resolution."
             elif isinstance(f_train(),

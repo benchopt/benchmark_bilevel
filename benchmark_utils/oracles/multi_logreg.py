@@ -88,7 +88,7 @@ class MultiLogRegOracle(BaseOracle):
         )
 
     def _get_numba_oracle(self):
-        raise NotImplementedError("No Numba implementation for datacleaning  "
+        raise NotImplementedError("No Numba implementation for multi logreg  "
                                   + "oracle available")
 
     def _get_jax_oracle(self, get_full_batch=False):
