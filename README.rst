@@ -60,7 +60,7 @@ each line in $z$ is independently regularized with the strength $\\exp(x_j)$.
 2 - Hyper data cleaning
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-This problem was first introduced by [Franceschi et al., 2017]_ .
+This problem was first introduced by [Fra2017]_ .
 In this problem, the data is the MNIST dataset.
 The training set has been corrupted: with a probability $p$, the label of the image $y\\in\\{1,\\dots,10\\}$ is replaced by another random label between 1 and 10.
 We do not know beforehand which data has been corrupted.
@@ -118,7 +118,7 @@ If you use this benchmark in your research project, please cite the following pa
       year = {2022}
    }
 
-.. [Franceschi et al., 2017] Franceschi, Luca, et al. "Forward and reverse gradient-based hyperparameter optimization." International Conference on Machine Learning. PMLR, 2017.
+.. [Fra2017] Franceschi, Luca, et al. "Forward and reverse gradient-based hyperparameter optimization." International Conference on Machine Learning. PMLR, 2017.
 .. |Build Status| image:: https://github.com/benchopt/benchmark_bilevel/workflows/Tests/badge.svg
    :target: https://github.com/benchopt/benchmark_bilevel/actions
 .. |Python 3.6+| image:: https://img.shields.io/badge/python-3.6%2B-blue
