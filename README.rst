@@ -66,13 +66,13 @@ We do not know beforehand which data has been corrupted.
 We have a clean testing set, which has not been corrupted.
 The goal is to fit a model on the corrupted training data that has good performances on the test set.
 To do so, a set of weights -- one per train sample -- is learned as well as the model parameters.
-Ideally, we would want a weight of 0 to data that has been corrupted, and a weight of 1 to uncorrupted data.
+Ideally, we would want a weight of 0 for data that has been corrupted, and a weight of 1 for uncorrupted data.
 The problem is cast as a bilevel problem with $g$ given by 
 
 $$g(x, z) =\\frac1n \\sum_{i=1}^n \\sigma(x_i)\\ell(d_i, z) + \\frac C 2 \\|z\\|^2$$
 
 where the $d_i$ are the corrupted training data, $\\ell$ is the loss of a CNN parameterized by $z$, $\\sigma$ is a sigmoid function, and C is a small regularization constant.
-Here the outer variable $x$ is a vector of dimension n, and the weight of data i is given by $\\sigma(x_i)$.
+Here the outer variable $x$ is a vector of dimension $n$, and the weight of data $i$ is given by $\\sigma(x_i)$.
 The test function is
 
 $$f(x, z) =\\frac1m \\sum_{j=1}^n \\ell(d'_j, z)$$
