@@ -51,8 +51,8 @@ Ijcnn1
 
 *Homepage : https://www.openml.org/search?type=data&sort=runs&id=1575&status=active*
 
-This is a multicalss logistic regression problem, where the data is of the form $d_i = (a_i, y_i)$ with  $a_i\\in\\mathbb{R}^p$ are the features and $y_i\\in \\{1,\dots, k\\}$ is the integer target, with k the number of classes.
-For this problem, the loss is $\\ell(d_i, z) = \text{CrossEntropy}(za_i, y_i)$ where $z$ is now a k x p matrix. The regularization is given by 
+This is a multicalss logistic regression problem, where the data is of the form $d_i = (a_i, y_i)$ with  $a_i\\in\\mathbb{R}^p$ are the features and $y_i\\in \\{1,\\dots, k\\}$ is the integer target, with k the number of classes.
+For this problem, the loss is $\\ell(d_i, z) = \\text{CrossEntropy}(za_i, y_i)$ where $z$ is now a k x p matrix. The regularization is given by 
 $$\\mathcal{R}(x, z) = \\frac12\\sum_{j=1}^k\\exp(x_j)\\|z_j\\|^2,$$
 each line in $z$ is independently regularized with the strength $\\exp(x_j)$.
 
