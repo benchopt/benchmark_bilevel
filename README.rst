@@ -42,7 +42,9 @@ Covtype
 *Homepage : https://archive.ics.uci.edu/dataset/31/covertype*
 
 This is a logistic regression problem, where the data is of the form $d_i = (a_i, y_i)$ with  $a_i\\in\\mathbb{R}^p$ are the features and $y_i=\\pm1$ is the binary target.
-For this problem, the loss is $\\ell(d_i, z) = \\log(1+\\exp(-y_i a_i^T z))$, and the regularization is simply given by $\\mathcal{R}(x, z) = \\frac12\\sum_{j=1}^p\\exp(x_j)z_j^2$: each coefficient in $z$ is independently regularized with the strength $\\exp(x_j)$.
+For this problem, the loss is $\\ell(d_i, z) = \\log(1+\\exp(-y_i a_i^T z))$, and the regularization is simply given by
+$$\\mathcal{R}(x, z) = \\frac12\\sum_{j=1}^p\\exp(x_j)z_j^2,$$
+each coefficient in $z$ is independently regularized with the strength $\\exp(x_j)$.
 
 Ijcnn1
 ++++++
