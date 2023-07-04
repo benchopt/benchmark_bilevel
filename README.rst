@@ -61,8 +61,26 @@ For this problem, the loss is :math:`\ell(d_i, z) = \mathrm{CrossEntropy}(za_i, 
 2 - Hyper data cleaning
 ^^^^^^^^^^^^^^^^^^^^^^^
 
+In this problem, the data is the MNIST dataset.
+The training set has been corrupted: with a probability :math:`p`, the label of the image :math:`y\in\{1,\dots,10\}` is replaced by another random label between 1 and 10.
+We do not know beforehand which data has been corrupted.
+We have a clean testing set, which has not been corrupted.
+The goal is to fit a model on the corrupted training data that has good performances on the test set.
+To do so, a set of weights -- one per train sample -- is learned as well as the model parameters.
+Ideally, we would want a weight of 0 to data that has been corrupted, and a weight of 1 to uncorrupted data.
+The problem is cast as a bilevel problem with :math:`g` given by 
 
+.. math::
+   g(x, z) =\frac1n \sum_{i=1}^n \sigma(x_i)\ell(d_i, z) + \frac C 2 \|z\|^2
 
+where the :math:`d_i` are the corrupted training data, :math:`\ell` is the loss of a CNN parameterized by :math:`z`, :math:`\sigma` is a sigmoid function, and C is a small regularization constant.
+Here the outer variable :math:`x` is a vector of dimension n, and the weight of data i is given by :math:`\sigma(x_i)`.
+The test function is
+
+.. math::
+   f(x, z) =\frac1m \sum_{j=1}^n \ell(d'_j, z)
+
+where the :math:`d_j` are uncorrupted testing data.
 
 Install
 --------
