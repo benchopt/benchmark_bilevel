@@ -107,6 +107,10 @@ where `X.yml` is a config file. See https://benchopt.github.io/index.html#run-a-
 
 Use `benchopt run -h` for more details about these options, or visit https://benchopt.github.io/api.html.
 
+
+Cite
+----
+
 If you use this benchmark in your research project, please cite the following paper:
 
 .. code-block::
@@ -118,6 +122,9 @@ If you use this benchmark in your research project, please cite the following pa
       year = {2022}
    }
 
+
+References 
+----------
 .. [Fra2017] Franceschi, Luca, et al. "Forward and reverse gradient-based hyperparameter optimization." International Conference on Machine Learning. PMLR, 2017.
 .. |Build Status| image:: https://github.com/benchopt/benchmark_bilevel/workflows/Tests/badge.svg
    :target: https://github.com/benchopt/benchmark_bilevel/actions
