@@ -15,7 +15,7 @@ where $g$ and $f$ are two functions of two variables.
 Different problems
 ------------------
 
-This benchmark currently implements two bilevel optimization problems
+This benchmark currently implements two bilevel optimization problems: regularization selection, and hyper data cleaning.
 
 1 - Regularization selection
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
