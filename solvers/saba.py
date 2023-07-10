@@ -26,7 +26,10 @@ with safe_import_context() as import_ctx:
 
 
 class Solver(BaseSolver):
-    """Stochastic Average Bi-level Algorithm."""
+    """Stochastic Average Bilevel Algorithm (SABA).
+    M. Dagréou, P. Ablin, S. Vaiter and T. Moreau, "A framework for bilevel
+    optimization that enables stochastic and global variance reduction
+    algorithms", NeurIPS 2022."""
     name = 'SABA'
 
     stopping_criterion = SufficientProgressCriterion(

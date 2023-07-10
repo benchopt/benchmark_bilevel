@@ -26,7 +26,9 @@ with safe_import_context() as import_ctx:
 
 
 class Solver(BaseSolver):
-    """BSA - Two loops solver."""
+    """Bilevel Stochastic Approximation (BSA).
+    S. Ghadimi and M. Wang. "Approximation Methods for Bilevel Programm".
+    arxiv:1802.02246 2018"""
     name = 'BSA'
 
     stopping_criterion = SufficientProgressCriterion(

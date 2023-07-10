@@ -8,8 +8,10 @@ with safe_import_context() as import_ctx:
 
 
 class Solver(BaseSolver):
-    """Hyperparameter Selection with Optuna."""
-    name = 'Optuna'
+    """Hyperparameter Selection with Optuna.
+    T. Akiba, S. Sano, T. Yanase, T. Ohta and M. Koyama. "Optuna: A
+    Next-generation Hyperparameter Optimization Framework". KDD 2019."""
+    name = 'Optuna solver.'
     stopping_criterion = SufficientProgressCriterion(
         patience=100, strategy='iteration'
     )

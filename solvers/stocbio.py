@@ -27,10 +27,9 @@ with safe_import_context() as import_ctx:
 
 
 class Solver(BaseSolver):
-    """StocBio solver from [Ji2021]
-
-    :cat:`two-loops`
-    """
+    """Stochastic Bilevel Optimizer (stocBIO).
+    K. Ji, J. Yang and Y. Liang. "Bilevel Optimization: Convergence Analysis
+    and Enhanced Design". ICML 2021."""
     name = 'StocBiO'
 
     stopping_criterion = SufficientProgressCriterion(

@@ -29,7 +29,9 @@ with safe_import_context() as import_ctx:
 
 
 class Solver(BaseSolver):
-    """Bi-level optimization algorithm."""
+    """Variance Reduction Bilevel Optimizer (VRBO).
+    J. Yang, K. Ji, Y. Liang. "Provabily Faster Algorithms for Bilevel
+    Optimization". NeurIPS 2021"""
     name = 'VRBO'
 
     stopping_criterion = SufficientProgressCriterion(
