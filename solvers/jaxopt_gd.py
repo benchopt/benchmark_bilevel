@@ -55,7 +55,7 @@ class Solver(BaseSolver):
         )
 
         @partial(jax.jit, static_argnames=("f", "n_steps"))
-        def inner_solver_fun(outer_var, inner_var, f=None, n_steps=1, lr=.1):
+        def inner_solver_fun(outer_var, inner_var, f=None, n_steps=1):
             if self.inner_solver == 'gd':
                 solver = jaxopt.GradientDescent(
                     fun=f, maxiter=n_steps, implicit_diff=True,
