@@ -56,6 +56,12 @@ class Solver(BaseSolver):
 
         @partial(jax.jit, static_argnames=("f", "n_steps"))
         def inner_solver_fun(outer_var, inner_var, f=None, n_steps=1):
+            """
+            Solver used to solve the inner problem.
+            The output of this function is differentiable w.r.t. the
+            outer_variable. The Jacobian is computed using implicit
+            differentiation with a conjugate gradient solver.
+            """
             if self.inner_solver == 'gd':
                 solver = jaxopt.GradientDescent(
                     fun=f, maxiter=n_steps, implicit_diff=True,
