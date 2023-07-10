@@ -25,7 +25,9 @@ with safe_import_context() as import_ctx:
 
 class Solver(BaseSolver):
     """Stochastic Bilevel Algorithm (SOBA).
-    M. Dagréou, P. Ablin, S. Vaiter and T. Moreau, "A framework for bilevel optimization that enables stochastic and global variance reduction algorithms", NeurIPS 2022."""
+    M. Dagréou, P. Ablin, S. Vaiter and T. Moreau, "A framework for bilevel
+    optimization that enables stochastic and global variance reduction
+    algorithms", NeurIPS 2022."""
     name = 'SOBA'
 
     stopping_criterion = SufficientProgressCriterion(
