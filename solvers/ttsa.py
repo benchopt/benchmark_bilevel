@@ -26,7 +26,8 @@ with safe_import_context() as import_ctx:
 
 
 class Solver(BaseSolver):
-    """Single loop Bi-level optimization algorithm.
+    """Two-Timescale Stochastic Approximation (TTSA).
+
     M. Hong, H.-T. Wai and Z. Yang. "A Two-Timescale Framework for Bilevel
     Optimization: Complexity Analysis and Application to Actor-Critic". SIAM
     Journal of Optimization. 2023"""

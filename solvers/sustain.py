@@ -26,6 +26,7 @@ with safe_import_context() as import_ctx:
 
 class Solver(BaseSolver):
     """SUSTAIN.
+
     P. Khanduri, S. Zeng, M. Hong, H.-T. Wai, Z. Wang and Z. Yang. "A
     Near-Optimal Algorithm for Stochastic Bilevel Optimization via
     Double-Momentum". NeurIPS 2021"""

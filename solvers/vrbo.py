@@ -30,6 +30,7 @@ with safe_import_context() as import_ctx:
 
 class Solver(BaseSolver):
     """Variance Reduction Bilevel Optimizer (VRBO).
+
     J. Yang, K. Ji, Y. Liang. "Provabily Faster Algorithms for Bilevel
     Optimization". NeurIPS 2021"""
     name = 'VRBO'

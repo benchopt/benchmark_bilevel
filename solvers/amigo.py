@@ -27,6 +27,7 @@ with safe_import_context() as import_ctx:
 
 class Solver(BaseSolver):
     """Amortized Implicit Gradient Optimization (AmIGO).
+
     M. Arbel and J. Mairal. "Amortized Implicit Differentiation for Stochastic
     Bilevel Optimization". ICLR 2022"""
     name = 'AmIGO'

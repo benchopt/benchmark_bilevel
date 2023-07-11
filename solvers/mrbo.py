@@ -27,6 +27,7 @@ with safe_import_context() as import_ctx:
 
 class Solver(BaseSolver):
     """Momentum-based Recursive Bilevel Optimizer (MRBO).
+
     J. Yang, K. Ji, Y. Liang. "Provabily Faster Algorithms for Bilevel
     Optimization". NeurIPS 2021"""
     name = 'MRBO'

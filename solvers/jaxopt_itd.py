@@ -17,6 +17,7 @@ with safe_import_context() as import_ctx:
 
 class Solver(BaseSolver):
     """Iterate Differentiation with JAXopt solvers.
+
     M. Blondel, Q. Berthet, M. Cuturi, R. Frosting, S. Hoyer, F.
     Llinares-Lopez, F. Pedregosa and J.-P. Vert. "Efficient and Modular
     Implicit Differentiation". NeurIPS 2022"""

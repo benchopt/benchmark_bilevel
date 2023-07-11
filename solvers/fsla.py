@@ -26,6 +26,7 @@ with safe_import_context() as import_ctx:
 
 class Solver(BaseSolver):
     """Fully Single Loop Algorithm (FSLA).
+
     J. Li, B. Gu and H. Huang. "A Fully Single Loop Algorithm for Bilevel
     Optimization without Hessian Inverse". AAAI 2022"""
     name = 'FSLA'
