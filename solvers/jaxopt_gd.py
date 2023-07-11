@@ -80,8 +80,6 @@ class Solver(BaseSolver):
         self.inner_solver_fun = partial(inner_solver_fun,
                                         f=self.f_inner,
                                         n_steps=self.n_inner_steps)
-        self.jaxopt_solver = partial(jaxopt_bilevel_solver,
-                                     inner_solver=self.inner_solver_fun)
 
         self.inner_var0 = inner_var0
         self.outer_var0 = outer_var0
@@ -100,57 +98,21 @@ class Solver(BaseSolver):
         exponents = jnp.zeros(1)
         state_lr = init_lr_scheduler(step_sizes, exponents)
 
-        carry = dict(
-            state_lr=state_lr,
-        )
-
+        grad_outer = jax.jit(jax.grad(self.f_outer, argnums=(0, 1)))
         while callback((inner_var, outer_var)):
-            inner_var, outer_var, carry = self.jaxopt_solver(
-                    self.f_inner, self.f_outer, inner_var, outer_var,
-                    n_inner_steps=self.n_inner_steps, max_iter=eval_freq,
-                    **carry
-            )
+            for _ in range(eval_freq):
+                outer_lr, state_lr = update_lr(state_lr)
 
+                inner_var, jvp_fun = jax.vjp(self.inner_solver_fun,
+                                             outer_var,
+                                             inner_var)
+
+                grad_outer_in, grad_outer_out = grad_outer(inner_var,
+                                                           outer_var)
+
+                implicit_grad = grad_outer_out + jvp_fun(grad_outer_in)[0]
+                outer_var -= outer_lr * implicit_grad
         self.beta = (inner_var, outer_var)
 
     def get_result(self):
         return self.beta
-
-
-@partial(jax.jit, static_argnums=(0, 1),
-         static_argnames=('n_inner_steps', 'max_iter', "inner_solver"))
-def jaxopt_bilevel_solver(f_inner, f_outer, inner_var, outer_var,
-                          state_lr=None, n_inner_steps=300,
-                          inner_solver=None,
-                          max_iter=1):
-    grad_outer = jax.grad(f_outer, argnums=(0, 1))
-
-    def jaxopt_one_iter(carry, _):
-        outer_lr, carry['state_lr'] = update_lr(
-            carry['state_lr']
-        )
-
-        carry['inner_var'], jvp_fun = jax.vjp(inner_solver,
-                                              carry['outer_var'],
-                                              carry['inner_var'])
-
-        grad_outer_in, grad_outer_out = grad_outer(carry['inner_var'],
-                                                   carry['outer_var'])
-
-        implicit_grad = grad_outer_out + jvp_fun(grad_outer_in)[0]
-        carry['outer_var'] -= outer_lr * implicit_grad
-
-        return carry, _
-
-    init = dict(
-        inner_var=inner_var, outer_var=outer_var, state_lr=state_lr
-    )
-    carry, _ = jax.lax.scan(
-        jaxopt_one_iter,
-        init=init,
-        xs=None,
-        length=max_iter,
-    )
-    return carry['inner_var'], carry['outer_var'], \
-        {k: v for k, v in carry.items()
-         if k not in ['inner_var', 'outer_var']}
