@@ -24,7 +24,11 @@ with safe_import_context() as import_ctx:
 
 
 class Solver(BaseSolver):
-    """Adaptation of SARAH for bilevel optimization"""
+    """Stochastic Recursive Bilevel Algorithm (SRBA).
+
+    M. Dagréou, T. Moreau, S. Vaiter, P. Ablin. "A Lower Bound and a
+    Near-Optimal Algorithmv for Bilevel Empirical Risk Minimizatio".
+    arxiv:2302.08766 2023"""
     name = 'SRBA'
 
     stopping_criterion = SufficientProgressCriterion(

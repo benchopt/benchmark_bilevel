@@ -22,7 +22,10 @@ with safe_import_context() as import_ctx:
 
 
 class Solver(BaseSolver):
-    """Partial Zeroth-Order-like Bilevel Optimizer (PZOBO)."""
+    """Partial Zeroth-Order-like Bilevel Optimizer (PZOBO).
+
+    D. Sow, K. Ji and Y. Liang. "On the Convergence Theory for Hessian-Free
+    Bilevel Algorithms". arxiv:2110.07004 2022"""
     name = 'PZOBO'
 
     stopping_criterion = SufficientProgressCriterion(

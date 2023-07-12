@@ -16,7 +16,11 @@ with safe_import_context() as import_ctx:
 
 
 class Solver(BaseSolver):
-    """Two loops solver."""
+    """Gradient descent with JAXopt solvers.
+
+    M. Blondel, Q. Berthet, M. Cuturi, R. Frosting, S. Hoyer, F.
+    Llinares-Lopez, F. Pedregosa and J.-P. Vert. "Efficient and Modular
+    Implicit Differentiation". NeurIPS 2022"""
     name = 'jaxopt'
 
     requirements = ["pip:jaxopt"]
@@ -52,7 +56,13 @@ class Solver(BaseSolver):
         )
 
         @partial(jax.jit, static_argnames=("f", "n_steps"))
-        def inner_solver_fun(outer_var, inner_var, f=None, n_steps=1, lr=.1):
+        def inner_solver_fun(outer_var, inner_var, f=None, n_steps=1):
+            """Solver used to solve the inner problem.
+
+            The output of this function is differentiable w.r.t. the
+            outer_variable. The Jacobian is computed using implicit
+            differentiation with a conjugate gradient solver.
+            """
             if self.inner_solver == 'gd':
                 solver = jaxopt.GradientDescent(
                     fun=f, maxiter=n_steps, implicit_diff=True,
