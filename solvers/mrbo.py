@@ -177,7 +177,7 @@ class Solver(BaseSolver):
             )
 
         # Start algorithm
-        while callback((inner_var, outer_var)):
+        while callback(dict(inner_var=inner_var, outer_var=outer_var)):
             if self.framework == 'jax':
                 inner_var, outer_var, memory_inner, memory_outer, \
                     carry = self.mrbo(

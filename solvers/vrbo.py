@@ -228,7 +228,7 @@ class Solver(BaseSolver):
             )
         i_min = 0
         # Start algorithm
-        while callback((inner_var, outer_var)):
+        while callback(dict(inner_var=inner_var, outer_var=outer_var)):
             if self.framework == 'jax':
                 # with jax.disable_jit():
                 inner_var, outer_var, inner_var_old, d_inner, d_outer, \

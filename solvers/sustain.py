@@ -175,7 +175,7 @@ class Solver(BaseSolver):
                 np.array(step_sizes, dtype=float), exponents
             )
 
-        while callback((inner_var, outer_var)):
+        while callback(dict(inner_var=inner_var, outer_var=outer_var)):
             if self.framework == 'jax':
                 inner_var, outer_var, memory_inner, memory_outer, \
                     carry = self.sustain(

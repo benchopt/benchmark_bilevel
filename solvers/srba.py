@@ -191,7 +191,7 @@ class Solver(BaseSolver):
         v_old = v.copy()
         i_min = 0
         # Start algorithm
-        while callback((inner_var, outer_var)):
+        while callback(dict(inner_var=inner_var, outer_var=outer_var)):
             # print("===")
             if self.framework == "jax":
                 # with jax.disable_jit():
