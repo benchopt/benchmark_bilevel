@@ -157,7 +157,7 @@ class Solver(BaseSolver):
         self.beta = (inner_var, outer_var)
 
     def get_result(self):
-        return self.beta
+        return dict(inner_var=self.beta[0], outer_var=self.beta[1])
 
 
 def _pzobo(gd_inner, inner_oracle, outer_oracle, inner_var, outer_var, mu=.1,

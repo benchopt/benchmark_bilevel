@@ -43,9 +43,7 @@ class Objective(BaseObjective):
             self.outer_var0 = -2 * np.ones(*outer_shape)
             # XXX: Try random inits
 
-    def compute(self, beta):
-        inner_var, outer_var = beta
-
+    def evaluate_result(self, inner_var, outer_var):
         if np.isnan(outer_var).any():
             raise ValueError
 
