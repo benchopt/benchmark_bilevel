@@ -122,8 +122,8 @@ class Solver(BaseSolver):
         else:
             raise ValueError(f"Framework {self.framework} not supported.")
 
-        self.inner_var0 = inner_var0
-        self.outer_var0 = outer_var0
+        self.inner_var = inner_var0
+        self.outer_var = outer_var0
         if self.framework == 'numba' or self.framework == 'jax':
             self.run_once(2)
 
@@ -131,8 +131,8 @@ class Solver(BaseSolver):
         eval_freq = self.eval_freq
 
         # Init variables
-        inner_var = self.inner_var0.copy()
-        outer_var = self.outer_var0.copy()
+        inner_var = self.inner_var.copy()
+        outer_var = self.outer_var.copy()
         if self.framework == 'jax':
             memory_inner = jnp.zeros((2, *inner_var.shape), inner_var.dtype)
             memory_outer = jnp.zeros((2, *outer_var.shape), outer_var.dtype)
@@ -193,10 +193,11 @@ class Solver(BaseSolver):
                     lr_scheduler, n_shia_steps=self.n_shia_steps,
                     max_iter=eval_freq, seed=rng.randint(constants.MAX_SEED)
                 )
-        self.beta = (inner_var, outer_var)
+        self.inner_var = inner_var
+        self.outer_var = outer_var
 
     def get_result(self):
-        return dict(inner_var=self.beta[0], outer_var=self.beta[1])
+        return dict(inner_var=self.inner_var, outer_var=self.outer_var)
 
 
 def _mrbo(joint_shia, inner_oracle, outer_oracle, inner_var, outer_var,

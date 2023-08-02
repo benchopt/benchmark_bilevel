@@ -81,16 +81,16 @@ class Solver(BaseSolver):
                                         f=self.f_inner,
                                         n_steps=self.n_inner_steps)
 
-        self.inner_var0 = inner_var0
-        self.outer_var0 = outer_var0
+        self.inner_var = inner_var0
+        self.outer_var = outer_var0
         self.run_once(2)
 
     def run(self, callback):
         eval_freq = self.eval_freq
 
         # Init variables
-        inner_var = self.inner_var0.copy()
-        outer_var = self.outer_var0.copy()
+        inner_var = self.inner_var.copy()
+        outer_var = self.outer_var.copy()
 
         step_sizes = jnp.array(
             [self.step_size_outer]
@@ -112,7 +112,8 @@ class Solver(BaseSolver):
 
                 implicit_grad = grad_outer_out + jvp_fun(grad_outer_in)[0]
                 outer_var -= outer_lr * implicit_grad
-        self.beta = (inner_var, outer_var)
+        self.inner_var = inner_var
+        self.outer_var = outer_var
 
     def get_result(self):
-        return dict(inner_var=self.beta[0], outer_var=self.beta[1])
+        return dict(inner_var=self.inner_var, outer_var=self.outer_var)
