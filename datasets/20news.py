@@ -6,9 +6,7 @@ with safe_import_context() as import_ctx:
     from benchmark_utils import oracles
     from sklearn.model_selection import train_test_split
     from sklearn.datasets import fetch_20newsgroups_vectorized
-
-    import jax.numpy as jnp
-    from jax.experimental import sparse
+    from benchmark_utils.oracle_utils import convert_array_framework
 
 
 class Dataset(BaseDataset):
@@ -38,19 +36,19 @@ class Dataset(BaseDataset):
             X_train, y_train, test_size=.2, random_state=rng
         )
 
-        def get_inner_oracle(get_full_batch=False):
-            X = sparse.BCOO.from_scipy_sparse(X_train)
-            y = jnp.array(y_train)
+        def get_inner_oracle(framework="none", get_full_batch=False):
+            X = convert_array_framework(X_train, framework)
+            y = convert_array_framework(y_train, framework)
             oracle = oracles.MultiLogRegOracle(X, y,
                                                reg=self.reg)
-            return oracle.get_framework(framework="jax",
+            return oracle.get_framework(framework=framework,
                                         get_full_batch=get_full_batch)
 
         def get_outer_oracle(framework="none", get_full_batch=False):
-            X = sparse.BCOO.from_scipy_sparse(X_val)
-            y = jnp.array(y_val)
+            X = convert_array_framework(X_train, framework)
+            y = convert_array_framework(y_train, framework)
             oracle = oracles.MultiLogRegOracle(X, y, reg='none')
-            return oracle.get_framework(framework="jax",
+            return oracle.get_framework(framework=framework,
                                         get_full_batch=get_full_batch)
 
         def metrics(inner_var, outer_var):
