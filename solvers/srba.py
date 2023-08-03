@@ -204,7 +204,7 @@ class Solver(BaseSolver):
                         **carry
                     )
             else:
-                inner_var, outer_var, v, inner_var_old, outer_var_old,\
+                inner_var, outer_var, v, inner_var_old, outer_var_old, \
                     v_old, d_inner, d_v, d_outer, i_min = self.srba(
                         self.f_inner, self.f_outer,
                         inner_var, outer_var, v,
