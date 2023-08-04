@@ -166,7 +166,7 @@ class Solver(BaseSolver):
             outer_sampler = self.MinibatchSampler(
                 self.f_outer.n_samples, batch_size=self.batch_size_outer
             )
-            step_sizes = np.array(  # (inner_ss, hia_lr, outer_ss)
+            step_sizes = np.array(  # (inner_lr, outer_lr)
                 [
                     self.step_size,
                     self.step_size / self.outer_ratio,
@@ -184,7 +184,6 @@ class Solver(BaseSolver):
         period *= self.period_frac
         period /= self.batch_size
         period = int(period)
-        # period = 1
 
         inner_var_old = inner_var.copy()
         outer_var_old = outer_var.copy()
@@ -192,9 +191,7 @@ class Solver(BaseSolver):
         i_min = 0
         # Start algorithm
         while callback((inner_var, outer_var)):
-            # print("===")
             if self.framework == "jax":
-                # with jax.disable_jit():
                 inner_var, outer_var, v, inner_var_old, outer_var_old, \
                     v_old, d_inner, d_v, d_outer, carry = self.srba(
                         self.f_inner, self.f_outer, self.f_inner_fb,
