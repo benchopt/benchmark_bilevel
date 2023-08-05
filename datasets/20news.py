@@ -26,15 +26,15 @@ class Dataset(BaseDataset):
     def get_data(self):
         rng = np.random.RandomState(self.random_state)
         X, y = fetch_20newsgroups_vectorized(return_X_y=True,
-                                             download_if_missing=True)
-
-        X_train, X_test, y_train, y_test = train_test_split(
+                                             download_if_missing=True,
+                                             subset='train')
+        X_train, X_val, y_train, y_val = train_test_split(
             X, y, test_size=.2, random_state=rng
         )
-
-        X_train, X_val, y_train, y_val = train_test_split(
-            X_train, y_train, test_size=.2, random_state=rng
-        )
+        X, y = fetch_20newsgroups_vectorized(return_X_y=True,
+                                             download_if_missing=True,
+                                             subset='test')
+        X_test, y_test = X, y
 
         def get_inner_oracle(framework="none", get_full_batch=False):
             X = convert_array_framework(X_train, framework)
@@ -45,8 +45,8 @@ class Dataset(BaseDataset):
                                         get_full_batch=get_full_batch)
 
         def get_outer_oracle(framework="none", get_full_batch=False):
-            X = convert_array_framework(X_train, framework)
-            y = convert_array_framework(y_train, framework)
+            X = convert_array_framework(X_val, framework)
+            y = convert_array_framework(y_val, framework)
             oracle = oracles.MultiLogRegOracle(X, y, reg='none')
             return oracle.get_framework(framework=framework,
                                         get_full_batch=get_full_batch)
