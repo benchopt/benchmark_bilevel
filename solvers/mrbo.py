@@ -346,8 +346,10 @@ def mrbo_jax(f_inner, f_outer, inner_var, outer_var, memory_inner,
         xs=None,
         length=max_iter,
     )
-    return carry['inner_var'], carry['outer_var'], carry['memory_inner'],\
-        carry['memory_outer'], \
+    return (
+        carry['inner_var'], carry['outer_var'],
+        carry['memory_inner'], carry['memory_outer'],
         {k: v for k, v in carry.items()
          if k not in ['inner_var', 'outer_var', 'memory_inner',
                       'memory_outer']}
+    )

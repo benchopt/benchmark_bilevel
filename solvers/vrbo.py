@@ -371,8 +371,10 @@ def vrbo_jax(f_inner, f_outer, f_inner_fb, f_outer_fb, inner_var, outer_var,
         length=max_iter,
     )
     carry['i_min'] += max_iter
-    return carry['inner_var'], carry['outer_var'], carry['inner_var_old'], \
-        carry['d_inner'], carry['d_outer'], \
+    return (
+        carry['inner_var'], carry['outer_var'], carry['inner_var_old'],
+        carry['d_inner'], carry['d_outer'],
         {k: v for k, v in carry.items()
          if k not in ['inner_var', 'outer_var', 'inner_var_old',
                       'd_inner', 'd_outer']}
+    )

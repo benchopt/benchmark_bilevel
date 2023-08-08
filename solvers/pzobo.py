@@ -253,6 +253,7 @@ def pzobo_jax(f_inner, f_outer, inner_var, outer_var, mu=.1,
         xs=None,
         length=max_iter,
     )
-    return carry['inner_var'], carry['outer_var'], \
-        {k: v for k, v in carry.items()
-         if k not in ['inner_var', 'outer_var']}
+    return (
+        carry['inner_var'], carry['outer_var'],
+        {k: v for k, v in carry.items() if k not in ['inner_var', 'outer_var']}
+    )

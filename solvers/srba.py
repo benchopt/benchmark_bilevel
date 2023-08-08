@@ -194,9 +194,8 @@ class Solver(BaseSolver):
         while callback((inner_var, outer_var)):
             # print("===")
             if self.framework == "jax":
-                # with jax.disable_jit():
-                inner_var, outer_var, v, inner_var_old, outer_var_old, \
-                    v_old, d_inner, d_v, d_outer, carry = self.srba(
+                (inner_var, outer_var, v, inner_var_old, outer_var_old,
+                 v_old, d_inner, d_v, d_outer, carry) = self.srba(
                         self.f_inner, self.f_outer, self.f_inner_fb,
                         self.f_outer_fb, inner_var, outer_var, v,
                         inner_var_old, outer_var_old, v_old, d_inner,
@@ -204,8 +203,8 @@ class Solver(BaseSolver):
                         **carry
                     )
             else:
-                inner_var, outer_var, v, inner_var_old, outer_var_old,\
-                    v_old, d_inner, d_v, d_outer, i_min = self.srba(
+                (inner_var, outer_var, v, inner_var_old, outer_var_old,
+                 v_old, d_inner, d_v, d_outer, i_min) = self.srba(
                         self.f_inner, self.f_outer,
                         inner_var, outer_var, v,
                         inner_var_old=inner_var_old, v_old=v_old,
@@ -386,10 +385,12 @@ def srba_jax(f_inner, f_outer, f_inner_fb, f_outer_fb, inner_var, outer_var, v,
         length=max_iter,
     )
     carry['i_min'] += max_iter
-    return carry['inner_var'], carry['outer_var'], carry['v'], \
-        carry['inner_var_old'], carry['outer_var_old'], carry['v_old'], \
-        carry['d_inner'], carry['d_v'], carry['d_outer'], \
+    return (
+        carry['inner_var'], carry['outer_var'], carry['v'],
+        carry['inner_var_old'], carry['outer_var_old'], carry['v_old'],
+        carry['d_inner'], carry['d_v'], carry['d_outer'],
         {k: v for k, v in carry.items()
          if k not in ['inner_var', 'outer_var', 'v',
                       'inner_var_old', 'outer_var_old', 'v_old',
                       'd_inner', 'd_v', 'd_outer']}
+    )
