@@ -5,6 +5,7 @@ from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
     from benchmark_utils import constants
+    from benchmark_utils.get_memory import get_memory
     from benchmark_utils.learning_rate_scheduler import update_lr
     from benchmark_utils.learning_rate_scheduler import init_lr_scheduler
 
@@ -88,6 +89,8 @@ class Solver(BaseSolver):
     def run(self, callback):
         eval_freq = self.eval_freq
 
+        memory_start = get_memory()
+        memory_end = 0
         # Init variables
         inner_var = self.inner_var0.copy()
         outer_var = self.outer_var0.copy()
@@ -99,7 +102,7 @@ class Solver(BaseSolver):
         state_lr = init_lr_scheduler(step_sizes, exponents)
 
         grad_outer = jax.jit(jax.grad(self.f_outer, argnums=(0, 1)))
-        while callback((inner_var, outer_var)):
+        while callback((inner_var, outer_var, memory_start, memory_end)):
             for _ in range(eval_freq):
                 outer_lr, state_lr = update_lr(state_lr)
 
@@ -112,7 +115,9 @@ class Solver(BaseSolver):
 
                 implicit_grad = grad_outer_out + jvp_fun(grad_outer_in)[0]
                 outer_var -= outer_lr * implicit_grad
-        self.beta = (inner_var, outer_var)
+            memory_end = get_memory()
+
+        self.beta = (inner_var, outer_var, memory_start, memory_end)
 
     def get_result(self):
         return self.beta

@@ -44,12 +44,16 @@ class Objective(BaseObjective):
             # XXX: Try random inits
 
     def compute(self, beta):
-        inner_var, outer_var = beta
+        inner_var, outer_var, memory_start, memory_end = beta
+        memory = memory_end - memory_start
+        memory /= 1e6
 
         if np.isnan(outer_var).any():
             raise ValueError
 
-        return self.metrics(inner_var, outer_var)
+        metrics = self.metrics(inner_var, outer_var)
+        metrics.update({'memory': memory})
+        return metrics
 
     def get_objective(self):
         return dict(

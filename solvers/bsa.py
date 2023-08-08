@@ -9,6 +9,7 @@ with safe_import_context() as import_ctx:
     from numba.experimental import jitclass
 
     from benchmark_utils import constants
+    from benchmark_utils.get_memory import get_memory
     from benchmark_utils.minibatch_sampler import init_sampler
     from benchmark_utils.learning_rate_scheduler import update_lr
     from benchmark_utils.minibatch_sampler import MinibatchSampler
@@ -139,6 +140,8 @@ class Solver(BaseSolver):
 
     def run(self, callback):
         eval_freq = self.eval_freq
+        memory_start = get_memory()
+        memory_end = 0
 
         # Init variables
         outer_var = self.outer_var0.copy()
@@ -187,7 +190,7 @@ class Solver(BaseSolver):
                 step_size=self.step_size, sampler=inner_sampler,
                 n_steps=self.n_inner_steps
             )
-        while callback((inner_var, outer_var)):
+        while callback((inner_var, outer_var, memory_start, memory_end)):
             if self.framework == 'jax':
                 inner_var, outer_var, carry = self.bsa(
                         self.f_inner, self.f_outer, inner_var, outer_var,
@@ -203,8 +206,9 @@ class Solver(BaseSolver):
                     n_hia_steps=self.n_hia_steps, max_iter=eval_freq,
                     seed=rng.randint(constants.MAX_SEED)
                 )
+            memory_end = get_memory()
 
-        self.beta = (inner_var, outer_var)
+        self.beta = (inner_var, outer_var, memory_start, memory_end)
 
     def get_result(self):
         return self.beta

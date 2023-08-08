@@ -9,6 +9,7 @@ with safe_import_context() as import_ctx:
     from numba.experimental import jitclass
 
     from benchmark_utils import constants
+    from benchmark_utils.get_memory import get_memory
     from benchmark_utils.sgd_inner import sgd_inner_vrbo
     from benchmark_utils.sgd_inner import sgd_inner_vrbo_jax
     from benchmark_utils.minibatch_sampler import init_sampler
@@ -175,6 +176,9 @@ class Solver(BaseSolver):
     def run(self, callback):
         eval_freq = self.eval_freq  # // self.batch_size
 
+        memory_start = get_memory()
+        memory_end = 0
+
         # Init variables
         inner_var = self.inner_var0.copy()
         outer_var = self.outer_var0.copy()
@@ -228,7 +232,7 @@ class Solver(BaseSolver):
             )
         i_min = 0
         # Start algorithm
-        while callback((inner_var, outer_var)):
+        while callback((inner_var, outer_var, memory_start, memory_end)):
             if self.framework == 'jax':
                 # with jax.disable_jit():
                 inner_var, outer_var, inner_var_old, d_inner, d_outer, \
@@ -250,7 +254,9 @@ class Solver(BaseSolver):
                         i_min=i_min, period=period,
                         seed=rng.randint(constants.MAX_SEED)
                     )
-        self.beta = (inner_var, outer_var)
+            memory_end = get_memory()
+
+        self.beta = (inner_var, outer_var, memory_start, memory_end)
 
     def get_result(self):
         return self.beta
