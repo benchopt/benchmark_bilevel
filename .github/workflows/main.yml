@@ -15,64 +15,13 @@ on:
     - cron:  '42 7 * * *'
 
 jobs:
-  test-benchmark:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-          - os: macos-latest
-    env:
-      CONDA_ENV: 'test_env'
-      VERSION_PYTHON: ${{ matrix.version_python }}
-      BENCHOPT_BRANCH: benchopt:main
-      BENCHOPT_DEBUG: 1
-
-    defaults:
-      run:
-        # Need to use this shell to get conda working properly.
-        # See https://github.com/marketplace/actions/setup-miniconda#important
-        shell: bash -l {0}
-
-    steps:
-    - uses: actions/checkout@v2
-    - name: Setup Conda
-      uses: conda-incubator/setup-miniconda@v2
-      with:
-        activate-environment: ${{ env.CONDA_ENV }}
-        python-version: 3.8
-        # Use miniforge to only get conda-forge as default channel.
-        miniforge-version: latest
-
-    - run: conda info
-
-    - name: Install benchopt and its dependencies
-      run: |
-        conda info
-        conda install -yq pip
-
-        # Get the correct branch of benchopt
-        user=${BENCHOPT_BRANCH%:*}
-        branch=${BENCHOPT_BRANCH##*:}
-        pip install -U git+https://github.com/$user/benchopt@$branch
-
-    - name: Test
-      run: |
-        benchopt test . --env-name bench_test_env -vl
-        benchopt test . --env-name bench_test_env -vl --skip-install
-
-
-  linter-flake8:
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python 3.8
-      uses: actions/setup-python@v2
-      with:
-        python-version: 3.8
-
-    - name: Lint with flake8
-      run: |
-        pip install flake8
-        flake8 .
+  benchopt_dev:
+    uses: benchopt/template_benchmark/.github/workflows/test_benchmarks.yml@main
+    with:
+      benchopt_branch: benchopt@main
+  benchopt_release:
+    uses: benchopt/template_benchmark/.github/workflows/test_benchmarks.yml@main
+    with:
+      benchopt_version: latest
+  lint:
+    uses: benchopt/template_benchmark/.github/workflows/lint_benchmarks.yml@main
