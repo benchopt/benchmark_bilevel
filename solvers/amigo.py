@@ -146,7 +146,7 @@ class Solver(BaseSolver):
         eval_freq = self.eval_freq
 
         memory_start = get_memory()
-        memory_end = 0
+        memory_end = memory_start
         # Init variables
         inner_var = self.inner_var0.copy()
         outer_var = self.outer_var0.copy()
