@@ -9,6 +9,7 @@ with safe_import_context() as import_ctx:
 class Objective(BaseObjective):
     name = "Bilevel Optimization"
 
+    requirements = ["scikit-learn"]
     min_benchopt_version = "1.3.2"
 
     parameters = {
