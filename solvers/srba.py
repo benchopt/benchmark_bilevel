@@ -127,14 +127,13 @@ class Solver(BaseSolver):
 
         self.inner_var0 = inner_var0
         self.outer_var0 = outer_var0
-        if self.framework == 'numba' or self.framework == 'jax':
-            self.run_once(2)
+        self.run_once(2)
+        del self.beta
 
     def run(self, callback):
         eval_freq = self.eval_freq  # // self.batch_size
 
         memory_start = get_memory()
-        memory_end = memory_start
 
         # Init variables
         inner_var = self.inner_var0.copy()
@@ -194,8 +193,11 @@ class Solver(BaseSolver):
         outer_var_old = outer_var.copy()
         v_old = v.copy()
         i_min = 0
+        memory_end = get_memory()
+        self.beta = (inner_var, outer_var, memory_start, memory_end)
+
         # Start algorithm
-        while callback((inner_var, outer_var, memory_start, memory_end)):
+        while callback():
             # print("===")
             if self.framework == "jax":
                 # with jax.disable_jit():
@@ -220,8 +222,7 @@ class Solver(BaseSolver):
                         seed=rng.randint(constants.MAX_SEED)
                     )
             memory_end = get_memory()
-
-        self.beta = (inner_var, outer_var, memory_start, memory_end)
+            self.beta = (inner_var, outer_var, memory_start, memory_end)
 
     def get_result(self):
         return self.beta

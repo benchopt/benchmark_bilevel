@@ -139,15 +139,15 @@ class Solver(BaseSolver):
 
         self.inner_var0 = inner_var0
         self.outer_var0 = outer_var0
-        if self.framework == 'numba' or self.framework == 'jax':
-            self.run_once(2)
+
+        self.run_once(2)
+        del self.beta
 
     def run(self, callback):
         eval_freq = self.eval_freq
 
-        memory_start = get_memory()
-        memory_end = memory_start
         # Init variables
+        memory_start = get_memory()
         inner_var = self.inner_var0.copy()
         outer_var = self.outer_var0.copy()
         if self.framework == 'jax':
@@ -193,6 +193,8 @@ class Solver(BaseSolver):
                 self.f_inner, inner_var, outer_var, self.step_size,
                 sampler=inner_sampler, n_steps=self.n_inner_steps,
             )
+
+        memory_end = get_memory()
         while callback((inner_var, outer_var, memory_start, memory_end)):
             if self.framework == 'jax':
                 inner_var, outer_var, v, carry = self.amigo(

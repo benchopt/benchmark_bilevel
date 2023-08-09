@@ -1,19 +1,55 @@
 import numpy as np
 import jax
 import jax.numpy as jnp
+from joblib import Memory
 
 from .base import BaseOracle
+
 
 import warnings
 warnings.filterwarnings('error', category=RuntimeWarning)
 
+memory = Memory("__cache__", verbose=False)
+
+
+@memory.cache
+def gen_matrices(n_samples, d_inner, d_outer, L_inner, L_outer, mu, seed):
+    rng = np.random.RandomState(seed)
+
+    hess_inner = []
+    for i in range(n_samples):
+        A = rng.randn(d_inner, d_inner)
+        A = A.T @ A
+        _, U = np.linalg.eigh(A)
+        D = np.logspace(np.log10(mu), np.log10(L_inner), d_inner)
+        D = np.diag(D)
+        A = U @ D @ U.T
+        hess_inner.append(A)
+
+    hess_outer = []
+    for j in range(n_samples):
+        A = rng.randn(d_outer, d_outer)
+        A = A.T @ A
+        _, U = np.linalg.eigh(A)
+        D = np.logspace(np.log10(mu), np.log10(L_outer), d_outer-1)
+        D = np.diag(np.r_[0, D])
+        A = U @ D @ U.T
+        hess_outer.append(A)
+
+    return  (
+        np.stack(hess_inner), np.stack(hess_outer),
+        rng.randn(n_samples, d_outer, d_inner),
+        rng.randn(n_samples, d_inner),
+        rng.randn(n_samples, d_outer)
+    )
+
 
 def quadratic(inner_var, outer_var, hess_inner, hess_outer, cross,
               linear_inner):
-    res = .5 * jnp.dot(inner_var, hess_inner @ inner_var)
-    res += .5 * jnp.dot(outer_var, hess_outer @ outer_var)
-    res += outer_var @ jnp.dot(cross, inner_var)
-    res += jnp.dot(linear_inner, inner_var)
+    res = .5 * inner_var @ (hess_inner @ inner_var)
+    res += .5 * outer_var @ (hess_outer @ outer_var)
+    res += outer_var @ cross @ inner_var
+    res += linear_inner @ inner_var
     return res
 
 
@@ -40,21 +76,29 @@ class QuadraticOracle(BaseOracle):
         - 'lin' the parametrization is linear
         - 'none' no regularization
     """
-    def __init__(self, hess_inner, hess_outer, cross, linear_inner,
-                 L_inner, mu, L_outer):
+    def __init__(self, n_samples, d_inner, d_outer, L_inner, L_outer, mu,
+                 random_state=None):
         super().__init__()
 
-        self.hess_inner = np.stack(hess_inner)
-        self.hess_outer = np.stack(hess_outer)
-        self.cross_mat = np.stack(cross)
-        self.linear_inner = np.stack(linear_inner)
+        self.n_samples = n_samples
         self.L_inner = L_inner
         self.mu = mu
         self.L_outer = L_outer
 
-        self.variables_shape = (self.hess_inner.shape[1],
-                                self.hess_outer.shape[1])
-        self.n_samples = self.hess_inner.shape[0]
+        (self.hess_inner, self.hess_outer, self.cross_mat, self.linear_inner,
+         self.linear_outer) = gen_matrices(
+            n_samples, d_inner, d_outer, L_inner, L_outer, mu, random_state
+        )
+
+        self.hess_inner_full = np.mean(self.hess_inner, axis=0)
+        self.hess_outer_full = np.mean(self.hess_outer, axis=0)
+        self.cross_mat_full = np.mean(self.cross_mat, axis=0)
+        self.linear_inner_full = np.mean(self.linear_inner, axis=0)
+        self.linear_outer_full = np.mean(self.linear_outer, axis=0)
+
+        self.variables_shape = np.array(
+            [[self.hess_inner.shape[1]], [self.hess_outer.shape[1]]]
+        )
 
     def _get_jax_oracle(self, get_full_batch=False):
         raise NotImplementedError("No Numba implementation for quadratic  "
@@ -65,34 +109,64 @@ class QuadraticOracle(BaseOracle):
                                   + "oracle available")
 
     def value(self, inner_var, outer_var, idx):
-        hess_inner = np.mean(self.hess_inner[idx], axis=0)
-        hess_outer = np.mean(self.hess_outer[idx], axis=0)
-        cross_mat = np.mean(self.cross_mat[idx], axis=0)
-        linear_inner = np.mean(self.linear_inner[idx], axis=0)
+
+        if isinstance(idx, slice) and idx == slice(0, self.n_samples):
+            hess_inner = self.hess_inner_full
+            hess_outer = self.hess_outer_full
+            cross_mat = self.cross_mat_full
+            linear_inner = self.linear_inner_full
+        else:
+            hess_inner = np.mean(self.hess_inner[idx], axis=0)
+            hess_outer = np.mean(self.hess_outer[idx], axis=0)
+            cross_mat = np.mean(self.cross_mat[idx], axis=0)
+            linear_inner = np.mean(self.linear_inner[idx], axis=0)
 
         res = quadratic(inner_var, outer_var, hess_inner, hess_outer,
                         cross_mat, linear_inner)
         return res
 
     def grad_inner_var(self, inner_var, outer_var, idx):
-        hess_inner = np.mean(self.hess_inner[idx], axis=0)
-        cross_mat = np.mean(self.cross_mat[idx], axis=0)
-        linear_inner = np.mean(self.linear_inner[idx], axis=0)
+
+        if isinstance(idx, slice) and idx == slice(0, self.n_samples):
+            hess_inner = self.hess_inner_full
+            cross_mat = self.cross_mat_full
+            linear_inner = self.linear_inner_full
+        else:
+            hess_inner = np.mean(self.hess_inner[idx], axis=0)
+            cross_mat = np.mean(self.cross_mat[idx], axis=0)
+            linear_inner = np.mean(self.linear_inner[idx], axis=0)
+
         res = hess_inner @ inner_var + cross_mat.T @ outer_var + linear_inner
         return res
 
     def grad_outer_var(self, inner_var, outer_var, idx):
-        hess_outer = np.mean(self.hess_outer[idx], axis=0)
-        cross_mat = np.mean(self.cross_mat[idx], axis=0)
+
+        if isinstance(idx, slice) and idx == slice(0, self.n_samples):
+            hess_outer = self.hess_outer_full
+            cross_mat = self.cross_mat_full
+        else:
+            hess_outer = np.mean(self.hess_outer[idx], axis=0)
+            cross_mat = np.mean(self.cross_mat[idx], axis=0)
+
         res = hess_outer @ outer_var + cross_mat @ inner_var
         return res
 
     def cross(self, inner_var, outer_var, v, idx):
-        cross_mat = np.mean(self.cross_mat[idx], axis=0)
+
+        if isinstance(idx, slice) and idx == slice(0, self.n_samples):
+            cross_mat = self.cross_mat_full
+        else:
+            cross_mat = np.mean(self.cross_mat[idx], axis=0)
+
         return cross_mat @ v
 
     def hvp(self, inner_var, outer_var, v, idx):
-        hess_inner = np.mean(self.hess_inner[idx], axis=0)
+
+        if isinstance(idx, slice) and idx == slice(0, self.n_samples):
+            hess_inner = self.hess_inner_full
+        else:
+            hess_inner = np.mean(self.hess_inner[idx], axis=0)
+
         return hess_inner @ v
 
     def prox(self, inner_var, outer_var):

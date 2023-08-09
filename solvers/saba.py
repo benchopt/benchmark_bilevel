@@ -43,10 +43,10 @@ class Solver(BaseSolver):
         'step_size': [.1],
         'outer_ratio': [1.],
         'batch_size': [64],
+        'init_memory': ["zero"],
         'eval_freq': [128],
         'random_state': [1],
         'framework': ["numba"],
-        'init_memory': ["zero"],
     }
 
     @staticmethod
@@ -143,14 +143,14 @@ class Solver(BaseSolver):
 
         self.inner_var0 = inner_var0
         self.outer_var0 = outer_var0
-        if self.framework == 'numba' or self.framework == 'jax':
-            self.run_once(2)
+
+        self.run_once(2)
+        del self.beta
 
     def run(self, callback):
         eval_freq = self.eval_freq  # // self.batch_size
 
         memory_start = get_memory()
-        memory_end = memory_start
 
         # Init variables
         inner_var = self.inner_var0.copy()
@@ -203,6 +203,7 @@ class Solver(BaseSolver):
             )
 
         # Start algorithm
+        memory_end = get_memory()
         while callback((inner_var, outer_var, memory_start, memory_end)):
             if self.framework == 'jax':
                 inner_var, outer_var, v, memory, carry = self.saba(
@@ -247,6 +248,7 @@ def _init_memory(
         'grad_in_outer': np.zeros((n_outer + 1, inner_size[0])),
         'grad_out_outer': np.zeros((n_outer + 1, outer_size[0])),
     }
+    print("Memory size: ", sum(v.nbytes for v in memory.values()) / 1e6, "Mb")
     if mode == "full":
         memory = _init_memory_fb(
             memory,

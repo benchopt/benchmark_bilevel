@@ -15,9 +15,6 @@ class Objective(BaseObjective):
         'random_state': [2442]
     }
 
-    def __init__(self, random_state=2442):
-        self.random_state = random_state
-
     def get_one_solution(self):
         inner_shape, outer_shape = self.get_inner_oracle().variables_shape
         return np.zeros(*inner_shape), np.zeros(*outer_shape)
@@ -43,9 +40,8 @@ class Objective(BaseObjective):
             self.outer_var0 = -2 * np.ones(*outer_shape)
             # XXX: Try random inits
         else:
-            self.inner_var0 = rng.randn(inner_shape)
-            self.outer_var0 = rng.randn(outer_shape)
-            print(inner_shape, outer_shape)
+            self.inner_var0 = rng.randn(*inner_shape)
+            self.outer_var0 = rng.randn(*outer_shape)
 
     def compute(self, beta):
         inner_var, outer_var, memory_start, memory_end = beta
