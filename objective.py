@@ -42,6 +42,10 @@ class Objective(BaseObjective):
             self.inner_var0 = np.zeros(*inner_shape)
             self.outer_var0 = -2 * np.ones(*outer_shape)
             # XXX: Try random inits
+        else:
+            self.inner_var0 = rng.randn(inner_shape)
+            self.outer_var0 = rng.randn(outer_shape)
+            print(inner_shape, outer_shape)
 
     def compute(self, beta):
         inner_var, outer_var, memory_start, memory_end = beta
