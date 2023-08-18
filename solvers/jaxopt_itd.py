@@ -97,7 +97,7 @@ class Solver(BaseSolver):
 
         grad_outer = jax.jit(jax.grad(self.f_outer, argnums=(0, 1)))
 
-        while callback(dict(inner_var=inner_var, outer_var=outer_var)):
+        while callback():
             for _ in range(eval_freq):
                 outer_lr, state_lr = update_lr(state_lr)
                 init_inner = inner_var if self.warm_start else self.inner_var0

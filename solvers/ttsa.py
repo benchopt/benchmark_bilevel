@@ -164,7 +164,7 @@ class Solver(BaseSolver):
                 np.array(step_sizes, dtype=float), exponents
             )
 
-        while callback(dict(inner_var=inner_var, outer_var=outer_var)):
+        while callback():
             if self.framework == 'jax':
                 inner_var, outer_var, carry = self.ttsa(
                         self.f_inner, self.f_outer, inner_var, outer_var,

@@ -190,7 +190,7 @@ class Solver(BaseSolver):
                 step_size=self.step_size, sampler=inner_sampler,
                 n_steps=self.n_inner_steps
             )
-        while callback(dict(inner_var=inner_var, outer_var=outer_var)):
+        while callback():
             if self.framework == 'jax':
                 inner_var, outer_var, carry = self.stocbio(
                         self.f_inner, self.f_outer, inner_var, outer_var,

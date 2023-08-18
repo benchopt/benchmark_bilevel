@@ -99,7 +99,7 @@ class Solver(BaseSolver):
         state_lr = init_lr_scheduler(step_sizes, exponents)
 
         grad_outer = jax.jit(jax.grad(self.f_outer, argnums=(0, 1)))
-        while callback(dict(inner_var=inner_var, outer_var=outer_var)):
+        while callback():
             for _ in range(eval_freq):
                 outer_lr, state_lr = update_lr(state_lr)
 

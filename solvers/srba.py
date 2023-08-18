@@ -191,7 +191,7 @@ class Solver(BaseSolver):
         v_old = v.copy()
         i_min = 0
         # Start algorithm
-        while callback(dict(inner_var=inner_var, outer_var=outer_var)):
+        while callback():
             if self.framework == "jax":
                 inner_var, outer_var, v, inner_var_old, outer_var_old, \
                     v_old, d_inner, d_v, d_outer, carry = self.srba(

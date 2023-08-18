@@ -135,7 +135,7 @@ class Solver(BaseSolver):
             )
 
         # Start algorithm
-        while callback(dict(inner_var=inner_var, outer_var=outer_var)):
+        while callback():
             if self.framework == 'jax':
                 inner_var, outer_var, carry = self.pzobo(
                     self.f_inner, self.f_outer,
