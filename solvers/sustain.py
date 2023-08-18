@@ -134,8 +134,8 @@ class Solver(BaseSolver):
         inner_var = self.inner_var.copy()
         outer_var = self.outer_var.copy()
         if self.framework == 'jax':
-            memory_inner = jnp.zeros((2, *inner_var.shape), inner_var.dtype)
-            memory_outer = jnp.zeros((2, *outer_var.shape), outer_var.dtype)
+            memory_inner = jnp.zeros((2, *inner_var.shape))
+            memory_outer = jnp.zeros((2, *outer_var.shape))
             step_sizes = jnp.array(  # (inner_ss, hia_lr, eta, outer_ss)
                 [
                     self.step_size,
