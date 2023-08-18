@@ -9,7 +9,7 @@ with safe_import_context() as import_ctx:
 class Objective(BaseObjective):
     name = "Bilevel Optimization"
 
-    min_benchopt_version = "1.3.2"
+    min_benchopt_version = "1.4.1"
 
     parameters = {
         'random_state': [2442]
@@ -20,7 +20,8 @@ class Objective(BaseObjective):
 
     def get_one_solution(self):
         inner_shape, outer_shape = self.get_inner_oracle().variables_shape
-        return np.zeros(*inner_shape), np.zeros(*outer_shape)
+        return dict(inner_var=np.zeros(*inner_shape),
+                    outer_var=np.zeros(*outer_shape))
 
     def set_data(self, get_inner_oracle, get_outer_oracle, oracle, metrics,
                  n_reg):
@@ -43,9 +44,7 @@ class Objective(BaseObjective):
             self.outer_var0 = -2 * np.ones(*outer_shape)
             # XXX: Try random inits
 
-    def compute(self, beta):
-        inner_var, outer_var = beta
-
+    def evaluate_result(self, inner_var, outer_var):
         if np.isnan(outer_var).any():
             raise ValueError
 

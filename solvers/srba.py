@@ -124,8 +124,8 @@ class Solver(BaseSolver):
         else:
             raise ValueError(f"Framework {self.framework} not supported.")
 
-        self.inner_var0 = inner_var0
-        self.outer_var0 = outer_var0
+        self.inner_var = inner_var0
+        self.outer_var = outer_var0
         if self.framework == 'numba' or self.framework == 'jax':
             self.run_once(2)
 
@@ -133,8 +133,8 @@ class Solver(BaseSolver):
         eval_freq = self.eval_freq  # // self.batch_size
 
         # Init variables
-        inner_var = self.inner_var0.copy()
-        outer_var = self.outer_var0.copy()
+        inner_var = self.inner_var.copy()
+        outer_var = self.outer_var.copy()
 
         if self.framework == "jax":
             v = jnp.zeros_like(inner_var)
@@ -191,10 +191,8 @@ class Solver(BaseSolver):
         v_old = v.copy()
         i_min = 0
         # Start algorithm
-        while callback((inner_var, outer_var)):
-            # print("===")
+        while callback():
             if self.framework == "jax":
-                # with jax.disable_jit():
                 inner_var, outer_var, v, inner_var_old, outer_var_old, \
                     v_old, d_inner, d_v, d_outer, carry = self.srba(
                         self.f_inner, self.f_outer, self.f_inner_fb,
@@ -204,7 +202,7 @@ class Solver(BaseSolver):
                         **carry
                     )
             else:
-                inner_var, outer_var, v, inner_var_old, outer_var_old,\
+                inner_var, outer_var, v, inner_var_old, outer_var_old, \
                     v_old, d_inner, d_v, d_outer, i_min = self.srba(
                         self.f_inner, self.f_outer,
                         inner_var, outer_var, v,
@@ -215,10 +213,11 @@ class Solver(BaseSolver):
                         i_min=i_min, period=period, max_iter=eval_freq,
                         seed=rng.randint(constants.MAX_SEED)
                     )
-        self.beta = (inner_var, outer_var)
+        self.inner_var = inner_var
+        self.outer_var = outer_var
 
     def get_result(self):
-        return self.beta
+        return dict(inner_var=self.inner_var, outer_var=self.outer_var)
 
 
 def srba(
