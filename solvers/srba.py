@@ -197,7 +197,7 @@ class Solver(BaseSolver):
         self.beta = (inner_var, outer_var, memory_start, memory_end)
 
         # Start algorithm
-        while callback():
+        while callback((inner_var, outer_var, memory_start, memory_end)):
             # print("===")
             if self.framework == "jax":
                 # with jax.disable_jit():
