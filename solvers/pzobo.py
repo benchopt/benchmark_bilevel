@@ -153,8 +153,8 @@ class Solver(BaseSolver):
                     lr_scheduler=lr_scheduler, max_iter=eval_freq,
                     seed=rng.randint(constants.MAX_SEED)
                 )
-        self.inner_var = inner_var
-        self.outer_var = outer_var
+            self.inner_var = inner_var
+            self.outer_var = outer_var
 
     def get_result(self):
         return dict(inner_var=self.inner_var, outer_var=self.outer_var)
