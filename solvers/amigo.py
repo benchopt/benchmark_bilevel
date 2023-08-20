@@ -136,8 +136,8 @@ class Solver(BaseSolver):
         else:
             raise ValueError(f"Framework {self.framework} not supported.")
 
-        self.inner_var0 = inner_var0
-        self.outer_var0 = outer_var0
+        self.inner_var = inner_var0
+        self.outer_var = outer_var0
         if self.framework == 'numba' or self.framework == 'jax':
             self.run_once(2)
 
@@ -145,8 +145,8 @@ class Solver(BaseSolver):
         eval_freq = self.eval_freq
 
         # Init variables
-        inner_var = self.inner_var0.copy()
-        outer_var = self.outer_var0.copy()
+        inner_var = self.inner_var.copy()
+        outer_var = self.outer_var.copy()
         if self.framework == 'jax':
             v = jnp.zeros_like(inner_var)
             step_sizes = jnp.array(
@@ -190,7 +190,7 @@ class Solver(BaseSolver):
                 self.f_inner, inner_var, outer_var, self.step_size,
                 sampler=inner_sampler, n_steps=self.n_inner_steps,
             )
-        while callback((inner_var, outer_var)):
+        while callback():
             if self.framework == 'jax':
                 inner_var, outer_var, v, carry = self.amigo(
                         self.f_inner, self.f_outer, inner_var, outer_var, v,
@@ -206,11 +206,11 @@ class Solver(BaseSolver):
                     n_v_steps=self.n_inner_steps, max_iter=eval_freq,
                     seed=rng.randint(constants.MAX_SEED)
                 )
-
-        self.beta = (inner_var, outer_var)
+        self.inner_var = inner_var
+        self.outer_var = outer_var
 
     def get_result(self):
-        return self.beta
+        return dict(inner_var=self.inner_var, outer_var=self.outer_var)
 
 
 def _amigo(sgd_inner, sgd_v, inner_oracle, outer_oracle, inner_var, outer_var,
