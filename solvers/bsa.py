@@ -45,7 +45,7 @@ class Solver(BaseSolver):
         'batch_size': [64],
         'eval_freq': [128],
         'random_state': [1],
-        'framework': ['jax']
+        'framework': ["jax"],
     }
 
     @staticmethod
@@ -65,6 +65,15 @@ class Solver(BaseSolver):
                       "this oracle."
         elif self.framework not in ['jax', 'none', 'numba']:
             return True, f"Framework {self.framework} not supported."
+
+        try:
+            f_train(framework=self.framework)
+        except NotImplementedError:
+            return (
+                True,
+                f"Framework {self.framework} not compatible with "
+                f"oracle {f_train()}"
+            )
         return False, None
 
     def set_objective(self, f_train, f_val, n_inner_samples, n_outer_samples,
