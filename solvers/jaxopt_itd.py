@@ -80,6 +80,11 @@ class Solver(BaseSolver):
 
         self.inner_var = inner_var0
         self.outer_var = outer_var0
+
+        if self.warm_start:
+            self.inner_var0 = inner_var0
+            self.outer_var0 = outer_var0
+
         self.run_once(2)
 
     def run(self, callback):
