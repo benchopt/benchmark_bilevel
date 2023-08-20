@@ -11,7 +11,6 @@ import warnings
 warnings.filterwarnings('error', category=RuntimeWarning)
 
 
-
 def gen_matrices(n_samples, d_inner, d_outer, L_outer, mu, seed):
     rng = np.random.RandomState(seed)
 
