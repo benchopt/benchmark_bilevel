@@ -201,8 +201,8 @@ class Solver(BaseSolver):
                                  n_hia_steps=self.n_hia_steps,
                                  max_iter=eval_freq,
                                  seed=rng.randint(constants.MAX_SEED))
-        self.inner_var = inner_var
-        self.outer_var = outer_var
+            self.inner_var = inner_var
+            self.outer_var = outer_var
 
     def get_result(self):
         return dict(inner_var=self.inner_var, outer_var=self.outer_var)

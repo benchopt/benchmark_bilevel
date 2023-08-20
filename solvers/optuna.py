@@ -57,7 +57,7 @@ class Solver(BaseSolver):
             study.optimize(obj_optuna, n_trials=n_iter)
             trial = study.best_trial
             outer_var = np.array(list(trial.params.values())).reshape(
-                self.outer_var0.shape
+                self.outer_var.shape
             )
         self.inner_var = self.f_inner.get_inner_var_star(outer_var)
         self.outer_var = outer_var

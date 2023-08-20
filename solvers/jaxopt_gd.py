@@ -112,8 +112,8 @@ class Solver(BaseSolver):
 
                 implicit_grad = grad_outer_out + jvp_fun(grad_outer_in)[0]
                 outer_var -= outer_lr * implicit_grad
-        self.inner_var = inner_var
-        self.outer_var = outer_var
+            self.inner_var = inner_var
+            self.outer_var = outer_var
 
     def get_result(self):
         return dict(inner_var=self.inner_var, outer_var=self.outer_var)
