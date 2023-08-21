@@ -12,7 +12,7 @@ class Solver(BaseSolver):
 
     T. Akiba, S. Sano, T. Yanase, T. Ohta and M. Koyama. "Optuna: A
     Next-generation Hyperparameter Optimization Framework". KDD 2019."""
-    name = 'Optuna solver.'
+    name = 'Optuna'
     stopping_criterion = SufficientProgressCriterion(
         patience=100, strategy='iteration'
     )
