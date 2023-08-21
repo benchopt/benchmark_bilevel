@@ -8,7 +8,9 @@ with safe_import_context() as import_ctx:
 
 class Objective(BaseObjective):
     name = "Bilevel Optimization"
+    url = "https://github.com/benchopt/benchmark_bilevel"
 
+    requirements = ["scikit-learn", "numba", "jax"]
     min_benchopt_version = "1.4.1"
 
     parameters = {
@@ -39,7 +41,7 @@ class Objective(BaseObjective):
                 self.outer_var0 = np.log(self.outer_var0)
             if n_reg == 1:
                 self.outer_var0 = self.outer_var0[:1]
-        elif oracle == "datacleaning" or oracle == "multilogreg":
+        else:
             self.inner_var0 = np.zeros(*inner_shape)
             self.outer_var0 = -2 * np.ones(*outer_shape)
             # XXX: Try random inits

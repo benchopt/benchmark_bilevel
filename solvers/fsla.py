@@ -62,6 +62,15 @@ class Solver(BaseSolver):
                       "this oracle."
         elif self.framework not in ['jax', 'none', 'numba']:
             return True, f"Framework {self.framework} not supported."
+
+        try:
+            f_train(framework=self.framework)
+        except NotImplementedError:
+            return (
+                True,
+                f"Framework {self.framework} not compatible with "
+                f"oracle {f_train()}"
+            )
         return False, None
 
     def set_objective(self, f_train, f_val, n_inner_samples, n_outer_samples,
@@ -333,7 +342,9 @@ def fsla_jax(f_inner, f_outer, inner_var, outer_var, v, memory_outer,
         xs=None,
         length=max_iter,
     )
-    return carry['inner_var'], carry['outer_var'], carry['v'], \
-        carry['memory_outer'], \
+    return (
+        carry['inner_var'], carry['outer_var'], carry['v'],
+        carry['memory_outer'],
         {k: v for k, v in carry.items()
          if k not in ['inner_var', 'outer_var', 'v', 'memory_outer']}
+    )
