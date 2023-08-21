@@ -44,7 +44,7 @@ class Solver(BaseSolver):
         'batch_size': [64],
         'eval_freq': [128],
         'random_state': [1],
-        'framework': ["numba"],
+        'framework': ["none"],
         'init_memory': ["zero"],
     }
 

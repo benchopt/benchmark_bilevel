@@ -53,12 +53,6 @@ def quadratic(inner_var, outer_var, hess_inner, hess_outer, cross,
     return res
 
 
-def batched_quadratic(inner_var, outer_var, hess_inner, hess_outer, cross,
-                      linear_inner):
-    return jnp.mean(jax.vmap(quadratic,
-                             in_axes=(None, None, 0, 0, 0, 0)))
-
-
 class QuadraticOracle(BaseOracle):
     """Class defining the oracles for the L^2 regularized logistic loss.
 
@@ -131,12 +125,11 @@ class QuadraticOracle(BaseOracle):
 
         @jax.jit
         def jax_oracle_fb(inner_var, outer_var):
-            res = quadratic(inner_var, outer_var, self.X, self.y)
-            if self.reg == 'exp':
-                res += jnp.dot(jnp.exp(outer_var) * inner_var, inner_var)/2
-            elif self.reg == 'lin':
-                res += jnp.dot(outer_var * inner_var, inner_var)/2
-            return res
+            return quadratic(
+                inner_var, outer_var, self.hess_inner_full,
+                self.hess_outer_full, self.cross_mat_full,
+                self.linear_inner_full
+            )
         return jax_oracle, jax_oracle_fb
 
     def _get_numba_oracle(self):
