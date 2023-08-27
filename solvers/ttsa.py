@@ -136,7 +136,7 @@ class Solver(BaseSolver):
         self.outer_var = outer_var0
 
     def warm_up(self):
-        if self.framework == 'numba' or self.framework == 'jax':
+        if self.framework in ['numba', 'jax']:
             self.run_once(2)
 
     def run(self, callback):
