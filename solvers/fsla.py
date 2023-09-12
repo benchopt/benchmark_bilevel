@@ -63,6 +63,15 @@ class Solver(BaseSolver):
                       "this oracle."
         elif self.framework not in ['jax', 'none', 'numba']:
             return True, f"Framework {self.framework} not supported."
+
+        try:
+            f_train(framework=self.framework)
+        except NotImplementedError:
+            return (
+                True,
+                f"Framework {self.framework} not compatible with "
+                f"oracle {f_train()}"
+            )
         return False, None
 
     def set_objective(self, f_train, f_val, n_inner_samples, n_outer_samples,
@@ -112,9 +121,11 @@ class Solver(BaseSolver):
         else:
             raise ValueError(f"Framework {self.framework} not supported.")
 
-        self.inner_var0 = inner_var0
-        self.outer_var0 = outer_var0
-        if self.framework == 'numba' or self.framework == 'jax':
+        self.inner_var = inner_var0
+        self.outer_var = outer_var0
+
+    def warm_up(self):
+        if self.framework in ['numba', 'jax']:
             self.run_once(2)
 
     def run(self, callback):
@@ -123,8 +134,8 @@ class Solver(BaseSolver):
         memory_start = get_memory()
         memory_end = memory_start
         # Init variables
-        inner_var = self.inner_var0.copy()
-        outer_var = self.outer_var0.copy()
+        inner_var = self.inner_var.copy()
+        outer_var = self.outer_var.copy()
         if self.framework == 'jax':
             v = jnp.zeros_like(inner_var)
             memory_outer = jnp.zeros((2, *outer_var.shape))
@@ -162,7 +173,7 @@ class Solver(BaseSolver):
             )
 
         # Start algorithm
-        while callback((inner_var, outer_var, memory_start, memory_end)):
+        while callback():
             if self.framework == 'jax':
                 inner_var, outer_var, v, memory_outer, carry = self.fsla(
                     self.f_inner, self.f_outer,
@@ -179,11 +190,13 @@ class Solver(BaseSolver):
                     seed=rng.randint(constants.MAX_SEED)
                 )
             memory_end = get_memory()
-
-        self.beta = (inner_var, outer_var, memory_start, memory_end)
+            self.inner_var = inner_var
+            self.outer_var = outer_var
+            self.memory = memory_end - memory_start
+            self.memory /= 1e6
 
     def get_result(self):
-        return self.beta
+        return dict(inner_var=self.inner_var, outer_var=self.outer_var)
 
 
 def fsla(inner_oracle, outer_oracle, inner_var, outer_var, v, memory_outer,
@@ -335,7 +348,9 @@ def fsla_jax(f_inner, f_outer, inner_var, outer_var, v, memory_outer,
         xs=None,
         length=max_iter,
     )
-    return carry['inner_var'], carry['outer_var'], carry['v'], \
-        carry['memory_outer'], \
+    return (
+        carry['inner_var'], carry['outer_var'], carry['v'],
+        carry['memory_outer'],
         {k: v for k, v in carry.items()
          if k not in ['inner_var', 'outer_var', 'v', 'memory_outer']}
+    )

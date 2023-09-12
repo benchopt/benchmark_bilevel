@@ -67,6 +67,15 @@ class Solver(BaseSolver):
                       "this oracle."
         elif self.framework not in ['jax', 'none', 'numba']:
             return True, f"Framework {self.framework} not supported."
+
+        try:
+            f_train(framework=self.framework)
+        except NotImplementedError:
+            return (
+                True,
+                f"Framework {self.framework} not compatible with "
+                f"oracle {f_train()}"
+            )
         return False, None
 
     def set_objective(self, f_train, f_val, n_inner_samples, n_outer_samples,
@@ -137,9 +146,11 @@ class Solver(BaseSolver):
         else:
             raise ValueError(f"Framework {self.framework} not supported.")
 
-        self.inner_var0 = inner_var0
-        self.outer_var0 = outer_var0
-        if self.framework == 'numba' or self.framework == 'jax':
+        self.inner_var = inner_var0
+        self.outer_var = outer_var0
+
+    def warm_up(self):
+        if self.framework in ['numba', 'jax']:
             self.run_once(2)
 
     def run(self, callback):
@@ -149,8 +160,8 @@ class Solver(BaseSolver):
         memory_end = memory_start
 
         # Init variables
-        outer_var = self.outer_var0.copy()
-        inner_var = self.inner_var0.copy()
+        outer_var = self.outer_var.copy()
+        inner_var = self.inner_var.copy()
 
         if self.framework == 'jax':
             step_sizes = jnp.array(
@@ -194,7 +205,7 @@ class Solver(BaseSolver):
                 step_size=self.step_size, sampler=inner_sampler,
                 n_steps=self.n_inner_steps
             )
-        while callback((inner_var, outer_var, memory_start, memory_end)):
+        while callback():
             if self.framework == 'jax':
                 inner_var, outer_var, carry = self.stocbio(
                         self.f_inner, self.f_outer, inner_var, outer_var,
@@ -211,11 +222,13 @@ class Solver(BaseSolver):
                     seed=rng.randint(constants.MAX_SEED)
                 )
             memory_end = get_memory()
-
-        self.beta = (inner_var, outer_var, memory_start, memory_end)
+            self.inner_var = inner_var
+            self.outer_var = outer_var
+            self.memory = memory_end - memory_start
+            self.memory /= 1e6
 
     def get_result(self):
-        return self.beta
+        return dict(inner_var=self.inner_var, outer_var=self.outer_var)
 
 
 def _stocbio(sgd_inner, shia, inner_oracle, outer_oracle, inner_var, outer_var,

@@ -1,5 +1,5 @@
-import numpy as np
 import jax
+import numpy as np
 import jax.numpy as jnp
 from joblib import Memory
 
@@ -36,7 +36,7 @@ def gen_matrices(n_samples, d_inner, d_outer, L_inner, L_outer, mu, seed):
         A = U @ D @ U.T
         hess_outer.append(A)
 
-    return  (
+    return (
         np.stack(hess_inner), np.stack(hess_outer),
         rng.randn(n_samples, d_outer, d_inner),
         rng.randn(n_samples, d_inner),

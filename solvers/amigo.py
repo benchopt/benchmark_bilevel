@@ -65,6 +65,15 @@ class Solver(BaseSolver):
                       "this oracle."
         elif self.framework not in ['jax', 'none', 'numba']:
             return True, f"Framework {self.framework} not supported."
+
+        try:
+            f_train(framework=self.framework)
+        except NotImplementedError:
+            return (
+                True,
+                f"Framework {self.framework} not compatible with "
+                f"oracle {f_train()}"
+            )
         return False, None
 
     def set_objective(self, f_train, f_val, n_inner_samples, n_outer_samples,
@@ -137,11 +146,12 @@ class Solver(BaseSolver):
         else:
             raise ValueError(f"Framework {self.framework} not supported.")
 
-        self.inner_var0 = inner_var0
-        self.outer_var0 = outer_var0
+        self.inner_var = inner_var0
+        self.outer_var = outer_var0
 
-        self.run_once(2)
-        del self.beta
+    def warm_up(self):
+        if self.framework in ['numba', 'jax']:
+            self.run_once(2)
 
     def run(self, callback):
         eval_freq = self.eval_freq
@@ -193,9 +203,7 @@ class Solver(BaseSolver):
                 self.f_inner, inner_var, outer_var, self.step_size,
                 sampler=inner_sampler, n_steps=self.n_inner_steps,
             )
-
-        memory_end = get_memory()
-        while callback((inner_var, outer_var, memory_start, memory_end)):
+        while callback():
             if self.framework == 'jax':
                 inner_var, outer_var, v, carry = self.amigo(
                         self.f_inner, self.f_outer, inner_var, outer_var, v,
@@ -212,11 +220,13 @@ class Solver(BaseSolver):
                     seed=rng.randint(constants.MAX_SEED)
                 )
             memory_end = get_memory()
-
-        self.beta = (inner_var, outer_var, memory_start, memory_end)
+            self.inner_var = inner_var
+            self.outer_var = outer_var
+            self.memory = memory_end - memory_start
+            self.memory /= 1e6
 
     def get_result(self):
-        return self.beta
+        return dict(inner_var=self.inner_var, outer_var=self.outer_var)
 
 
 def _amigo(sgd_inner, sgd_v, inner_oracle, outer_oracle, inner_var, outer_var,
@@ -312,6 +322,8 @@ def amigo_jax(f_inner, f_outer, inner_var, outer_var, v,
         xs=None,
         length=max_iter,
     )
-    return carry['inner_var'], carry['outer_var'], carry['v'],\
+    return (
+        carry['inner_var'], carry['outer_var'], carry['v'],
         {k: v for k, v in carry.items()
          if k not in ['inner_var', 'outer_var', 'v']}
+    )

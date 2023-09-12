@@ -62,6 +62,15 @@ class Solver(BaseSolver):
                       "this oracle."
         elif self.framework not in ['jax', 'none', 'numba']:
             return True, f"Framework {self.framework} not supported."
+
+        try:
+            f_train(framework=self.framework)
+        except NotImplementedError:
+            return (
+                True,
+                f"Framework {self.framework} not compatible with "
+                f"oracle {f_train()}"
+            )
         return False, None
 
     def set_objective(self, f_train, f_val, n_inner_samples, n_outer_samples,
@@ -111,17 +120,19 @@ class Solver(BaseSolver):
         else:
             raise ValueError(f"Framework {self.framework} not supported.")
 
-        self.inner_var0 = inner_var0
-        self.outer_var0 = outer_var0
-        if self.framework == 'numba' or self.framework == 'jax':
+        self.inner_var = inner_var0
+        self.outer_var = outer_var0
+
+    def warm_up(self):
+        if self.framework in ['numba', 'jax']:
             self.run_once(2)
 
     def run(self, callback):
         eval_freq = self.eval_freq
 
         # Init variables
-        inner_var = self.inner_var0.copy()
-        outer_var = self.outer_var0.copy()
+        inner_var = self.inner_var.copy()
+        outer_var = self.outer_var.copy()
         if self.framework == "jax":
             v = jnp.zeros_like(inner_var)
             # Init lr scheduler
@@ -157,7 +168,7 @@ class Solver(BaseSolver):
                                                   self.batch_size_outer)
 
         # Start algorithm
-        while callback((inner_var, outer_var)):
+        while callback():
             if self.framework == 'jax':
                 inner_var, outer_var, v, carry = self.soba(
                     self.f_inner, self.f_outer,
@@ -172,11 +183,11 @@ class Solver(BaseSolver):
                     lr_scheduler=lr_scheduler, max_iter=eval_freq,
                     seed=rng.randint(constants.MAX_SEED)
                 )
-
-        self.beta = (inner_var, outer_var)
+            self.inner_var = inner_var
+            self.outer_var = outer_var
 
     def get_result(self):
-        return self.beta
+        return dict(inner_var=self.inner_var, outer_var=self.outer_var)
 
 
 def soba(inner_oracle, outer_oracle, inner_var, outer_var, v,
@@ -262,6 +273,9 @@ def soba_jax(f_inner, f_outer, inner_var, outer_var, v,
         xs=None,
         length=max_iter,
     )
-    return carry['inner_var'], carry['outer_var'], carry['v'],\
+
+    return (
+        carry['inner_var'], carry['outer_var'], carry['v'],
         {k: v for k, v in carry.items()
          if k not in ['inner_var', 'outer_var', 'v']}
+    )
