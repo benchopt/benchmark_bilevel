@@ -9,15 +9,17 @@ from .base import BaseOracle
 import warnings
 warnings.filterwarnings('error', category=RuntimeWarning)
 
-memory = Memory("__cache__", verbose=False)
+memory = Memory("__cache__",
+                verbose=False)
 
 
 @memory.cache
-def gen_matrices(n_samples, d_inner, d_outer, L_inner, L_outer, mu, seed):
+def gen_matrices(n_samples, d_inner, d_outer, L_inner, L_outer, mu, seed,
+                 low_rank_outer=False):
     rng = np.random.RandomState(seed)
 
     hess_inner = []
-    for i in range(n_samples):
+    for _ in range(n_samples):
         A = rng.randn(d_inner, d_inner)
         A = A.T @ A
         _, U = np.linalg.eigh(A)
@@ -27,14 +29,18 @@ def gen_matrices(n_samples, d_inner, d_outer, L_inner, L_outer, mu, seed):
         hess_inner.append(A)
 
     hess_outer = []
-    for j in range(n_samples):
-        A = rng.randn(d_outer, d_outer)
-        A = A.T @ A
-        _, U = np.linalg.eigh(A)
-        D = np.logspace(np.log10(mu), np.log10(L_outer), d_outer-1)
-        D = np.diag(np.r_[0, D])
-        A = U @ D @ U.T
-        hess_outer.append(A)
+    for _ in range(n_samples):
+        if low_rank_outer:
+            x = rng.randn(d_outer)
+            hess_outer.append(x[:, None] @ x[None, :])
+        else:
+            A = rng.randn(d_outer, d_outer)
+            A = A.T @ A
+            _, U = np.linalg.eigh(A)
+            D = np.logspace(np.log10(mu), np.log10(L_outer), d_outer-1)
+            D = np.diag(np.r_[0, D])
+            A = U @ D @ U.T
+            hess_outer.append(A)
 
     return (
         np.stack(hess_inner), np.stack(hess_outer),
@@ -77,7 +83,7 @@ class QuadraticOracle(BaseOracle):
         - 'none' no regularization
     """
     def __init__(self, n_samples, d_inner, d_outer, L_inner, L_outer, mu,
-                 random_state=None):
+                 random_state=None, low_rank_outer=False):
         super().__init__()
 
         self.n_samples = n_samples
@@ -87,7 +93,8 @@ class QuadraticOracle(BaseOracle):
 
         (self.hess_inner, self.hess_outer, self.cross_mat, self.linear_inner,
          self.linear_outer) = gen_matrices(
-            n_samples, d_inner, d_outer, L_inner, L_outer, mu, random_state
+            n_samples, d_inner, d_outer, L_inner, L_outer, mu, random_state,
+            low_rank_outer=low_rank_outer
         )
 
         self.hess_inner_full = np.mean(self.hess_inner, axis=0)
