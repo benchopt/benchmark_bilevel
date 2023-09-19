@@ -134,6 +134,7 @@ class Solver(BaseSolver):
 
         self.inner_var = inner_var0
         self.outer_var = outer_var0
+        self.memory = 0
 
     def warm_up(self):
         if self.framework in ['numba', 'jax']:
@@ -141,9 +142,8 @@ class Solver(BaseSolver):
 
     def run(self, callback):
         eval_freq = self.eval_freq
-
         memory_start = get_memory()
-        memory_end = memory_start
+
         # Init variables
         inner_var = self.inner_var.copy()
         outer_var = self.outer_var.copy()
@@ -214,7 +214,8 @@ class Solver(BaseSolver):
             self.memory /= 1e6
 
     def get_result(self):
-        return dict(inner_var=self.inner_var, outer_var=self.outer_var)
+        return dict(inner_var=self.inner_var, outer_var=self.outer_var,
+                    memory=self.memory)
 
 
 def _mrbo(joint_shia, inner_oracle, outer_oracle, inner_var, outer_var,

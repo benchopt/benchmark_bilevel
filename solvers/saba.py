@@ -23,8 +23,6 @@ with safe_import_context() as import_ctx:
     import jax.numpy as jnp
     from functools import partial
 
-    # from benchopt.utils import profile
-
 
 class Solver(BaseSolver):
     """Stochastic Average Bilevel Algorithm (SABA).
@@ -43,7 +41,7 @@ class Solver(BaseSolver):
         'step_size': [.1],
         'outer_ratio': [1.],
         'batch_size': [64],
-        'init_memory': ["zero"],
+        'mode_init_memory': ["zero"],
         'eval_freq': [128],
         'random_state': [1],
         'framework': ["none"],
@@ -152,6 +150,7 @@ class Solver(BaseSolver):
 
         self.inner_var = inner_var0
         self.outer_var = outer_var0
+        self.memory = 0
 
     def warm_up(self):
         if self.framework in ['numba', 'jax']:
@@ -208,7 +207,8 @@ class Solver(BaseSolver):
 
             memory = self.init_memory(
                 self.f_inner, self.f_outer,
-                inner_var, outer_var, v, inner_sampler, outer_sampler
+                inner_var, outer_var, v, inner_sampler, outer_sampler,
+                mode=self.mode_init_memory
             )
 
         # Start algorithm
@@ -234,7 +234,8 @@ class Solver(BaseSolver):
             self.memory /= 1e6
 
     def get_result(self):
-        return dict(inner_var=self.inner_var, outer_var=self.outer_var)
+        return dict(inner_var=self.inner_var, outer_var=self.outer_var,
+                    memory=self.memory)
 
 
 def _init_memory(
@@ -258,7 +259,6 @@ def _init_memory(
         'grad_in_outer': np.zeros((n_outer + 1, inner_size[0])),
         'grad_out_outer': np.zeros((n_outer + 1, outer_size[0])),
     }
-    print("Memory size: ", sum(v.nbytes for v in memory.values()) / 1e6, "Mb")
     if mode == "full":
         memory = _init_memory_fb(
             memory,
@@ -270,6 +270,7 @@ def _init_memory(
             inner_sampler,
             outer_sampler,
         )
+    print("Memory size: ", sum(v.nbytes for v in memory.values()) / 1e6, "Mb")
     return memory
 
 

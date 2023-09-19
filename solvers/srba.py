@@ -136,6 +136,7 @@ class Solver(BaseSolver):
 
         self.inner_var = inner_var0
         self.outer_var = outer_var0
+        self.memory = 0
 
     def warm_up(self):
         if self.framework in ['numba', 'jax']:
@@ -198,14 +199,12 @@ class Solver(BaseSolver):
         period *= self.period_frac
         period /= self.batch_size
         period = int(period)
-        # period = 1
 
         inner_var_old = inner_var.copy()
         outer_var_old = outer_var.copy()
         v_old = v.copy()
         i_min = 0
         memory_end = get_memory()
-        self.beta = (inner_var, outer_var, memory_start, memory_end)
 
         # Start algorithm
         while callback():
@@ -237,7 +236,8 @@ class Solver(BaseSolver):
             self.memory /= 1e6
 
     def get_result(self):
-        return dict(inner_var=self.inner_var, outer_var=self.outer_var)
+        return dict(inner_var=self.inner_var, outer_var=self.outer_var,
+                    memory=self.memory)
 
 
 def srba(
@@ -253,6 +253,7 @@ def srba(
 
     for i in range(i_min, i_min+max_iter):
         inner_lr, outer_lr = lr_scheduler.get_lr()
+
         # Computation of the directions
         if i % period == 0:  # Full batch computations
             slice_inner = slice(0, inner_oracle.n_samples)
@@ -270,7 +271,6 @@ def srba(
                 outer_var,
                 slice_outer
             )
-            # print(np.linalg.norm(hvp), np.linalg.norm(grad_outer_in))
             d_v = hvp + grad_outer_in
             d_outer = cross_v + grad_outer_out
 
@@ -300,11 +300,11 @@ def srba(
         inner_var_old = inner_var.copy()
         v_old = v.copy()
         outer_var_old = outer_var.copy()
-
         # Update of the variables
         inner_var -= inner_lr * d_inner
         v -= inner_lr * d_v
         outer_var -= outer_lr * d_outer
+
     return (
         inner_var, outer_var, v, inner_var_old, outer_var_old, v_old, d_inner,
         d_v, d_outer, i_min+max_iter

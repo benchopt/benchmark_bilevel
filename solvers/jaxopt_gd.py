@@ -84,6 +84,7 @@ class Solver(BaseSolver):
 
         self.inner_var = inner_var0
         self.outer_var = outer_var0
+        self.memory = 0
 
     def warm_up(self):
         self.run_once(2)
@@ -124,4 +125,5 @@ class Solver(BaseSolver):
             self.memory /= 1e6
 
     def get_result(self):
-        return dict(inner_var=self.inner_var, outer_var=self.outer_var)
+        return dict(inner_var=self.inner_var, outer_var=self.outer_var,
+                    memory=self.memory)

@@ -148,6 +148,7 @@ class Solver(BaseSolver):
 
         self.inner_var = inner_var0
         self.outer_var = outer_var0
+        self.memory = 0
 
     def warm_up(self):
         if self.framework in ['numba', 'jax']:
@@ -158,8 +159,8 @@ class Solver(BaseSolver):
 
         # Init variables
         memory_start = get_memory()
-        inner_var = self.inner_var0.copy()
-        outer_var = self.outer_var0.copy()
+        inner_var = self.inner_var.copy()
+        outer_var = self.outer_var.copy()
         if self.framework == 'jax':
             v = jnp.zeros_like(inner_var)
             step_sizes = jnp.array(
@@ -226,7 +227,8 @@ class Solver(BaseSolver):
             self.memory /= 1e6
 
     def get_result(self):
-        return dict(inner_var=self.inner_var, outer_var=self.outer_var)
+        return dict(inner_var=self.inner_var, outer_var=self.outer_var,
+                    memory=self.memory)
 
 
 def _amigo(sgd_inner, sgd_v, inner_oracle, outer_oracle, inner_var, outer_var,
