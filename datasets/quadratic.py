@@ -54,7 +54,7 @@ class Dataset(BaseDataset):
         def metrics(inner_var, outer_var):
             inner_sol = np.linalg.solve(
                 hess_inner,
-                - linear_inner - outer_var @ cross
+                - linear_inner - cross.T @ outer_var
             )
             v_sol = - np.linalg.solve(
                 hess_inner,

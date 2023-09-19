@@ -181,3 +181,9 @@ class QuadraticOracle(BaseOracle):
 
     def inverse_hvp(self, inner_var, outer_var, v, idx, approx='cg'):
         return v
+
+    def inner_var_star(self, outer_var):
+        return np.linalg.solve(
+                self.hess_inner_full,
+                - self.linear_inner_full - self.cross_mat_full.T @ outer_var
+            )
