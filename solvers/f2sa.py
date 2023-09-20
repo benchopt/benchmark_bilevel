@@ -24,7 +24,7 @@ with safe_import_context() as import_ctx:
 
 
 class Solver(BaseSolver):
-    """Stochastic Bilevel Algorithm (f2sa).
+    """Fully First-order Stochastic Approximation (F2SA).
 
     J. Kwon, D. Kwon, S. Wright and R. Noewak, "A Fully First-Order Method for
     Stochastic Bilevel Optimization", ICML 2023."""
@@ -42,6 +42,7 @@ class Solver(BaseSolver):
         'eval_freq': [128],
         'random_state': [1],
         'framework': ["jax"],
+        'lmbda0': [1.],
     }
 
     @staticmethod
@@ -59,7 +60,7 @@ class Solver(BaseSolver):
             elif isinstance(f_val(), (MultiLogRegOracle, DataCleaningOracle)):
                 return True, "Numba implementation not available for" \
                       "this oracle."
-        elif self.framework not in ['jax', 'none', 'numba']:
+        elif self.framework not in ['none', 'numba']:
             return True, f"Framework {self.framework} not supported."
 
         try:
@@ -89,15 +90,22 @@ class Solver(BaseSolver):
 
         if self.framework == 'numba':
             # JIT necessary functions and classes
-            self.f2sa = njit(f2sa)
+            njit_f2sa = njit(_f2sa)
+            self.inner_loop = njit(inner_f2sa)
             self.MinibatchSampler = jitclass(MinibatchSampler, mbs_spec)
             self.LearningRateScheduler = jitclass(
                 LearningRateScheduler, sched_spec
             )
+
+            def f2sa(*args, **kwargs):
+                return njit_f2sa(self.inner_loop, *args, **kwargs)
         elif self.framework == "none":
-            self.f2sa = f2sa
+            self.inner_loop = inner_f2sa
             self.MinibatchSampler = MinibatchSampler
             self.LearningRateScheduler = LearningRateScheduler
+
+            def f2sa(*args, **kwargs):
+                return _f2sa(self.inner_loop, *args, **kwargs)
         elif self.framework == 'jax':
             self.f_inner = jax.jit(
                 partial(self.f_inner, batch_size=self.batch_size_inner)
@@ -131,7 +139,9 @@ class Solver(BaseSolver):
 
         # Init variables
         inner_var = self.inner_var.copy()
+        lagrangian_inner_var = self.inner_var.copy()
         outer_var = self.outer_var.copy()
+        lmbda = self.lmbda0
         if self.framework == "jax":
             v = jnp.zeros_like(inner_var)
             # Init lr scheduler
@@ -174,14 +184,13 @@ class Solver(BaseSolver):
                     inner_var, outer_var, v, max_iter=eval_freq, **carry
                 )
             else:
-                inner_var, outer_var, v = self.f2sa(
-                    self.f_inner, self.f_outer,
-                    inner_var, outer_var, v,
-                    inner_sampler=inner_sampler,
-                    outer_sampler=outer_sampler,
-                    lr_scheduler=lr_scheduler, max_iter=eval_freq,
+                inner_var, outer_var, lagrangian_inner_var, lmbda = self.f2sa(
+                    self.f_inner, self.f_outer, inner_var, outer_var,
+                    lagrangian_inner_var, lmbda, inner_sampler=inner_sampler, outer_sampler=outer_sampler, lr_scheduler=lr_scheduler,
+                    n_inner_steps=self.n_inner_steps, max_iter=eval_freq,
                     seed=rng.randint(constants.MAX_SEED)
                 )
+                
             self.inner_var = inner_var
             self.outer_var = outer_var
 
@@ -216,7 +225,7 @@ def inner_f2sa(inner_oracle, outer_oracle, inner_var, lagrangian_inner_var,
     return inner_var, lagrangian_inner_var
 
 
-def f2sa(inner_oracle, outer_oracle, inner_var, outer_var,
+def _f2sa(inner_loop, inner_oracle, outer_oracle, inner_var, outer_var,
          lagrangian_inner_var, lmbda, inner_sampler=None, outer_sampler=None,
          lr_scheduler=None, n_inner_steps=10, max_iter=1, seed=None):
 
@@ -225,10 +234,10 @@ def f2sa(inner_oracle, outer_oracle, inner_var, outer_var,
         np.random.seed(seed)
 
     for i in range(max_iter):
-        lr_inner, lr_lagrangian, lr_outer = lr_scheduler.get_lr()
+        lr_inner, lr_lagrangian, lr_outer, d_lmbda = lr_scheduler.get_lr()
 
         # Run the inner procedure
-        inner_var, lagrangian_inner_var = inner_f2sa(
+        inner_var, lagrangian_inner_var = inner_loop(
             inner_oracle, outer_oracle, inner_var, lagrangian_inner_var,
             outer_var, lmbda, inner_sampler=inner_sampler,
             outer_sampler=outer_sampler, lr_inner=lr_inner,
@@ -245,15 +254,14 @@ def f2sa(inner_oracle, outer_oracle, inner_var, outer_var,
                                                  slice_inner1)
         grad_inner_star = inner_oracle.grad_outer_var(lagrangian_inner_var,
                                                       outer_var, slice_inner2)
-        
+
         d_outer_var += lmbda * (grad_inner_star - grad_inner)
 
         # Step.2 - update the variables
-        inner_var -= inner_step_size * grad_inner_var
-        v -= inner_step_size * (hvp + grad_in_outer)
-        outer_var -= outer_step_size * (cross_v + grad_out_outer)
+        outer_var -= lr_outer * d_outer_var
+        lmbda += d_lmbda
 
-    return inner_var, outer_var, v
+    return inner_var, outer_var, lagrangian_inner_var, lmbda
 
 
 @partial(jax.jit, static_argnums=(0, 1),
