@@ -20,7 +20,7 @@ class Dataset(BaseDataset):
         'n_samples_outer': [1024],
         'dim_inner': [100],
         'dim_outer': [100],
-        'low_rank_outer': [False]
+        # 'low_rank_outer': [False]
     }
 
     def get_data(self):
@@ -35,7 +35,7 @@ class Dataset(BaseDataset):
         f_outer = oracles.QuadraticOracle(
             self.n_samples_outer, self.dim_inner, self.dim_outer,
             self.L_inner, self.L_outer, self.mu_inner,
-            random_state=outer_seed, low_rank_outer=self.low_rank_outer
+            random_state=outer_seed
         )
         hess_inner = f_inner.hess_inner_full
         cross = f_inner.cross_mat_full

@@ -15,36 +15,33 @@ memory = Memory("__cache__",
 
 
 @memory.cache
-def gen_matrices(n_samples, d_inner, d_outer, L_inner, L_outer, mu, seed,
-                 low_rank_outer=False):
+def gen_matrices(n_samples, d_inner, d_outer, L_inner, L_outer, mu, seed):
     rng = np.random.RandomState(seed)
 
-    hess_inner = []
-    for _ in range(n_samples):
-        A = rng.randn(d_inner, d_inner)
-        A = A.T @ A
-        _, U = np.linalg.eigh(A)
-        D = np.logspace(np.log10(mu), np.log10(L_inner), d_inner)
-        D = np.diag(D)
-        A = U @ D @ U.T
-        hess_inner.append(A)
+    # Generate H^1/2
+    U, *_ = np.linalg.svd(rng.randn(d_inner, 1))
+    D = np.logspace(np.log10(mu) / 2, 0, d_inner)
+    D = np.diag(D)
+    A = U @ D @ U.T
 
-    hess_outer = []
-    for _ in range(n_samples):
-        if low_rank_outer:
-            x = rng.randn(d_outer)
-            hess_outer.append(x[:, None] @ x[None, :])
-        else:
-            A = rng.randn(d_outer, d_outer)
-            A = A.T @ A
-            _, U = np.linalg.eigh(A)
-            D = np.logspace(np.log10(mu), np.log10(L_outer), d_outer-1)
-            D = np.diag(np.r_[0, D])
-            A = U @ D @ U.T
-            hess_outer.append(A)
+    # Generate x with correlation matrix H (spectrum [mu, 1])
+    # and take H_i as empirical correlation x.x^T
+    X = rng.randn(n_samples, 1, d_inner) @ A
+    hess_inner = X.transpose(0, 2, 1) @ X / X.shape[1]
+
+    # Generate H^1/2
+    U, *_ = np.linalg.svd(rng.randn(d_outer, 1))
+    D = np.logspace(np.log10(mu), np.log10(L_outer), d_outer-1)
+    D = np.diag(np.r_[0, D])
+    A = U @ D @ U.T
+
+    # Generate x with correlation matrix H (spectrum [mu, 1])
+    # and take H_i as empirical correlation x.x^T
+    X = rng.randn(n_samples, 1, d_outer) @ A
+    hess_outer = X.transpose(0, 2, 1) @ X / X.shape[1]
 
     return (
-        np.stack(hess_inner), np.stack(hess_outer),
+        hess_inner, hess_outer,
         rng.randn(n_samples, d_outer, d_inner),
         rng.randn(n_samples, d_inner),
         rng.randn(n_samples, d_outer)
@@ -99,7 +96,6 @@ class QuadraticOracle(BaseOracle):
         (self.hess_inner, self.hess_outer, self.cross_mat, self.linear_inner,
          self.linear_outer) = gen_matrices(
             n_samples, d_inner, d_outer, L_inner, L_outer, mu, random_state,
-            low_rank_outer=low_rank_outer
         )
 
         self.hess_inner_full = np.mean(self.hess_inner, axis=0)
