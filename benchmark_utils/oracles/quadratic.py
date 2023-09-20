@@ -2,6 +2,7 @@ import jax
 import numpy as np
 import jax.numpy as jnp
 from joblib import Memory
+from functools import partial
 
 from .base import BaseOracle
 
@@ -51,18 +52,22 @@ def gen_matrices(n_samples, d_inner, d_outer, L_inner, L_outer, mu, seed,
 
 
 def quadratic(inner_var, outer_var, hess_inner, hess_outer, cross,
-              linear_inner):
+              linear_inner, linear_outer):
     res = .5 * inner_var @ (hess_inner @ inner_var)
     res += .5 * outer_var @ (hess_outer @ outer_var)
     res += outer_var @ cross @ inner_var
     res += linear_inner @ inner_var
+    res += linear_outer @ outer_var
     return res
 
 
 def batched_quadratic(inner_var, outer_var, hess_inner, hess_outer, cross,
-                      linear_inner):
-    return jnp.mean(jax.vmap(quadratic,
-                             in_axes=(None, None, 0, 0, 0, 0)))
+                      linear_inner, linear_outer):
+    batched_loss = jax.vmap(quadratic, in_axes=(None, None, 0, 0, 0, 0, 0))
+    return jnp.mean(
+        batched_loss(inner_var, outer_var, hess_inner, hess_outer,
+                     cross, linear_inner, linear_outer)
+    )
 
 
 class QuadraticOracle(BaseOracle):
@@ -108,8 +113,44 @@ class QuadraticOracle(BaseOracle):
         )
 
     def _get_jax_oracle(self, get_full_batch=False):
-        raise NotImplementedError("No Numba implementation for quadratic  "
-                                  + "oracle available")
+
+        @partial(jax.jit, static_argnames=('batch_size'))
+        def jax_oracle(inner_var, outer_var, start=0, batch_size=1):
+            hess_inner = jax.lax.dynamic_slice(
+                self.hess_inner, (start, 0, 0),
+                (batch_size, self.hess_inner.shape[1],
+                 self.hess_inner.shape[2])
+            )
+            hess_outer = jax.lax.dynamic_slice(
+                self.hess_outer, (start, 0, 0),
+                (batch_size, self.hess_outer.shape[1],
+                 self.hess_outer.shape[2])
+            )
+            cross_mat = jax.lax.dynamic_slice(
+                self.cross_mat, (start, 0, 0),
+                (batch_size, self.cross_mat.shape[1], self.cross_mat.shape[2])
+            )
+            linear_inner = jax.lax.dynamic_slice(
+                self.linear_inner, (start, 0),
+                (batch_size, self.linear_inner.shape[1])
+            )
+            linear_outer = jax.lax.dynamic_slice(
+                self.linear_outer, (start, 0),
+                (batch_size, self.linear_outer.shape[1])
+            )
+            return batched_quadratic(inner_var, outer_var, hess_inner,
+                                     hess_outer, cross_mat, linear_inner,
+                                     linear_outer)
+        if get_full_batch:
+            @jax.jit
+            def jax_oracle_fb(inner_var, outer_var):
+                return quadratic(inner_var, outer_var, self.hess_inner_full,
+                                 self.hess_outer_full, self.cross_mat_full,
+                                 self.linear_inner_full,
+                                 self.linear_outer_full)
+            return jax_oracle, jax_oracle_fb
+        else:
+            return jax_oracle
 
     def _get_numba_oracle(self):
         raise NotImplementedError("No Numba implementation for quadratic  "
@@ -122,14 +163,16 @@ class QuadraticOracle(BaseOracle):
             hess_outer = self.hess_outer_full
             cross_mat = self.cross_mat_full
             linear_inner = self.linear_inner_full
+            linear_outer = self.linear_outer_full
         else:
             hess_inner = np.mean(self.hess_inner[idx], axis=0)
             hess_outer = np.mean(self.hess_outer[idx], axis=0)
             cross_mat = np.mean(self.cross_mat[idx], axis=0)
             linear_inner = np.mean(self.linear_inner[idx], axis=0)
+            linear_outer = np.mean(self.linear_outer[idx], axis=0)
 
         res = quadratic(inner_var, outer_var, hess_inner, hess_outer,
-                        cross_mat, linear_inner)
+                        cross_mat, linear_inner, linear_outer)
         return res
 
     def grad_inner_var(self, inner_var, outer_var, idx):
@@ -151,11 +194,13 @@ class QuadraticOracle(BaseOracle):
         if isinstance(idx, slice) and idx == slice(0, self.n_samples):
             hess_outer = self.hess_outer_full
             cross_mat = self.cross_mat_full
+            linear_outer = self.linear_outer_full
         else:
             hess_outer = np.mean(self.hess_outer[idx], axis=0)
             cross_mat = np.mean(self.cross_mat[idx], axis=0)
+            linear_outer = np.mean(self.linear_outer[idx], axis=0)
 
-        res = hess_outer @ outer_var + cross_mat @ inner_var
+        res = hess_outer @ outer_var + cross_mat @ inner_var + linear_outer
         return res
 
     def cross(self, inner_var, outer_var, v, idx):
