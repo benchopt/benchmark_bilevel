@@ -51,7 +51,7 @@ class Solver(BaseSolver):
                         5
                     )
                 outer_var = outer_var_flat.reshape(self.outer_var.shape)
-                inner_var = self.f_inner.get_inner_var_star(outer_var)
+                inner_var = self.f_inner.inner_var_star(outer_var)
                 return self.f_outer.get_value(inner_var, outer_var)
 
             sampler = optuna.samplers.TPESampler(seed=self.random_state)
