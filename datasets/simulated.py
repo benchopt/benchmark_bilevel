@@ -13,6 +13,7 @@ class Dataset(BaseDataset):
     parameters = {
         'oracle': ['quadratic'],
         'mu_inner': [.1],
+        'L_inner': [1.],
         'L_outer': [1.],
         'random_state': [2442],
         'n_samples_inner': [1024],
@@ -26,11 +27,11 @@ class Dataset(BaseDataset):
         inner_seed, outer_seed = rng.randint(2**31-1, size=2)
 
         f_inner = oracles.QuadraticOracle(
-            self.n_samples_inner, self.dim_inner, self.dim_outer,
+            self.n_samples_inner, self.dim_inner, self.dim_outer, self.L_inner,
             self.L_outer, self.mu_inner, random_state=inner_seed
         )
         f_outer = oracles.QuadraticOracle(
-            self.n_samples_outer, self.dim_inner, self.dim_outer,
+            self.n_samples_outer, self.dim_inner, self.dim_outer, self.L_inner,
             self.L_outer, self.mu_inner, random_state=outer_seed
         )
         hess_inner = f_inner.hess_inner_full
