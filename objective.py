@@ -20,7 +20,8 @@ class Objective(BaseObjective):
     def get_one_solution(self):
         inner_shape, outer_shape = self.get_inner_oracle().variables_shape
         return dict(inner_var=np.zeros(*inner_shape),
-                    outer_var=np.zeros(*outer_shape))
+                    outer_var=np.zeros(*outer_shape),
+                    memory=0.)
 
     def set_data(self, get_inner_oracle, get_outer_oracle, oracle, metrics,
                  n_reg):
