@@ -63,7 +63,7 @@ class Solver(BaseSolver):
             )
 
         memory_end = get_memory()
-        self.inner_var = self.f_inner.get_inner_var_star(outer_var)
+        self.inner_var = self.f_inner.inner_var_star(outer_var)
         self.outer_var = outer_var
         self.memory = memory_end - memory_start
         self.memory /= 1e6
