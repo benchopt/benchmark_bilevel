@@ -43,6 +43,8 @@ class Solver(BaseSolver):
         'random_state': [1],
         'framework': ["jax"],
         'lmbda0': [1.],
+        'delta_lmbda': [.1],
+        'n_inner_steps': [10],
     }
 
     @staticmethod
@@ -99,6 +101,7 @@ class Solver(BaseSolver):
 
             def f2sa(*args, **kwargs):
                 return njit_f2sa(self.inner_loop, *args, **kwargs)
+            self.f2sa = f2sa
         elif self.framework == "none":
             self.inner_loop = inner_f2sa
             self.MinibatchSampler = MinibatchSampler
@@ -106,6 +109,7 @@ class Solver(BaseSolver):
 
             def f2sa(*args, **kwargs):
                 return _f2sa(self.inner_loop, *args, **kwargs)
+            self.f2sa = f2sa
         elif self.framework == 'jax':
             self.f_inner = jax.jit(
                 partial(self.f_inner, batch_size=self.batch_size_inner)
@@ -160,13 +164,15 @@ class Solver(BaseSolver):
         else:
             rng = np.random.RandomState(self.random_state)
             v = np.zeros_like(inner_var)
-
             # Init lr scheduler
             step_sizes = np.array(
-                [self.step_size, self.step_size / self.outer_ratio]
+                [self.step_size,
+                 self.step_size,
+                 self.step_size / self.outer_ratio,
+                 self.delta_lmbda]
             )
             exponents = np.array(
-                [.5, .5]
+                [.5, .5, .5, 0]
             )
             lr_scheduler = self.LearningRateScheduler(
                 np.array(step_sizes, dtype=float), exponents
@@ -186,11 +192,12 @@ class Solver(BaseSolver):
             else:
                 inner_var, outer_var, lagrangian_inner_var, lmbda = self.f2sa(
                     self.f_inner, self.f_outer, inner_var, outer_var,
-                    lagrangian_inner_var, lmbda, inner_sampler=inner_sampler, outer_sampler=outer_sampler, lr_scheduler=lr_scheduler,
+                    lagrangian_inner_var, lmbda, inner_sampler=inner_sampler,
+                    outer_sampler=outer_sampler, lr_scheduler=lr_scheduler,
                     n_inner_steps=self.n_inner_steps, max_iter=eval_freq,
                     seed=rng.randint(constants.MAX_SEED)
                 )
-                
+
             self.inner_var = inner_var
             self.outer_var = outer_var
 
@@ -226,8 +233,8 @@ def inner_f2sa(inner_oracle, outer_oracle, inner_var, lagrangian_inner_var,
 
 
 def _f2sa(inner_loop, inner_oracle, outer_oracle, inner_var, outer_var,
-         lagrangian_inner_var, lmbda, inner_sampler=None, outer_sampler=None,
-         lr_scheduler=None, n_inner_steps=10, max_iter=1, seed=None):
+          lagrangian_inner_var, lmbda, inner_sampler=None, outer_sampler=None,
+          lr_scheduler=None, n_inner_steps=10, max_iter=1, seed=None):
 
     # Set seed for randomness
     if seed is not None:
@@ -249,7 +256,8 @@ def _f2sa(inner_loop, inner_oracle, outer_oracle, inner_var, outer_var,
         slice_inner1, _ = inner_sampler.get_batch()
         slice_inner2, _ = inner_sampler.get_batch()
 
-        d_outer_var = outer_oracle.grad_outer_var(inner_var, outer_var)
+        d_outer_var = outer_oracle.grad_outer_var(inner_var, outer_var,
+                                                  slice_outer)
         grad_inner = inner_oracle.grad_outer_var(inner_var, outer_var,
                                                  slice_inner1)
         grad_inner_star = inner_oracle.grad_outer_var(lagrangian_inner_var,
