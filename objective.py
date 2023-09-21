@@ -11,13 +11,16 @@ class Objective(BaseObjective):
     url = "https://github.com/benchopt/benchmark_bilevel"
 
     requirements = ["scikit-learn", "numba", "jax"]
-    min_benchopt_version = "1.4.1"
+    min_benchopt_version = "1.5"
 
     parameters = {
         'random_state': [2442]
     }
 
-    def get_one_solution(self):
+    def __init__(self, random_state=2442):
+        self.random_state = random_state
+
+    def get_one_result(self):
         inner_shape, outer_shape = self.get_inner_oracle().variables_shape
         return dict(inner_var=np.zeros(*inner_shape),
                     outer_var=np.zeros(*outer_shape),
