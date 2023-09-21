@@ -272,6 +272,53 @@ def _f2sa(inner_loop, inner_oracle, outer_oracle, inner_var, outer_var,
     return inner_var, outer_var, lagrangian_inner_var, lmbda
 
 
+@partial(jax.jit, static_argnames=('inner_sampler', 'outer_sampler', 'n_steps',
+                                   'grad_inner', 'grad_outer'))
+def inner_f2sa_jax(inner_var, lagrangian_inner_var,  outer_var, lmbda,
+                   state_inner_sampler, state_outer_sampler,
+                   inner_sampler=None, outer_sampler=None,
+                   lr_inner=.1, lr_lagrangian=.1, n_steps=10, grad_inner=None,
+                   grad_outer=None):
+    """
+    Jax implementation of the inner loop of F2SA algorithm.
+    """
+    def iter(i, args):
+        (inner_var, lagrangian_inner_var, state_inner_sampler,
+         state_outer_sampler) = args
+        # Get the batches and oracles
+        slice_inner, _ = inner_sampler.get_batch()
+        start_idx_inner, *_, state_inner_sampler = inner_sampler(
+            state_inner_sampler
+        )
+        start_idx_lagrangian, *_, state_inner_sampler = inner_sampler(
+            state_inner_sampler
+        )
+        start_idx_outer, *_, state_outer_sampler = outer_sampler(
+            state_outer_sampler
+        )
+
+        d_inner_var = grad_inner(inner_var, outer_var, start_idx_inner)
+        d_lagrangian_inner_var = lmbda * grad_inner(
+            lagrangian_inner_var, outer_var, start_idx_lagrangian
+        )
+        d_lagrangian_inner_var += grad_outer(
+            inner_var, outer_var, start_idx_outer
+        )
+
+        # Update the variables
+        inner_var -= lr_inner * d_inner_var
+        lagrangian_inner_var -= lr_lagrangian * d_lagrangian_inner_var
+        return (inner_var, lagrangian_inner_var, state_inner_sampler,
+                state_outer_sampler)
+    (inner_var, lagrangian_inner_var, state_inner_sampler,
+     state_outer_sampler) = jax.lax.fori_loop(
+        0, n_steps, iter, (inner_var, lagrangian_inner_var,
+                           state_inner_sampler, state_outer_sampler)
+    )
+    return (inner_var, lagrangian_inner_var, state_inner_sampler,
+            state_outer_sampler)
+
+
 @partial(jax.jit, static_argnums=(0, 1),
          static_argnames=('inner_sampler', 'outer_sampler', 'max_iter'))
 def f2sa_jax(f_inner, f_outer, inner_var, outer_var, v,
@@ -279,7 +326,8 @@ def f2sa_jax(f_inner, f_outer, inner_var, outer_var, v,
              inner_sampler=None, outer_sampler=None, max_iter=1):
 
     grad_inner = jax.grad(f_inner, argnums=0)
-    grad_outer = jax.grad(f_outer, argnums=(0, 1))
+    grad_outer_inner_var = jax.grad(f_outer, argnums=0)
+    grad_outer_outer_var = jax.grad(f_outer, argnums=1)
 
     def f2sa_one_iter(carry, _):
 
