@@ -10,7 +10,7 @@ from .base import BaseOracle
 import warnings
 warnings.filterwarnings('error', category=RuntimeWarning)
 
-memory = Memory("/scratch/mdagreou/benchot_memory_cache/__cache__",
+memory = Memory("__cache__",
                 verbose=False)
 
 
@@ -31,7 +31,7 @@ def gen_matrices(n_samples, d_inner, d_outer, L_inner, L_outer, mu, seed):
 
     # Generate H^1/2
     U, *_ = np.linalg.svd(rng.randn(d_outer, 1))
-    D = np.logspace(np.log10(mu), np.log10(L_outer), d_outer-1)
+    D = np.logspace(np.log10(mu)/2, np.log10(L_outer)/2, d_outer-1)
     D = np.diag(np.r_[0, D])
     A = U @ D @ U.T
 
