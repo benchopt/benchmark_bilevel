@@ -105,6 +105,36 @@ class Solver(BaseSolver):
             self.srba = srba
             self.MinibatchSampler = MinibatchSampler
             self.LearningRateScheduler = LearningRateScheduler
+            # self.lipschitz_z_star = np.linalg.norm(
+            #     np.linalg.solve(self.f_inner.hess_inner_full,
+            #                     self.f_inner.cross_mat_full.T),
+            #     ord=2
+            # )
+            # self.lipschitz_v_star = np.linalg.norm(
+            #     np.linalg.solve(self.f_inner.hess_inner_full,
+            #                     self.f_outer.cross_mat_full.T),
+            #     ord=2
+            # )
+
+            # self.lipschitz_cross_inner = np.linalg.norm(
+            #     self.f_inner.cross_mat_full, ord=2
+            # )
+
+            # self.lipschitz_cross_outer = np.linalg.norm(
+            #     self.f_outer.cross_mat_full, ord=2
+            # )
+
+            # self.inv_hessian = np.linalg.norm(
+            #     np.linalg.inv(self.f_inner.hess_inner_full),
+            #     ord=2
+            # )
+
+            # print("lipschitz z_star", self.lipschitz_z_star)
+            # print("lipschitz v_star", self.lipschitz_v_star)
+            # print("norm cross inner", self.lipschitz_cross_inner)
+            # print("norm cross outer", self.lipschitz_cross_outer)
+            # print("norm inv hessian inner", self.inv_hessian)
+
         elif self.framework == 'jax':
             self.f_inner, self.f_inner_fb = f_train(
                 framework=self.framework, get_full_batch=True
@@ -191,6 +221,14 @@ class Solver(BaseSolver):
             lr_scheduler = self.LearningRateScheduler(
                 np.array(step_sizes, dtype=float), exponents
             )
+            # if self.warm_init:
+            #     inner_var = self.f_inner.inner_var_star(outer_var)
+            #     v = - np.linalg.solve(
+            #         self.f_inner.hess_inner_full,
+            #         self.f_outer.get_grad_inner_var(inner_var, outer_var)
+            #     )
+            #     self.v = v.copy()
+            #     self.inner_var = inner_var.copy()
             d_inner = np.zeros_like(inner_var)
             d_v = np.zeros_like(inner_var)
             d_outer = np.zeros_like(outer_var)
@@ -199,6 +237,7 @@ class Solver(BaseSolver):
         period *= self.period_frac
         period /= self.batch_size
         period = int(period)
+        # period = 1
 
         inner_var_old = inner_var.copy()
         outer_var_old = outer_var.copy()

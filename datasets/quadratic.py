@@ -12,15 +12,18 @@ class Dataset(BaseDataset):
 
     parameters = {
         'oracle': ['quadratic'],
-        'L_inner': [1.],
+        'L_inner_inner': [1.],
+        "L_inner_outer": [1.],
         'mu_inner': [.1],
-        'L_outer': [1.],
+        'L_outer_inner': [1.],
+        "L_outer_outer": [1.],
+        'L_cross_inner': [1.],
+        "L_cross_outer": [1.],
         'random_state': [2442],
         'n_samples_inner': [1024],
         'n_samples_outer': [1024],
         'dim_inner': [100],
         'dim_outer': [100],
-        # 'low_rank_outer': [False]
     }
 
     def get_data(self):
@@ -29,12 +32,14 @@ class Dataset(BaseDataset):
 
         f_inner = oracles.QuadraticOracle(
             self.n_samples_inner, self.dim_inner, self.dim_outer,
-            self.L_inner, self.L_outer, self.mu_inner,
+            self.L_inner_inner, self.L_inner_outer, self.L_cross_inner,
+            self.mu_inner,
             random_state=inner_seed
         )
         f_outer = oracles.QuadraticOracle(
             self.n_samples_outer, self.dim_inner, self.dim_outer,
-            self.L_inner, self.L_outer, self.mu_inner,
+            self.L_outer_inner, self.L_outer_outer, self.L_cross_outer,
+            self.mu_inner,
             random_state=outer_seed
         )
         hess_inner = f_inner.hess_inner_full
@@ -66,7 +71,6 @@ class Dataset(BaseDataset):
                 func=float(f_outer.get_value(inner_sol, outer_var)),
                 value=np.linalg.norm(grad_value)**2,
                 inner_distance=np.linalg.norm(inner_sol - inner_var)**2,
-
             )
 
         data = dict(

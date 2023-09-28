@@ -15,7 +15,8 @@ memory = Memory("__cache__",
 
 
 @memory.cache
-def gen_matrices(n_samples, d_inner, d_outer, L_inner, L_outer, mu, seed):
+def gen_matrices(n_samples, d_inner, d_outer, L_inner, L_outer, L_cross, mu,
+                 seed):
     rng = np.random.RandomState(seed)
 
     # Generate H^1/2
@@ -40,9 +41,16 @@ def gen_matrices(n_samples, d_inner, d_outer, L_inner, L_outer, mu, seed):
     X = rng.randn(n_samples, 1, d_outer) @ A
     hess_outer = X.transpose(0, 2, 1) @ X / X.shape[1]
 
+    # Generate cross matrix
+    cross_mat = rng.randn(n_samples, d_outer, d_inner)
+    cross_mat /= np.linalg.norm(cross_mat, axis=(1, 2))[:, None, None]
+    cross_mat /= np.sqrt(d_outer * d_inner)
+    cross_mat *= np.sqrt(n_samples)
+    cross_mat += L_cross / np.sqrt(d_outer * d_inner)
+
     return (
         hess_inner, hess_outer,
-        rng.randn(n_samples, d_outer, d_inner),
+        cross_mat,
         rng.randn(n_samples, d_inner),
         rng.randn(n_samples, d_outer)
     )
@@ -84,18 +92,20 @@ class QuadraticOracle(BaseOracle):
         - 'lin' the parametrization is linear
         - 'none' no regularization
     """
-    def __init__(self, n_samples, d_inner, d_outer, L_inner, L_outer, mu,
-                 random_state=None, low_rank_outer=False):
+    def __init__(self, n_samples, d_inner, d_outer, L_inner, L_outer, L_cross,
+                 mu, random_state=None):
         super().__init__()
 
         self.n_samples = n_samples
         self.L_inner = L_inner
+        self.L_cross = L_cross
         self.mu = mu
         self.L_outer = L_outer
 
         (self.hess_inner, self.hess_outer, self.cross_mat, self.linear_inner,
          self.linear_outer) = gen_matrices(
-            n_samples, d_inner, d_outer, L_inner, L_outer, mu, random_state,
+            n_samples, d_inner, d_outer, L_inner, L_outer, L_cross, mu,
+            random_state,
         )
 
         self.hess_inner_full = np.mean(self.hess_inner, axis=0)
