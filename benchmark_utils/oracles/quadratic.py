@@ -41,12 +41,18 @@ def gen_matrices(n_samples, d_inner, d_outer, L_inner, L_outer, L_cross, mu,
     X = rng.randn(n_samples, 1, d_outer) @ A
     hess_outer = X.transpose(0, 2, 1) @ X / X.shape[1]
 
-    # Generate cross matrix
-    cross_mat = rng.randn(n_samples, d_outer, d_inner)
-    cross_mat /= np.linalg.norm(cross_mat, axis=(1, 2))[:, None, None]
-    cross_mat /= np.sqrt(d_outer * d_inner)
-    cross_mat *= np.sqrt(n_samples)
-    cross_mat += L_cross / np.sqrt(d_outer * d_inner)
+    # Generate singular vectors and values for rectangular correlation matrix
+    U, _, V = np.linalg.svd(np.random.randn(d_outer, d_inner))
+    D = np.zeros((d_outer, d_inner))
+    D[:min(d_outer, d_inner), :min(d_outer, d_inner)] = np.diag(
+        np.logspace(np.log10(mu), np.log10(L_cross), min(d_outer, d_inner)))
+
+    # Generate x with correlation matrix UDV^T
+    X = rng.randn(n_samples, 1, d_inner)
+    X1 = U @ D @ X.transpose(0, 2, 1)
+    X2 = X @ V.T
+
+    cross_mat = X1 @ X2
 
     return (
         hess_inner, hess_outer,
