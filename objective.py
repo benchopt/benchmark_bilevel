@@ -23,7 +23,8 @@ class Objective(BaseObjective):
     def get_one_result(self):
         inner_shape, outer_shape = self.get_inner_oracle().variables_shape
         return dict(inner_var=np.zeros(*inner_shape),
-                    outer_var=np.zeros(*outer_shape))
+                    outer_var=np.zeros(*outer_shape),
+                    memory=0.)
 
     def set_data(self, get_inner_oracle, get_outer_oracle, oracle, metrics,
                  n_reg):
@@ -46,11 +47,13 @@ class Objective(BaseObjective):
             self.outer_var0 = -2 * np.ones(*outer_shape)
             # XXX: Try random inits
 
-    def evaluate_result(self, inner_var, outer_var):
+    def evaluate_result(self, inner_var, outer_var, memory):
         if np.isnan(outer_var).any():
             raise ValueError
 
-        return self.metrics(inner_var, outer_var)
+        metrics = self.metrics(inner_var, outer_var)
+        metrics.update({'memory': memory})
+        return metrics
 
     def get_objective(self):
         return dict(

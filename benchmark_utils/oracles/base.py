@@ -89,17 +89,17 @@ class BaseOracle(ABC):
         implicit_grad = self.cross(inner_var, outer_var, inv_hvp, idx)
         return val, grad, hvp, implicit_grad
 
-    def inner_var_star(self, outer_var, idx):
-        inner_shape, outer_shape = self.variables_shape
+    def inner_var_star(self, outer_var):
+        inner_shape, _ = self.variables_shape
         var_shape_flat = np.prod(inner_shape)
 
         def func(inner_var):
             inner_var = inner_var.reshape(*inner_shape)
-            return self.value(inner_var, outer_var, idx)
+            return self.get_value(inner_var, outer_var)
 
         def fprime(inner_var):
             inner_var = inner_var.reshape(*inner_shape)
-            return self.grad_inner_var(inner_var, outer_var, idx)
+            return self.get_grad_inner_var(inner_var, outer_var)
 
         inner_var_star, _, d = fmin_l_bfgs_b(
             func, np.zeros(var_shape_flat), fprime=fprime, maxls=30

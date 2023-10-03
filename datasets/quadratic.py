@@ -8,7 +8,7 @@ with safe_import_context() as import_ctx:
 
 class Dataset(BaseDataset):
 
-    name = "simulated"
+    name = "quadratic"
 
     parameters = {
         'oracle': ['quadratic'],
@@ -22,8 +22,8 @@ class Dataset(BaseDataset):
         'random_state': [2442],
         'n_samples_inner': [1024],
         'n_samples_outer': [1024],
-        'dim_inner': [5],
-        'dim_outer': [5],
+        'dim_inner': [100],
+        'dim_outer': [100],
     }
 
     def get_data(self):
@@ -59,7 +59,7 @@ class Dataset(BaseDataset):
         def metrics(inner_var, outer_var):
             inner_sol = np.linalg.solve(
                 hess_inner,
-                - linear_inner - outer_var @ cross
+                - linear_inner - cross.T @ outer_var
             )
             v_sol = - np.linalg.solve(
                 hess_inner,
@@ -68,10 +68,9 @@ class Dataset(BaseDataset):
             grad_value = f_outer.get_grad_outer_var(inner_sol, outer_var)
             grad_value += cross @ v_sol
             return dict(
-                value=np.linalg.norm(grad_value)**2,
                 func=float(f_outer.get_value(inner_sol, outer_var)),
+                value=np.linalg.norm(grad_value)**2,
                 inner_distance=np.linalg.norm(inner_sol - inner_var)**2,
-
             )
 
         data = dict(

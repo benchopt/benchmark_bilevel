@@ -11,6 +11,7 @@ with safe_import_context() as import_ctx:
 
     from benchmark_utils import constants
     from benchmark_utils.minibatch_sampler import init_sampler
+    from benchmark_utils.get_memory import get_memory
     from benchmark_utils.learning_rate_scheduler import update_lr
     from benchmark_utils.minibatch_sampler import MinibatchSampler
     from benchmark_utils.minibatch_sampler import spec as mbs_spec
@@ -122,6 +123,7 @@ class Solver(BaseSolver):
 
         self.inner_var = inner_var0
         self.outer_var = outer_var0
+        self.memory = 0
 
     def warm_up(self):
         if self.framework in ['numba', 'jax']:
@@ -130,6 +132,8 @@ class Solver(BaseSolver):
     def run(self, callback):
         eval_freq = self.eval_freq  # // self.batch_size
 
+        memory_start = get_memory()
+        memory_end = memory_start
         # Init variables
         inner_var = self.inner_var.copy()
         outer_var = self.outer_var.copy()
@@ -186,11 +190,15 @@ class Solver(BaseSolver):
                     lr_scheduler=lr_scheduler, max_iter=eval_freq,
                     seed=rng.randint(constants.MAX_SEED)
                 )
+            memory_end = get_memory()
             self.inner_var = inner_var
             self.outer_var = outer_var
+            self.memory = memory_end - memory_start
+            self.memory /= 1e6
 
     def get_result(self):
-        return dict(inner_var=self.inner_var, outer_var=self.outer_var)
+        return dict(inner_var=self.inner_var, outer_var=self.outer_var,
+                    memory=self.memory)
 
 
 def fsla(inner_oracle, outer_oracle, inner_var, outer_var, v, memory_outer,

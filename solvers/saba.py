@@ -9,6 +9,7 @@ with safe_import_context() as import_ctx:
     from numba.experimental import jitclass
 
     from benchmark_utils import constants
+    from benchmark_utils.get_memory import get_memory
     from benchmark_utils.minibatch_sampler import init_sampler
     from benchmark_utils.learning_rate_scheduler import update_lr
     from benchmark_utils.minibatch_sampler import MinibatchSampler
@@ -21,8 +22,6 @@ with safe_import_context() as import_ctx:
     import jax
     import jax.numpy as jnp
     from functools import partial
-
-    # from benchopt.utils import profile
 
 
 class Solver(BaseSolver):
@@ -42,10 +41,10 @@ class Solver(BaseSolver):
         'step_size': [.1],
         'outer_ratio': [1.],
         'batch_size': [64],
+        'mode_init_memory': ["zero"],
         'eval_freq': [128],
         'random_state': [1],
         'framework': ["none"],
-        'init_memory': ["zero"],
     }
 
     @staticmethod
@@ -151,6 +150,7 @@ class Solver(BaseSolver):
 
         self.inner_var = inner_var0
         self.outer_var = outer_var0
+        self.memory = 0
 
     def warm_up(self):
         if self.framework in ['numba', 'jax']:
@@ -158,6 +158,7 @@ class Solver(BaseSolver):
 
     def run(self, callback):
         eval_freq = self.eval_freq  # // self.batch_size
+        memory_start = get_memory()
 
         # Init variables
         inner_var = self.inner_var.copy()
@@ -206,7 +207,8 @@ class Solver(BaseSolver):
 
             memory = self.init_memory(
                 self.f_inner, self.f_outer,
-                inner_var, outer_var, v, inner_sampler, outer_sampler
+                inner_var, outer_var, v, inner_sampler, outer_sampler,
+                mode=self.mode_init_memory
             )
 
         # Start algorithm
@@ -225,11 +227,15 @@ class Solver(BaseSolver):
                     lr_scheduler=lr_scheduler, max_iter=eval_freq,
                     seed=rng.randint(constants.MAX_SEED)
                 )
+            memory_end = get_memory()
             self.inner_var = inner_var
             self.outer_var = outer_var
+            self.memory = memory_end - memory_start
+            self.memory /= 1e6
 
     def get_result(self):
-        return dict(inner_var=self.inner_var, outer_var=self.outer_var)
+        return dict(inner_var=self.inner_var, outer_var=self.outer_var,
+                    memory=self.memory)
 
 
 def _init_memory(
@@ -264,6 +270,7 @@ def _init_memory(
             inner_sampler,
             outer_sampler,
         )
+    print("Memory size: ", sum(v.nbytes for v in memory.values()) / 1e6, "Mb")
     return memory
 
 

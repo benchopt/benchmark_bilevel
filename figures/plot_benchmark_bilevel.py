@@ -115,7 +115,7 @@ if __name__ == "__main__":
             64, 2**17, 49_990, 91_701
         ),
         datacleaning0_5=(
-            "datacleaning0_5_full_pzobo_optuna.parquet",
+            "datacleaning0_5_resubmission_last.parquet",
             'objective_value', 'objective_test_accuracy',
             ((.1, 900), (2e4, 5e7)), None, 'Test error', 'log',
             ('log', 'log'), (None, 40), 64, 2**5, 20_000, 5_000
@@ -133,7 +133,7 @@ if __name__ == "__main__":
             ('log', 'log'), (None, 40), 64, 2**5, 20_000, 5_000
         ),
         covtype=(
-            "covtype_full_pzobo_optuna.parquet",
+            "covtype_resubmission_last.parquet",
             'objective_value', 'objective_test_accuracy',
             ((.01, 1200), (5e4, 1e8)), None, 'Test error', 'log',
             ('log', 'log'), (27, 45), 512, 2**5, 371_847, 92_962
@@ -180,7 +180,7 @@ if __name__ == "__main__":
         to_plot = (
             df.query('stop_val <= 100')
             .groupby(['solver', 'solver_name', 'stop_val'])
-            .median()
+            .median(metric_selection)
             .reset_index().sort_values(metric_selection)
             .groupby('solver').first()['solver_name']
         )
@@ -188,7 +188,7 @@ if __name__ == "__main__":
         to_plot = (
             df
             .groupby(['solver', 'solver_name', 'stop_val'])
-            .median()
+            .median(metric_selection)
             .reset_index().sort_values(metric_selection)
             .groupby('solver').first()['solver_name']
         )
