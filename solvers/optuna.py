@@ -3,8 +3,9 @@ from benchopt import safe_import_context
 from benchopt.stopping_criterion import SufficientProgressCriterion
 
 with safe_import_context() as import_ctx:
-    import numpy as np
     import optuna
+    import numpy as np
+    from benchmark_utils.get_memory import get_memory
 
 
 class Solver(BaseSolver):
@@ -36,6 +37,7 @@ class Solver(BaseSolver):
         self.f_outer = f_val(framework='none')
 
     def run(self, n_iter):
+        memory_start = get_memory()
         optuna.logging.set_verbosity(optuna.logging.WARNING)
         if n_iter == 0:
             outer_var = self.outer_var.copy()
@@ -49,7 +51,7 @@ class Solver(BaseSolver):
                         5
                     )
                 outer_var = outer_var_flat.reshape(self.outer_var.shape)
-                inner_var = self.f_inner.get_inner_var_star(outer_var)
+                inner_var = self.f_inner.inner_var_star(outer_var)
                 return self.f_outer.get_value(inner_var, outer_var)
 
             sampler = optuna.samplers.TPESampler(seed=self.random_state)
@@ -59,8 +61,13 @@ class Solver(BaseSolver):
             outer_var = np.array(list(trial.params.values())).reshape(
                 self.outer_var.shape
             )
-        self.inner_var = self.f_inner.get_inner_var_star(outer_var)
+
+        memory_end = get_memory()
+        self.inner_var = self.f_inner.inner_var_star(outer_var)
         self.outer_var = outer_var
+        self.memory = memory_end - memory_start
+        self.memory /= 1e6
 
     def get_result(self):
-        return dict(inner_var=self.inner_var, outer_var=self.outer_var)
+        return dict(inner_var=self.inner_var, outer_var=self.outer_var,
+                    memory=self.memory)

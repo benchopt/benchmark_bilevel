@@ -8,7 +8,7 @@ with safe_import_context() as import_ctx:
 
 class Dataset(BaseDataset):
 
-    name = "simulated"
+    name = "quadratic_cubic"
 
     parameters = {
         'oracle': ['quadratic'],
@@ -17,27 +17,24 @@ class Dataset(BaseDataset):
         'mu_inner': [.1],
         'L_outer_inner': [1.],
         "L_outer_outer": [1.],
-        'L_cross_inner': [1.],
         "L_cross_outer": [1.],
         'random_state': [2442],
         'n_samples_inner': [1024],
         'n_samples_outer': [1024],
-        'dim_inner': [5],
-        'dim_outer': [5],
+        'dim': [100]
     }
 
     def get_data(self):
         rng = np.random.RandomState(self.random_state)
         inner_seed, outer_seed = rng.randint(2**31-1, size=2)
 
-        f_inner = oracles.QuadraticOracle(
-            self.n_samples_inner, self.dim_inner, self.dim_outer,
-            self.L_inner_inner, self.L_inner_outer, self.L_cross_inner,
-            self.mu_inner,
+        f_inner = oracles.CubicOracle(
+            self.n_samples_inner, self.dim, self.L_inner_inner,
+            self.L_inner_outer, self.mu_inner,
             random_state=inner_seed
         )
         f_outer = oracles.QuadraticOracle(
-            self.n_samples_outer, self.dim_inner, self.dim_outer,
+            self.n_samples_outer, self.dim, self.dim,
             self.L_outer_inner, self.L_outer_outer, self.L_cross_outer,
             self.mu_inner,
             random_state=outer_seed
@@ -58,18 +55,18 @@ class Dataset(BaseDataset):
 
         def metrics(inner_var, outer_var):
             inner_sol = np.linalg.solve(
-                hess_inner,
+                hess_inner + np.diag(np.exp(outer_var)),
                 - linear_inner - outer_var @ cross
             )
             v_sol = - np.linalg.solve(
-                hess_inner,
+                hess_inner + np.diag(np.exp(outer_var)),
                 f_outer.get_grad_inner_var(inner_sol, outer_var)
             )
             grad_value = f_outer.get_grad_outer_var(inner_sol, outer_var)
             grad_value += cross @ v_sol
             return dict(
-                value=np.linalg.norm(grad_value)**2,
                 func=float(f_outer.get_value(inner_sol, outer_var)),
+                value=np.linalg.norm(grad_value)**2,
                 inner_distance=np.linalg.norm(inner_sol - inner_var)**2,
 
             )
