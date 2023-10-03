@@ -123,11 +123,15 @@ class Solver(BaseSolver):
 
         self.inner_var = inner_var0
         self.outer_var = outer_var0
+        self.inner_var0 = inner_var0
+        self.outer_var0 = outer_var0
         self.memory = 0
 
     def warm_up(self):
         if self.framework in ['numba', 'jax']:
             self.run_once(2)
+            self.inner_var = self.inner_var0
+            self.outer_var = self.outer_var0
 
     def run(self, callback):
         eval_freq = self.eval_freq  # // self.batch_size
