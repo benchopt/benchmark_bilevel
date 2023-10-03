@@ -12,14 +12,16 @@ class Dataset(BaseDataset):
 
     parameters = {
         'oracle': ['quadratic'],
-        'L_inner': [1.],
+        'L_inner_inner': [1.],
+        "L_inner_outer": [1.],
         'mu_inner': [.1],
-        'L_outer': [1.],
+        'L_outer_inner': [1.],
+        "L_outer_outer": [1.],
+        "L_cross_outer": [1.],
         'random_state': [2442],
         'n_samples_inner': [1024],
         'n_samples_outer': [1024],
-        'dim': [100],
-        'low_rank_outer': [False]
+        'dim': [100]
     }
 
     def get_data(self):
@@ -27,13 +29,15 @@ class Dataset(BaseDataset):
         inner_seed, outer_seed = rng.randint(2**31-1, size=2)
 
         f_inner = oracles.CubicOracle(
-            self.n_samples_inner, self.dim, self.L_inner, self.L_outer,
-            self.mu_inner, random_state=inner_seed
+            self.n_samples_inner, self.dim, self.L_inner_inner,
+            self.L_inner_outer, self.mu_inner,
+            random_state=inner_seed
         )
         f_outer = oracles.QuadraticOracle(
             self.n_samples_outer, self.dim, self.dim,
-            self.L_inner, self.L_outer, self.mu_inner,
-            random_state=outer_seed, low_rank_outer=self.low_rank_outer
+            self.L_outer_inner, self.L_outer_outer, self.L_cross_outer,
+            self.mu_inner,
+            random_state=outer_seed
         )
         hess_inner = f_inner.hess_inner_full
         cross = f_inner.cross_mat_full

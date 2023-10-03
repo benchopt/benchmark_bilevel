@@ -33,7 +33,7 @@ class Solver(BaseSolver):
     # any parameter defined here is accessible as a class attribute
     parameters = {
         'inner_solver': ['gd'],
-        'step_size_outer': [1.],
+        'step_size_outer': [.01],
         'eval_freq': [1],
         'n_inner_steps': [100],
         'warm_start': [True, False]
