@@ -57,6 +57,7 @@ class Dataset(BaseDataset):
             return dict(
                 value_func=value_function,
                 value=np.linalg.norm(grad_value)**2,
+                inner_distance=np.linalg.norm(inner_star-inner_var)**2,
             )
 
         data = dict(

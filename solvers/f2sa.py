@@ -63,7 +63,7 @@ class Solver(BaseSolver):
             elif isinstance(f_val(), (MultiLogRegOracle, DataCleaningOracle)):
                 return True, "Numba implementation not available for" \
                       "this oracle."
-        elif self.framework not in ['none', 'numba']:
+        elif self.framework not in ['none', 'numba', 'jax']:
             return True, f"Framework {self.framework} not supported."
 
         try:
@@ -124,8 +124,16 @@ class Solver(BaseSolver):
             outer_sampler, self.state_outer_sampler \
                 = init_sampler(n_samples=n_outer_samples,
                                batch_size=self.batch_size_outer)
+            self.inner_loop = partial(
+                inner_f2sa_jax,
+                inner_sampler=inner_sampler,
+                outer_sampler=outer_sampler,
+                grad_inner=jax.grad(self.f_inner, argnums=0),
+                grad_outer=jax.grad(self.f_outer, argnums=0)
+            )
             self.f2sa = partial(
                 f2sa_jax,
+                inner_f2sa=self.inner_loop,
                 inner_sampler=inner_sampler,
                 outer_sampler=outer_sampler
             )
@@ -134,11 +142,15 @@ class Solver(BaseSolver):
 
         self.inner_var = inner_var0
         self.outer_var = outer_var0
+        self.inner_var0 = inner_var0
+        self.outer_var0 = outer_var0
         self.memory = 0
 
     def warm_up(self):
         if self.framework in ['numba', 'jax']:
             self.run_once(2)
+            self.inner_var = self.inner_var0
+            self.outer_var = self.outer_var0
 
     def run(self, callback):
         eval_freq = self.eval_freq
@@ -150,13 +162,15 @@ class Solver(BaseSolver):
         outer_var = self.outer_var.copy()
         lmbda = self.lmbda0
         if self.framework == "jax":
-            v = jnp.zeros_like(inner_var)
             # Init lr scheduler
             step_sizes = jnp.array(
-                [self.step_size, self.step_size / self.outer_ratio]
+                [self.step_size,
+                 self.step_size,
+                 self.step_size / self.outer_ratio,
+                 self.delta_lmbda]
             )
             exponents = jnp.array(
-                [.5, .5]
+                [.5, .5, .5, 0]
             )
             state_lr = init_lr_scheduler(step_sizes, exponents)
             carry = dict(
@@ -166,7 +180,6 @@ class Solver(BaseSolver):
             )
         else:
             rng = np.random.RandomState(self.random_state)
-            v = np.zeros_like(inner_var)
             # Init lr scheduler
             step_sizes = np.array(
                 [self.step_size,
@@ -188,10 +201,13 @@ class Solver(BaseSolver):
         # Start algorithm
         while callback():
             if self.framework == 'jax':
-                inner_var, outer_var, v, carry = self.f2sa(
-                    self.f_inner, self.f_outer,
-                    inner_var, outer_var, v, max_iter=eval_freq, **carry
-                )
+                inner_var, outer_var, lagrangian_inner_var, lmbda, \
+                    carry = self.f2sa(
+                        self.f_inner, self.f_outer,
+                        inner_var, outer_var, lagrangian_inner_var, lmbda,
+                        n_inner_steps=self.n_inner_steps,
+                        max_iter=eval_freq, **carry
+                    )
             else:
                 inner_var, outer_var, lagrangian_inner_var, lmbda = self.f2sa(
                     self.f_inner, self.f_outer, inner_var, outer_var,
@@ -292,7 +308,6 @@ def inner_f2sa_jax(inner_var, lagrangian_inner_var,  outer_var, lmbda,
         (inner_var, lagrangian_inner_var, state_inner_sampler,
          state_outer_sampler) = args
         # Get the batches and oracles
-        slice_inner, _ = inner_sampler.get_batch()
         start_idx_inner, *_, state_inner_sampler = inner_sampler(
             state_inner_sampler
         )
@@ -326,52 +341,70 @@ def inner_f2sa_jax(inner_var, lagrangian_inner_var,  outer_var, lmbda,
 
 
 @partial(jax.jit, static_argnums=(0, 1),
-         static_argnames=('inner_sampler', 'outer_sampler', 'max_iter'))
-def f2sa_jax(f_inner, f_outer, inner_var, outer_var, v,
-             state_inner_sampler=None, state_outer_sampler=None, state_lr=None,
+         static_argnames=('inner_sampler', 'outer_sampler', 'max_iter',
+                          'n_inner_steps', 'inner_f2sa'))
+def f2sa_jax(f_inner, f_outer, inner_var, outer_var, lagrangian_inner_var,
+             lmbda, state_inner_sampler=None, state_outer_sampler=None,
+             state_lr=None, inner_f2sa=None, n_inner_steps=1,
              inner_sampler=None, outer_sampler=None, max_iter=1):
 
-    grad_inner = jax.grad(f_inner, argnums=0)
-    grad_outer_inner_var = jax.grad(f_outer, argnums=0)
+    grad_inner = jax.grad(f_inner, argnums=1)
     grad_outer_outer_var = jax.grad(f_outer, argnums=1)
 
     def f2sa_one_iter(carry, _):
 
-        (inner_step_size, outer_step_size), carry['state_lr'] = update_lr(
+        step_sizes, carry['state_lr'] = update_lr(
             carry['state_lr']
         )
+        lr_inner, lr_lagrangian, lr_outer, d_lmbda = step_sizes
 
-        # Step.1 - get all gradients and compute the implicit gradient.
-        start_inner, *_, carry['state_inner_sampler'] = inner_sampler(
-            carry['state_inner_sampler']
-        )
-        grad_inner_var, vjp_train = jax.vjp(
-            lambda z, x: grad_inner(z, x, start_inner), carry['inner_var'],
-            carry['outer_var']
-        )
-        hvp, cross_v = vjp_train(carry['v'])
+        # Run the inner procedure
+        carry['inner_var'], carry['lagrangian_inner_var'], \
+            carry['state_inner_sampler'], carry['state_outer_sampler'] = \
+            inner_f2sa(
+                carry['inner_var'], carry['lagrangian_inner_var'],
+                carry['outer_var'], carry['lmbda'],
+                carry['state_inner_sampler'], carry['state_outer_sampler'],
+                inner_sampler=inner_sampler, outer_sampler=outer_sampler,
+                lr_inner=lr_inner, lr_lagrangian=lr_lagrangian,
+                n_steps=n_inner_steps
+            )
 
+        # Compute oracles and get the update direction of the outer variable
         start_outer, *_, carry['state_outer_sampler'] = outer_sampler(
             carry['state_outer_sampler']
         )
-        grad_in_outer, grad_out_outer = grad_outer(
+        start_inner1, *_, carry['state_inner_sampler'] = inner_sampler(
+            carry['state_inner_sampler']
+        )
+        start_inner2, *_, carry['state_inner_sampler'] = inner_sampler(
+            carry['state_inner_sampler']
+        )
+        d_outer_var = grad_outer_outer_var(
             carry['inner_var'], carry['outer_var'], start_outer
         )
+        grad_inner_outer = grad_inner(
+            carry['inner_var'], carry['outer_var'], start_inner1
+        )
+        grad_inner_star = grad_inner(
+            carry['lagrangian_inner_var'], carry['outer_var'], start_inner2
+        )
+        d_outer_var += carry['lmbda'] * (grad_inner_star - grad_inner_outer)
 
-        # Step.2 - update inner variable with SGD.
-        carry['inner_var'] -= inner_step_size * grad_inner_var
-        carry['v'] -= inner_step_size * (hvp + grad_in_outer)
-        carry['outer_var'] -= outer_step_size * (cross_v + grad_out_outer)
-
-        # #Use prox to make sure we do not diverge
-        # # inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)
+        # Update inner variable with SGD.
+        carry['outer_var'] -= lr_outer * d_outer_var
+        carry['lmbda'] += d_lmbda
 
         return carry, _
 
     init = dict(
-        inner_var=inner_var, outer_var=outer_var, v=v, state_lr=state_lr,
+        inner_var=inner_var,
+        lagrangian_inner_var=lagrangian_inner_var,
+        outer_var=outer_var,
+        lmbda=lmbda,
+        state_lr=state_lr,
         state_inner_sampler=state_inner_sampler,
-        state_outer_sampler=state_outer_sampler
+        state_outer_sampler=state_outer_sampler,
     )
     carry, _ = jax.lax.scan(
         f2sa_one_iter,
@@ -381,7 +414,9 @@ def f2sa_jax(f_inner, f_outer, inner_var, outer_var, v,
     )
 
     return (
-        carry['inner_var'], carry['outer_var'], carry['v'],
+        carry['inner_var'], carry['outer_var'], carry['lagrangian_inner_var'],
+        carry['lmbda'],
         {k: v for k, v in carry.items()
-         if k not in ['inner_var', 'outer_var', 'v']}
+         if k not in ['inner_var', 'outer_var', 'lagrangian_inner_var',
+                      'lmbda']}
     )
