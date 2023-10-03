@@ -232,6 +232,43 @@ def inner_f2sa(inner_oracle, outer_oracle, inner_var, lagrangian_inner_var,
                lr_inner=.1, lr_lagrangian=.1, n_steps=10):
     """
     Inner loop of F2SA algorithm.
+
+    Parameters
+    ----------
+    inner_oracle, outer_oracle : oracle classes
+        Inner and outer oracles.
+
+    inner_var : array, shape (d_inner,)
+        Initial inner variable.
+
+    lagrangian_inner_var : array, shape (d_inner,)
+        Initial inner variable.
+
+    outer_var : array, shape (d_outer,)
+        Outer variable.
+
+    lmbda : float
+        Lagrange multiplier.
+
+    inner_sampler, outer_sampler : MiniBatchSampler
+        Inner sampler.
+
+    lr_inner : float
+        Learning rate for the inner variable.
+
+    lr_lagrangian : float
+        Learning rate for the lagrangian inner variable.
+
+    n_steps : int
+        Number of steps of the loop.
+
+    Returns
+    -------
+    inner_var : array, shape (d_inner,)
+        Updated inner variable.
+
+    lagrangian_inner_var : array, shape (d_inner,)
+        Updated inner variable.
     """
     for _ in range(n_steps):
         # Get the batches and oracles
@@ -257,6 +294,68 @@ def inner_f2sa(inner_oracle, outer_oracle, inner_var, lagrangian_inner_var,
 def _f2sa(inner_loop, inner_oracle, outer_oracle, inner_var, outer_var,
           lagrangian_inner_var, lmbda, inner_sampler=None, outer_sampler=None,
           lr_scheduler=None, n_inner_steps=10, max_iter=1, seed=None):
+    """
+    Implementation of the F2SA algorithm.
+
+    Parameters
+    ----------
+    inner_loop : callable
+        Inner loop of F2SA algorithm.
+
+    inner_oracle, outer_oracle : oracle classes
+        Inner and outer oracles.
+
+    inner_var : array, shape (d_inner,)
+        Initial inner variable.
+
+    outer_var : array, shape (d_outer,)
+        Outer variable.
+
+    lagrangian_inner_var : array, shape (d_inner,)
+        Initial inner variable.
+
+    lmbda : float
+        Lagrange multiplier.
+
+    n_inner_steps : int
+        Number of steps of the inner loop.
+
+    lr_scheduler : LearningRateScheduler
+        Learning rate scheduler.
+
+    inner_sampler, outer_sampler : MiniBatchSampler
+        Inner and outer samplers.
+
+    max_iter : int
+        Number of iterations of the outer loop.
+
+    seed : int
+        Seed for randomness.
+
+    Returns
+    -------
+    inner_var : array, shape (d_inner,)
+        Updated inner variable.
+
+    outer_var : array, shape (d_outer,)
+        Updated outer variable.
+
+    lagrangian_inner_var : array, shape (d_inner,)
+        Updated inner variable.
+
+    lmbda : float
+        Updated Lagrange multiplier.
+
+    state_inner_sampler : dict
+        Updated state of the inner sampler.
+
+    state_outer_sampler : dict
+        Updated state of the outer sampler.
+
+    state_lr : dict
+        Updated state of the learning rate scheduler.
+
+    """
 
     # Set seed for randomness
     if seed is not None:
@@ -303,6 +402,61 @@ def inner_f2sa_jax(inner_var, lagrangian_inner_var,  outer_var, lmbda,
                    grad_outer=None):
     """
     Jax implementation of the inner loop of F2SA algorithm.
+
+    Parameters
+    ----------
+    inner_var : array, shape (d_inner,)
+        Initial inner variable.
+
+    lagrangian_inner_var : array, shape (d_inner,)
+        Initial inner variable.
+
+    outer_var : array, shape (d_outer,)
+        Outer variable.
+
+    lmbda : float
+        Lagrange multiplier.
+
+    state_inner_sampler : dict
+        State of the inner sampler.
+
+    state_outer_sampler : dict
+        State of the outer sampler.
+
+    inner_sampler : callable
+        Inner sampler.
+
+    outer_sampler : callable
+        Outer sampler.
+
+    lr_inner : float
+        Learning rate for the inner variable.
+
+    lr_lagrangian : float
+        Learning rate for the lagrangian inner variable.
+
+    n_steps : int
+        Number of steps of the loop.
+
+    grad_inner : callable
+        Gradient of the inner oracle with respect to the inner variable.
+
+    grad_outer : callable
+        Gradient of the outer oracle with respect to the inner variable.
+
+    Returns
+    -------
+    inner_var : array, shape (d_inner,)
+        Updated inner variable.
+
+    lagrangian_inner_var : array, shape (d_inner,)
+        Updated inner variable.
+
+    state_inner_sampler : dict
+        Updated state of the inner sampler.
+
+    state_outer_sampler : dict
+        Updated state of the outer sampler.
     """
     def iter(i, args):
         (inner_var, lagrangian_inner_var, state_inner_sampler,
@@ -347,6 +501,74 @@ def f2sa_jax(f_inner, f_outer, inner_var, outer_var, lagrangian_inner_var,
              lmbda, state_inner_sampler=None, state_outer_sampler=None,
              state_lr=None, inner_f2sa=None, n_inner_steps=1,
              inner_sampler=None, outer_sampler=None, max_iter=1):
+    """
+    Jax implementation of the F2SA algorithm.
+
+    Parameters
+    ----------
+    f_inner, f_outer : callables
+        Inner and outer oracles.
+
+    inner_var : array, shape (d_inner,)
+        Initial inner variable.
+
+    outer_var : array, shape (d_outer,)
+        Outer variable.
+
+    lagrangian_inner_var : array, shape (d_inner,)
+        Initial inner variable.
+
+    lmbda : float
+        Lagrange multiplier.
+
+    state_inner_sampler : dict
+        State of the inner sampler.
+
+    state_outer_sampler : dict
+        State of the outer sampler.
+
+    state_lr : dict
+        State of the learning rate scheduler.
+
+    inner_f2sa : callable
+        Inner loop of F2SA algorithm.
+
+    n_inner_steps : int
+        Number of steps of the inner loop.
+
+    inner_sampler : callable
+        Inner sampler.
+
+    outer_sampler : callable
+        Outer sampler.
+
+    max_iter : int
+        Number of iterations of the outer loop.
+
+    Returns
+    -------
+    inner_var : array, shape (d_inner,)
+        Updated inner variable.
+
+    outer_var : array, shape (d_outer,)
+        Updated outer variable.
+
+    lagrangian_inner_var : array, shape (d_inner,)
+        Updated inner variable.
+
+    lmbda : float
+        Updated Lagrange multiplier.
+
+    state_inner_sampler : dict
+        Updated state of the inner sampler.
+
+    state_outer_sampler : dict
+        Updated state of the outer sampler.
+
+    state_lr : dict
+        Updated state of the learning rate scheduler.
+
+    """
 
     grad_inner = jax.grad(f_inner, argnums=1)
     grad_outer_outer_var = jax.grad(f_outer, argnums=1)
