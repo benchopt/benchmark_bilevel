@@ -48,7 +48,7 @@ class Objective(BaseObjective):
             # XXX: Try random inits
 
     def evaluate_result(self, inner_var, outer_var, memory):
-        if np.isnan(outer_var).any():
+        if np.isnan(outer_var).any() or np.linalg.norm(outer_var) > 1e10:
             raise ValueError
 
         metrics = self.metrics(inner_var, outer_var)
