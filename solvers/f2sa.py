@@ -170,7 +170,7 @@ class Solver(BaseSolver):
                  self.delta_lmbda]
             )
             exponents = jnp.array(
-                [.5, .5, .5, 0]
+                [5/7, 4/7, .5, 1/7]
             )
             state_lr = init_lr_scheduler(step_sizes, exponents)
             carry = dict(
@@ -188,7 +188,7 @@ class Solver(BaseSolver):
                  self.delta_lmbda]
             )
             exponents = np.array(
-                [.5, .5, .5, 0]
+                [5/7, 4/7, .5, 1/7]
             )
             lr_scheduler = self.LearningRateScheduler(
                 np.array(step_sizes, dtype=float), exponents
@@ -229,7 +229,7 @@ class Solver(BaseSolver):
 
 def inner_f2sa(inner_oracle, outer_oracle, inner_var, inner_approx_star,
                outer_var, lmbda, inner_sampler=None, outer_sampler=None,
-               lr_inner=.1, lr_lagrangian=.1, n_steps=10):
+               lr_inner=.1, lr_approx_star=.1, n_steps=10):
     """
     Inner loop of F2SA algorithm.
 
@@ -256,7 +256,7 @@ def inner_f2sa(inner_oracle, outer_oracle, inner_var, inner_approx_star,
     lr_inner : float
         Learning rate for the inner variable.
 
-    lr_lagrangian : float
+    lr_approx_star : float
         Learning rate for the lagrangian inner variable.
 
     n_steps : int
@@ -287,7 +287,7 @@ def inner_f2sa(inner_oracle, outer_oracle, inner_var, inner_approx_star,
 
         # Update the variables
         inner_var -= lr_inner * d_inner_var
-        inner_approx_star -= lr_lagrangian * d_inner_approx_star
+        inner_approx_star -= lr_approx_star * d_inner_approx_star
     return inner_var, inner_approx_star
 
 
@@ -362,14 +362,14 @@ def _f2sa(inner_loop, inner_oracle, outer_oracle, inner_var, outer_var,
         np.random.seed(seed)
 
     for i in range(max_iter):
-        lr_inner, lr_lagrangian, lr_outer, d_lmbda = lr_scheduler.get_lr()
+        lr_inner, lr_approx_star, lr_outer, d_lmbda = lr_scheduler.get_lr()
 
         # Run the inner procedure
         inner_var, inner_approx_star = inner_loop(
             inner_oracle, outer_oracle, inner_var, inner_approx_star,
             outer_var, lmbda, inner_sampler=inner_sampler,
             outer_sampler=outer_sampler, lr_inner=lr_inner,
-            lr_lagrangian=lr_lagrangian, n_steps=n_inner_steps
+            lr_approx_star=lr_approx_star, n_steps=n_inner_steps
         )
 
         # Compute oracles
@@ -384,7 +384,7 @@ def _f2sa(inner_loop, inner_oracle, outer_oracle, inner_var, outer_var,
         grad_inner_star = inner_oracle.grad_outer_var(inner_approx_star,
                                                       outer_var, slice_inner2)
 
-        d_outer_var += lmbda * (grad_inner_star - grad_inner)
+        d_outer_var += lmbda * (grad_inner - grad_inner_star)
 
         # Step.2 - update the variables
         outer_var -= lr_outer * d_outer_var
@@ -398,7 +398,7 @@ def _f2sa(inner_loop, inner_oracle, outer_oracle, inner_var, outer_var,
 def inner_f2sa_jax(inner_var, inner_approx_star,  outer_var, lmbda,
                    state_inner_sampler, state_outer_sampler,
                    inner_sampler=None, outer_sampler=None,
-                   lr_inner=.1, lr_lagrangian=.1, n_steps=10, grad_inner=None,
+                   lr_inner=.1, lr_approx_star=.1, n_steps=10, grad_inner=None,
                    grad_outer=None):
     """
     Jax implementation of the inner loop of F2SA algorithm.
@@ -432,7 +432,7 @@ def inner_f2sa_jax(inner_var, inner_approx_star,  outer_var, lmbda,
     lr_inner : float
         Learning rate for the inner variable.
 
-    lr_lagrangian : float
+    lr_approx_star : float
         Learning rate for the lagrangian inner variable.
 
     n_steps : int
@@ -473,16 +473,16 @@ def inner_f2sa_jax(inner_var, inner_approx_star,  outer_var, lmbda,
         )
 
         d_inner_var = grad_inner(inner_var, outer_var, start_idx_inner)
-        d_inner_approx_star = lmbda * grad_inner(
-            inner_approx_star, outer_var, start_idx_lagrangian
+        d_inner_var = lmbda * grad_inner(
+            inner_var, outer_var, start_idx_lagrangian
         )
-        d_inner_approx_star += grad_outer(
-            inner_var, outer_var, start_idx_outer
+        d_inner_approx_star = grad_outer(
+            inner_approx_star, outer_var, start_idx_outer
         )
 
         # Update the variables
         inner_var -= lr_inner * d_inner_var
-        inner_approx_star -= lr_lagrangian * d_inner_approx_star
+        inner_approx_star -= lr_approx_star * d_inner_approx_star
         return (inner_var, inner_approx_star, state_inner_sampler,
                 state_outer_sampler)
     (inner_var, inner_approx_star, state_inner_sampler,
@@ -578,7 +578,7 @@ def f2sa_jax(f_inner, f_outer, inner_var, outer_var, inner_approx_star,
         step_sizes, carry['state_lr'] = update_lr(
             carry['state_lr']
         )
-        lr_inner, lr_lagrangian, lr_outer, d_lmbda = step_sizes
+        lr_inner, lr_approx_star, lr_outer, d_lmbda = step_sizes
 
         # Run the inner procedure
         carry['inner_var'], carry['inner_approx_star'], \
@@ -588,7 +588,7 @@ def f2sa_jax(f_inner, f_outer, inner_var, outer_var, inner_approx_star,
                 carry['outer_var'], carry['lmbda'],
                 carry['state_inner_sampler'], carry['state_outer_sampler'],
                 inner_sampler=inner_sampler, outer_sampler=outer_sampler,
-                lr_inner=lr_inner, lr_lagrangian=lr_lagrangian,
+                lr_inner=lr_inner, lr_approx_star=lr_approx_star,
                 n_steps=n_inner_steps
             )
 
@@ -611,7 +611,7 @@ def f2sa_jax(f_inner, f_outer, inner_var, outer_var, inner_approx_star,
         grad_inner_star = grad_inner(
             carry['inner_approx_star'], carry['outer_var'], start_inner2
         )
-        d_outer_var += carry['lmbda'] * (grad_inner_star - grad_inner_outer)
+        d_outer_var += carry['lmbda'] * (grad_inner_outer - grad_inner_star)
 
         # Update inner variable with SGD.
         carry['outer_var'] -= lr_outer * d_outer_var
