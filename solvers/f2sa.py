@@ -268,7 +268,7 @@ def inner_f2sa(inner_oracle, outer_oracle, inner_var, inner_approx_star,
         Updated inner variable.
 
     inner_approx_star : array, shape (d_inner,)
-        Updated inner variable.
+        Updated inner variable to approximate g^*.
     """
     for _ in range(n_steps):
         # Get the batches and oracles
@@ -341,7 +341,7 @@ def _f2sa(inner_loop, inner_oracle, outer_oracle, inner_var, outer_var,
         Updated outer variable.
 
     inner_approx_star : array, shape (d_inner,)
-        Updated inner variable.
+        Updated inner variable  to approximate g^*.
 
     lmbda : float
         Updated Lagrange multiplier.
@@ -450,7 +450,7 @@ def inner_f2sa_jax(inner_var, inner_approx_star,  outer_var, lmbda,
         Updated inner variable.
 
     inner_approx_star : array, shape (d_inner,)
-        Updated inner variable.
+        Updated inner variable to approximate g^*.
 
     state_inner_sampler : dict
         Updated state of the inner sampler.
@@ -516,7 +516,7 @@ def f2sa_jax(f_inner, f_outer, inner_var, outer_var, inner_approx_star,
         Outer variable.
 
     inner_approx_star : array, shape (d_inner,)
-        Initial inner variable.
+        Initial inner variable to approximate g^*.
 
     lmbda : float
         Lagrange multiplier.
@@ -554,7 +554,7 @@ def f2sa_jax(f_inner, f_outer, inner_var, outer_var, inner_approx_star,
         Updated outer variable.
 
     inner_approx_star : array, shape (d_inner,)
-        Updated inner variable.
+        Updated inner variable to approximate g^*.
 
     lmbda : float
         Updated Lagrange multiplier.
