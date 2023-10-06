@@ -9,6 +9,7 @@ with safe_import_context() as import_ctx:
     from numba.experimental import jitclass
 
     from benchmark_utils import constants
+    from benchmark_utils.get_memory import get_memory
     from benchmark_utils.sgd_inner import sgd_inner_vrbo
     from benchmark_utils.sgd_inner import sgd_inner_vrbo_jax
     from benchmark_utils.minibatch_sampler import init_sampler
@@ -69,6 +70,15 @@ class Solver(BaseSolver):
                       "this oracle."
         elif self.framework not in ['jax', 'none', 'numba']:
             return True, f"Framework {self.framework} not supported."
+
+        try:
+            f_train(framework=self.framework)
+        except NotImplementedError:
+            return (
+                True,
+                f"Framework {self.framework} not compatible with "
+                f"oracle {f_train()}"
+            )
         return False, None
 
     def set_objective(self, f_train, f_val, n_inner_samples, n_outer_samples,
@@ -167,17 +177,25 @@ class Solver(BaseSolver):
         else:
             raise ValueError(f"Framework {self.framework} not supported.")
 
+        self.inner_var = inner_var0
+        self.outer_var = outer_var0
         self.inner_var0 = inner_var0
         self.outer_var0 = outer_var0
-        if self.framework == 'numba' or self.framework == 'jax':
+        self.memory = 0
+
+    def warm_up(self):
+        if self.framework in ['numba', 'jax']:
             self.run_once(2)
+            self.inner_var = self.inner_var0
+            self.outer_var = self.outer_var0
 
     def run(self, callback):
-        eval_freq = self.eval_freq  # // self.batch_size
+        eval_freq = self.eval_freq
+        memory_start = get_memory()
 
         # Init variables
-        inner_var = self.inner_var0.copy()
-        outer_var = self.outer_var0.copy()
+        inner_var = self.inner_var.copy()
+        outer_var = self.outer_var.copy()
 
         period = self.n_inner_samples + self.n_outer_samples
         period *= self.period_frac
@@ -210,10 +228,10 @@ class Solver(BaseSolver):
 
             # Init sampler and lr scheduler
             inner_sampler = self.MinibatchSampler(
-                self.f_inner.n_samples, batch_size=self.batch_size
+                self.f_inner.n_samples, batch_size=self.batch_size_inner
             )
             outer_sampler = self.MinibatchSampler(
-                self.f_outer.n_samples, batch_size=self.batch_size
+                self.f_outer.n_samples, batch_size=self.batch_size_outer
             )
             step_sizes = np.array(  # (inner_ss, hia_lr, outer_ss)
                 [
@@ -228,9 +246,8 @@ class Solver(BaseSolver):
             )
         i_min = 0
         # Start algorithm
-        while callback((inner_var, outer_var)):
+        while callback():
             if self.framework == 'jax':
-                # with jax.disable_jit():
                 inner_var, outer_var, inner_var_old, d_inner, d_outer, \
                     carry = self.vrbo(
                                 self.f_inner, self.f_outer, self.f_inner_fb,
@@ -250,10 +267,15 @@ class Solver(BaseSolver):
                         i_min=i_min, period=period,
                         seed=rng.randint(constants.MAX_SEED)
                     )
-        self.beta = (inner_var, outer_var)
+            memory_end = get_memory()
+            self.inner_var = inner_var
+            self.outer_var = outer_var
+            self.memory = memory_end - memory_start
+            self.memory /= 1e6
 
     def get_result(self):
-        return self.beta
+        return dict(inner_var=self.inner_var, outer_var=self.outer_var,
+                    memory=self.memory)
 
 
 def _vrbo(
@@ -269,6 +291,7 @@ def _vrbo(
 
     for i in range(i_min, i_min+max_iter):
         inner_lr, hia_lr, outer_lr = lr_scheduler.get_lr()
+        # outer_lr = 0.
 
         # Step.1 - (Re)initialize directions for z and x
         if i % period == 0:
@@ -371,8 +394,10 @@ def vrbo_jax(f_inner, f_outer, f_inner_fb, f_outer_fb, inner_var, outer_var,
         length=max_iter,
     )
     carry['i_min'] += max_iter
-    return carry['inner_var'], carry['outer_var'], carry['inner_var_old'], \
-        carry['d_inner'], carry['d_outer'], \
+    return (
+        carry['inner_var'], carry['outer_var'], carry['inner_var_old'],
+        carry['d_inner'], carry['d_outer'],
         {k: v for k, v in carry.items()
          if k not in ['inner_var', 'outer_var', 'inner_var_old',
                       'd_inner', 'd_outer']}
+    )

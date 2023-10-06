@@ -9,6 +9,7 @@ with safe_import_context() as import_ctx:
     from numba.experimental import jitclass
 
     from benchmark_utils import constants
+    from benchmark_utils.get_memory import get_memory
     from benchmark_utils.minibatch_sampler import init_sampler
     from benchmark_utils.learning_rate_scheduler import update_lr
     from benchmark_utils.minibatch_sampler import MinibatchSampler
@@ -45,7 +46,7 @@ class Solver(BaseSolver):
         'batch_size': [64],
         'eval_freq': [128],
         'random_state': [1],
-        'framework': ['jax']
+        'framework': ["jax"],
     }
 
     @staticmethod
@@ -65,6 +66,15 @@ class Solver(BaseSolver):
                       "this oracle."
         elif self.framework not in ['jax', 'none', 'numba']:
             return True, f"Framework {self.framework} not supported."
+
+        try:
+            f_train(framework=self.framework)
+        except NotImplementedError:
+            return (
+                True,
+                f"Framework {self.framework} not compatible with "
+                f"oracle {f_train()}"
+            )
         return False, None
 
     def set_objective(self, f_train, f_val, n_inner_samples, n_outer_samples,
@@ -132,17 +142,25 @@ class Solver(BaseSolver):
         else:
             raise ValueError(f"Framework {self.framework} not supported.")
 
+        self.inner_var = inner_var0
+        self.outer_var = outer_var0
         self.inner_var0 = inner_var0
         self.outer_var0 = outer_var0
-        if self.framework == 'numba' or self.framework == 'jax':
+        self.memory = 0
+
+    def warm_up(self):
+        if self.framework in ['numba', 'jax']:
             self.run_once(2)
+            self.inner_var = self.inner_var0
+            self.outer_var = self.outer_var0
 
     def run(self, callback):
         eval_freq = self.eval_freq
+        memory_start = get_memory()
 
         # Init variables
-        outer_var = self.outer_var0.copy()
-        inner_var = self.inner_var0.copy()
+        outer_var = self.outer_var.copy()
+        inner_var = self.inner_var.copy()
 
         if self.framework == 'jax':
             step_sizes = jnp.array(
@@ -187,7 +205,7 @@ class Solver(BaseSolver):
                 step_size=self.step_size, sampler=inner_sampler,
                 n_steps=self.n_inner_steps
             )
-        while callback((inner_var, outer_var)):
+        while callback():
             if self.framework == 'jax':
                 inner_var, outer_var, carry = self.bsa(
                         self.f_inner, self.f_outer, inner_var, outer_var,
@@ -203,11 +221,15 @@ class Solver(BaseSolver):
                     n_hia_steps=self.n_hia_steps, max_iter=eval_freq,
                     seed=rng.randint(constants.MAX_SEED)
                 )
-
-        self.beta = (inner_var, outer_var)
+            memory_end = get_memory()
+            self.inner_var = inner_var
+            self.outer_var = outer_var
+            self.memory = memory_end - memory_start
+            self.memory /= 1e6
 
     def get_result(self):
-        return self.beta
+        return dict(inner_var=self.inner_var, outer_var=self.outer_var,
+                    memory=self.memory)
 
 
 def _bsa(sgd_inner, hia, inner_oracle, outer_oracle, inner_var, outer_var,
@@ -330,5 +352,7 @@ def bsa_jax(f_inner, f_outer, inner_var, outer_var,
         xs=None,
         length=max_iter,
     )
-    return carry['inner_var'], carry['outer_var'], \
+    return (
+        carry['inner_var'], carry['outer_var'],
         {k: v for k, v in carry.items() if k not in ['inner_var', 'outer_var']}
+    )

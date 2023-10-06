@@ -1,0 +1,14 @@
+objective:
+  - Bilevel Optimization
+dataset:
+  - quadratic[mu_inner=[.0001,.01],L_inner=1,n_samples_inner=[32768,131072],n_samples_outer=[1024,4096],dim_inner=100,dim_outer=10,random_state=[1,2,3]]
+solver:
+  - SABA[batch_size=64,eval_freq=2048,framework=none,outer_ratio=[0.1, 1., 10],step_size=[.01,.1,1.],random_state=[1,2,3],framework=none]
+  - SRBA[batch_size=64,eval_freq=2048,framework=none,outer_ratio=[0.1, 1., 10],period_frac=[.5,8.,64.,512.],step_size=[.01,.1,1.],random_state=[1],framework=none,random_state=[1,2,3]]
+  - AmIGO[batch_size=64,eval_freq=2048,n_inner_steps=10,outer_ratio=[0.1, 1., 10],step_size=[.01,.1,1.],random_state=[1, 2, 3],framework=none]
+  - StocBiO[batch_size=64,eval_freq=2048,n_inner_steps=10,n_shia_steps=10,outer_ratio=[0.1, 1., 10],step_size=[.01,.1,1.],random_state=[1, 2, 3],framework=none]
+  - VRBO[batch_size=64,period_frac=[0.5, 8.,64.,512.],eval_freq=128,step_size=[.01,.1,1.],outer_ratio=[0.1, 1., 10],random_state=[1, 2, 3],framework=none]
+n-repetitions: 1
+max-runs: 64000
+timeout: 240
+output: quadratics

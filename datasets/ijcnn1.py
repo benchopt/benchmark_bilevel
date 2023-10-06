@@ -42,7 +42,7 @@ class Dataset(BaseDataset):
         def metrics(inner_var, outer_var):
             f_train = get_inner_oracle(framework="none")
             f_val = get_outer_oracle(framework="none")
-            inner_star = f_train.get_inner_var_star(outer_var)
+            inner_star = f_train.inner_var_star(outer_var)
             value_function = f_val.get_value(inner_star, outer_var)
             grad_f_val_inner, grad_f_val_outer = f_val.get_grad(
                 inner_star, outer_var
@@ -57,6 +57,7 @@ class Dataset(BaseDataset):
             return dict(
                 value_func=value_function,
                 value=np.linalg.norm(grad_value)**2,
+                inner_distance=np.linalg.norm(inner_star-inner_var)**2,
             )
 
         data = dict(

@@ -8,8 +8,10 @@ with safe_import_context() as import_ctx:
 
 class Objective(BaseObjective):
     name = "Bilevel Optimization"
+    url = "https://github.com/benchopt/benchmark_bilevel"
 
-    min_benchopt_version = "1.3.2"
+    requirements = ["scikit-learn", "numba", "jax"]
+    min_benchopt_version = "1.5"
 
     parameters = {
         'random_state': [2442]
@@ -18,9 +20,11 @@ class Objective(BaseObjective):
     def __init__(self, random_state=2442):
         self.random_state = random_state
 
-    def get_one_solution(self):
+    def get_one_result(self):
         inner_shape, outer_shape = self.get_inner_oracle().variables_shape
-        return np.zeros(*inner_shape), np.zeros(*outer_shape)
+        return dict(inner_var=np.zeros(*inner_shape),
+                    outer_var=np.zeros(*outer_shape),
+                    memory=0.)
 
     def set_data(self, get_inner_oracle, get_outer_oracle, oracle, metrics,
                  n_reg):
@@ -38,18 +42,18 @@ class Objective(BaseObjective):
                 self.outer_var0 = np.log(self.outer_var0)
             if n_reg == 1:
                 self.outer_var0 = self.outer_var0[:1]
-        elif oracle == "datacleaning" or oracle == "multilogreg":
+        else:
             self.inner_var0 = np.zeros(*inner_shape)
             self.outer_var0 = -2 * np.ones(*outer_shape)
             # XXX: Try random inits
 
-    def compute(self, beta):
-        inner_var, outer_var = beta
-
+    def evaluate_result(self, inner_var, outer_var, memory):
         if np.isnan(outer_var).any():
             raise ValueError
 
-        return self.metrics(inner_var, outer_var)
+        metrics = self.metrics(inner_var, outer_var)
+        metrics.update({'memory': memory})
+        return metrics
 
     def get_objective(self):
         return dict(
