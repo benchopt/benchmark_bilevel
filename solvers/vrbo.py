@@ -47,7 +47,7 @@ class Solver(BaseSolver):
         'n_shia_steps': [10],
         'batch_size': [64],
         'period_frac': [128],
-        'eval_freq': [128],
+        'eval_freq': [.5],
         'n_inner_steps': [10],
         'random_state': [1],
         'framework': ['jax']

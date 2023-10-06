@@ -32,8 +32,8 @@ STYLES = {
     'saba': dict(color='#d1615d', label=r'SABA'),
     'stocbio': dict(color='#85b6b2', label=r'StocBiO'),
     'srba': dict(color='#6a9f58', label=r'\textbf{SRBA}', lw=2),
-    'pzobo': dict(color='#17becf', label=r'PZOBO'),
-    'optuna': dict(color='#bcbd22', label=r'Optuna'),
+    'aistats': dict(color='#17becf', label=r'PZOBO'),
+    'f2sa': dict(color='#bcbd22', label=r'F2SA'),
 }
 
 N_CALLS = {
@@ -109,13 +109,13 @@ if __name__ == "__main__":
 
     BENCHMARKS_CONFIG = dict(
         ijcnn1=(
-            "ijcnn1_resubmission_last.parquet", 'objective_value_func',
-            'objective_value_func', ((1, 480), (0, 2e9)), 1e-4,
-            r'Optimality ~$h(x^t) -h^*$', 'log', ('linear', 'linear'), None,
+            "ijcnn1_aistats.parquet", 'objective_value',
+            'objective_value', ((1, 480), (0, 2e9)), None,
+            r'$\|\nabla h(x^t)\|^2$', 'log', ('linear', 'linear'), None,
             64, 2**17, 49_990, 91_701
         ),
         datacleaning0_5=(
-            "datacleaning0_5_resubmission_last.parquet",
+            "datacleaning0_5_aistats.parquet",
             'objective_value', 'objective_test_accuracy',
             ((.1, 900), (2e4, 5e7)), None, 'Test error', 'log',
             ('log', 'log'), (None, 40), 64, 2**5, 20_000, 5_000
@@ -133,9 +133,9 @@ if __name__ == "__main__":
             ('log', 'log'), (None, 40), 64, 2**5, 20_000, 5_000
         ),
         covtype=(
-            "covtype_resubmission_last.parquet",
+            "covtype_aistats.parquet",
             'objective_value', 'objective_test_accuracy',
-            ((.01, 1200), (5e4, 1e8)), None, 'Test error', 'log',
+            ((.1, 1200), (5e4, 1e8)), None, 'Test error', 'log',
             ('log', 'log'), (27, 45), 512, 2**5, 371_847, 92_962
         ),
     )
@@ -168,7 +168,7 @@ if __name__ == "__main__":
     n_seeds = df.groupby('solver_name')['seed'].nunique()
     for s in n_seeds.index:
         if n_seeds[s] == 10:
-            df['full'].loc[df['solver_name'] == s] = True
+            df.loc[df['solver_name'] == s, 'full'] = True
     df = df.query('full == True')
 
     df.loc[
