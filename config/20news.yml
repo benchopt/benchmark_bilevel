@@ -1,0 +1,15 @@
+objective:
+  - Bilevel Optimization
+dataset:
+  - 20news
+solver:
+  - AmIGO[batch_size=64,n_inner_steps=[10],eval_freq=128,step_size=[0.1, 1., 10., 100.],outer_ratio=[0.1, 1., 10.],random_state=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],framework=jax]
+  - MRBO[batch_size=64,n_shia_steps=[10],eta=[0.5],eval_freq=128,step_size=[0.1, 1., 10., 100.],outer_ratio=[0.1, 1., 10.],random_state=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],framework=jax]
+  - SABA[batch_size=64,eval_freq=128,step_size=[0.1, 1., 10., 100.],outer_ratio=[0.1, 1., 10.],random_state=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],framework=jax]
+  - StocBiO[batch_size=64,n_inner_steps=[10],n_shia_steps=[10],eval_freq=128,step_size=[0.1, 1., 10., 100.],outer_ratio=[0.1, 1., 10.],random_state=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],framework=jax]
+  # - SRBA[batch_size=64,period_frac=[0.5, 8., 64., 512.],eval_freq=128,step_size=[0.1, 1., 10., 100.],outer_ratio=[0.1, 1., 10.],random_state=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],framework=jax]
+  # - VRBO[batch_size=64,period_frac=[0.5, 8., 64., 512.],eval_freq=128,n_shia_steps=10,step_size=[0.1, 1., 10., 100.],outer_ratio=[0.1, 1., 10.],random_state=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],framework=jax, n_inner_steps=10]
+n-repetitions: 1
+max-runs: 64000
+timeout: 2700
+output: 20news

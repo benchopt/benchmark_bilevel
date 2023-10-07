@@ -2,7 +2,6 @@ import numpy as np
 from sklearn.utils.extmath import safe_sparse_dot
 from sklearn.preprocessing import OneHotEncoder
 
-from scipy import sparse
 import scipy.special as sc
 from scipy.sparse import linalg as splinalg
 
@@ -14,6 +13,7 @@ import jax
 import jax.numpy as jnp
 from functools import partial
 from jax.nn import logsumexp
+import jax.experimental.sparse as jax_sparse
 
 warnings.filterwarnings("error", category=RuntimeWarning)
 
@@ -36,6 +36,7 @@ def softmax_hvp(z, v):
 
 
 @jax.jit
+@jax_sparse.sparsify
 def jax_loss_sample(inner_var_flat, outer_var, x, y):
     n_classes = y.shape[0]
     n_features = x.shape[0]
@@ -92,12 +93,14 @@ class MultiLogRegOracle(BaseOracle):
                                   + "oracle available")
 
     def _get_jax_oracle(self, get_full_batch=False):
-        if sparse.issparse(self.X):
-            raise ValueError("X should not be sparse")
+        if isinstance(self.X, jax_sparse.BCOO):
+            safe_dynamic_slice = jax_sparse.bcoo_dynamic_slice
+        else:
+            safe_dynamic_slice = jax.lax.dynamic_slice
 
         @partial(jax.jit, static_argnames=('batch_size'))
         def jax_oracle(inner_var, outer_var, start=0, batch_size=1):
-            x = jax.lax.dynamic_slice(
+            x = safe_dynamic_slice(
                 self.X, (start, 0),
                 (batch_size, self.X.shape[1])
             )
