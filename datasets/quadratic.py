@@ -66,7 +66,9 @@ class Dataset(BaseDataset):
         else:
             raise ValueError("Could not generate a dataset with a "
                              "positive Hessian.")
-        print(f"Generated dataset with a positive Hessian after {k+1} trials.")
+        print(
+            f"Generated dataset with a positive Hessian after {k+1} trial(s)."
+        )
         print(f"Minimum eigenvalue of the Hessian: {eig}")
         hess_inner = f_inner.hess_inner_full
         cross = f_inner.cross_mat_full
