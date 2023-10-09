@@ -56,16 +56,18 @@ class Dataset(BaseDataset):
                 self.mu_inner,
                 random_state=outer_seed
             )
-            if get_hessian_min_eigval(
+            eig = get_hessian_min_eigval(
                 f_inner.hess_inner_full, f_inner.cross_mat_full,
                 f_outer.hess_inner_full, f_outer.hess_outer_full,
                 f_outer.cross_mat_full
-            ) >= 1e-12:
+            )
+            if eig >= 1e-12:
                 break
         else:
             raise ValueError("Could not generate a dataset with a "
                              "positive Hessian.")
-        print(f"Generated dataset with a positive Hessian after {k} trials.")
+        print(f"Generated dataset with a positive Hessian after {k+1} trials.")
+        print(f"Minimum eigenvalue of the Hessian: {eig}")
         hess_inner = f_inner.hess_inner_full
         cross = f_inner.cross_mat_full
         linear_inner = f_inner.linear_inner_full
