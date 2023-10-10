@@ -42,6 +42,11 @@ class Objective(BaseObjective):
                 self.outer_var0 = np.log(self.outer_var0)
             if n_reg == 1:
                 self.outer_var0 = self.outer_var0[:1]
+        elif oracle == "datacleaning":
+            # We init the outer variable so that the weights are almost equal
+            # to one for each sample.
+            self.inner_var0 = np.zeros(*inner_shape)
+            self.outer_var0 = 5 * np.ones(*outer_shape)
         else:
             self.inner_var0 = np.zeros(*inner_shape)
             self.outer_var0 = -2 * np.ones(*outer_shape)

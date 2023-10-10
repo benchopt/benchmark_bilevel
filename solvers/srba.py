@@ -209,7 +209,6 @@ class Solver(BaseSolver):
         outer_var_old = outer_var.copy()
         v_old = v.copy()
         i_min = 0
-        memory_end = get_memory()
 
         # Start algorithm
         while callback():
