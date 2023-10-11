@@ -33,7 +33,7 @@ STYLES = {
     'stocbio': dict(color='#85b6b2', label=r'StocBiO'),
     'srba': dict(color='#6a9f58', label=r'\textbf{SRBA}', lw=2),
     'aistats': dict(color='#17becf', label=r'PZOBO'),
-    'f2sa': dict(color='#bcbd22', label=r'F2SA'),
+    # 'f2sa': dict(color='#bcbd22', label=r'F2SA'),
 }
 
 N_CALLS = {
@@ -109,8 +109,8 @@ if __name__ == "__main__":
 
     BENCHMARKS_CONFIG = dict(
         ijcnn1=(
-            "ijcnn1_aistats.parquet", 'objective_value',
-            'objective_value', ((1, 480), (0, 2e9)), None,
+            "ijcnn1_aistats_last2.parquet", 'objective_value_func',
+            'objective_value', ((1, 480), (0, 2e9)), 1e-10,
             r'$\|\nabla h(x^t)\|^2$', 'log', ('linear', 'linear'), None,
             64, 2**17, 49_990, 91_701
         ),
