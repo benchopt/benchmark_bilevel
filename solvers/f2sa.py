@@ -170,7 +170,7 @@ class Solver(BaseSolver):
                  self.delta_lmbda]
             )
             exponents = jnp.array(
-                [5/7, 4/7, .5, 1/7]
+                [5/7, 4/7, 4/7, 1/7]
             )
             state_lr = init_lr_scheduler(step_sizes, exponents)
             carry = dict(
@@ -188,7 +188,7 @@ class Solver(BaseSolver):
                  self.delta_lmbda]
             )
             exponents = np.array(
-                [5/7, 4/7, .5, 1/7]
+                [5/7, 4/7, 4/7, 1/7]
             )
             lr_scheduler = self.LearningRateScheduler(
                 np.array(step_sizes, dtype=float), exponents
@@ -217,7 +217,7 @@ class Solver(BaseSolver):
                     seed=rng.randint(constants.MAX_SEED)
                 )
             memory_end = get_memory()
-            self.inner_var = inner_var
+            self.inner_var = inner_approx_star
             self.outer_var = outer_var
             self.memory = memory_end - memory_start
             self.memory /= 1e6
