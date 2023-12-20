@@ -274,7 +274,6 @@ def _init_memory(
             inner_sampler,
             outer_sampler,
         )
-    print("Memory size: ", sum(v.nbytes for v in memory.values()) / 1e6, "Mb")
     return memory
 
 

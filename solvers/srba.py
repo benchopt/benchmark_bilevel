@@ -41,7 +41,7 @@ class Solver(BaseSolver):
         'step_size': [.1],
         'outer_ratio': [1.],
         'batch_size': [64],
-        'period_frac': [128],
+        'period_frac': [.5],
         'eval_freq': [128],
         'random_state': [1],
         'framework': ["jax"],
@@ -209,7 +209,6 @@ class Solver(BaseSolver):
         outer_var_old = outer_var.copy()
         v_old = v.copy()
         i_min = 0
-        memory_end = get_memory()
 
         # Start algorithm
         while callback():
@@ -309,7 +308,6 @@ def srba(
         inner_var -= inner_lr * d_inner
         v -= inner_lr * d_v
         outer_var -= outer_lr * d_outer
-
     return (
         inner_var, outer_var, v, inner_var_old, outer_var_old, v_old, d_inner,
         d_v, d_outer, i_min+max_iter
