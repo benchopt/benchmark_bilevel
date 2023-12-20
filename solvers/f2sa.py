@@ -473,14 +473,14 @@ def inner_f2sa_jax(inner_var, inner_approx_star,  outer_var, lmbda,
         )
 
         d_inner_var = lmbda * grad_inner(
-            inner_var, outer_var, start_idx_lagrangian
+            inner_var, outer_var, start_idx_inner
         )
-        d_inner_var += grad_outer(inner_var, outer_var, start_idx_inner)
+        d_inner_var += grad_outer(inner_var, outer_var, start_idx_outer)
         d_inner_approx_star = grad_inner(
-            inner_approx_star, outer_var, start_idx_outer
+            inner_approx_star, outer_var, start_idx_lagrangian
         )
 
-        # Update the variables
+        # # Update the variables
         inner_var -= lr_inner * d_inner_var
         inner_approx_star -= lr_approx_star * d_inner_approx_star
         return (inner_var, inner_approx_star, state_inner_sampler,
