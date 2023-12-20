@@ -8,13 +8,13 @@ with safe_import_context() as import_ctx:
 
 def get_hessian_min_eigval(hess_inner_inner, cross_inner, hess_outer_inner,
                            hess_outer_outer, cross_outer):
+    """Compute the minimum eigenvalue of the Hessian of the value function."""
 
     jac_z_star = - np.linalg.solve(hess_inner_inner, cross_inner.T)
     hess = jac_z_star.T.dot(hess_outer_inner) @ jac_z_star + hess_outer_outer
 
     tmp = cross_outer @ jac_z_star
     hess += .5 * (tmp + tmp.T)
-
     return np.min(np.linalg.eigvalsh(hess))
 
 
@@ -29,8 +29,8 @@ class Dataset(BaseDataset):
         'mu_inner': [.1],
         'L_outer_inner': [1.],
         "L_outer_outer": [1.],
-        'L_cross_inner': [1.],
-        "L_cross_outer": [1.],
+        'L_cross_inner': [.1],
+        "L_cross_outer": [.1],
         'random_state': [2442],
         'n_samples_inner': [1024],
         'n_samples_outer': [1024],
