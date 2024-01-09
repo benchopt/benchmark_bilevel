@@ -230,7 +230,6 @@ def pzobo_jax(f_inner, f_outer, inner_var, outer_var, mu=.1,
               state_lr=None, n_inner_steps=1, n_gaussian_vectors=1,
               max_iter=1, key=None, gd_inner=None):
 
-    grad_inner = jax.grad(f_inner, argnums=0)
     grad_outer = jax.grad(f_outer, argnums=(0, 1))
 
     def pzobo_one_iter(carry, _):
