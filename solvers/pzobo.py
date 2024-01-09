@@ -244,16 +244,15 @@ def pzobo_jax(f_inner, f_outer, inner_var, outer_var, mu=.1,
         inner_var_old = carry['inner_var'].copy()
 
         # Update inner variable by GD
-        carry['inner_var'] = gd_inner(grad_inner, carry['inner_var'],
-                                      carry['outer_var'], inner_step_size,
-                                      n_steps=n_inner_steps)
+        carry['inner_var'] = gd_inner(carry['inner_var'], carry['outer_var'],
+                                      inner_step_size, n_steps=n_inner_steps)
 
         U = jax.random.normal(carry['key'], (n_gaussian_vectors,
                                              outer_var_shape))
         outer_var_aux = carry['outer_var'] + mu * U
 
         def iter_fun(q, deltas):
-            deltasq = gd_inner(grad_inner, inner_var_old, outer_var_aux[q],
+            deltasq = gd_inner(inner_var_old, outer_var_aux[q],
                                inner_step_size, n_steps=n_inner_steps)
             deltas = deltas.at[q].set(deltasq - carry['inner_var'])
             return deltas
