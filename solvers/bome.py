@@ -25,8 +25,8 @@ with safe_import_context() as import_ctx:
 class Solver(BaseSolver):
     """Bilevel Optimization Made Easy (BOME).
 
-    J. Kwon, D. Kwon, S. Wright and R. Noewak, "BOME! Bilevel Optimization Made
-    Easy: A Simple First-Order Approach", NeurIPS 2022."""
+    M. Ye, B. Liu, S. Wright, P. Stone and Q. Liu, "BOME! Bilevel Optimization
+    Made Easy: A Simple First-Order Approach", NeurIPS 2022."""
     name = 'BOME'
 
     stopping_criterion = SufficientProgressCriterion(
