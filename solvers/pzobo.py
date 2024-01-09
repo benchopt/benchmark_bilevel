@@ -100,9 +100,13 @@ class Solver(BaseSolver):
             _, self.f_outer = self.f_outer
             self.f_inner = jax.jit(self.f_inner)
             self.f_outer = jax.jit(self.f_outer)
+            self.inner_loop = partial(
+                gd_inner_jax,
+                grad_inner=jax.grad(self.f_inner),
+            )
             self.pzobo = partial(
                 pzobo_jax,
-                gd_inner=gd_inner_jax
+                gd_inner=self.inner_loop
             )
         else:
             raise ValueError(f"Framework {self.framework} not supported.")
