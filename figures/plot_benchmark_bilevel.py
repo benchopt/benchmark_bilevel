@@ -221,8 +221,6 @@ if __name__ == "__main__":
             .median(numeric_only=True).loc[:, metric_plot].min() - eps
         )
 
-    # if metric == 'objective_value':
-    #     axins = ax.inset_axes([0.5, 0.5, 0.47, 0.47])
     lines = []
     for solver_name in to_plot:
         df_solver = df.query("solver_name == @solver_name")
@@ -236,11 +234,9 @@ if __name__ == "__main__":
             times = [c[:, 0] for c in curves]
             tmin = np.min([np.min(t) for t in times])
             tmax = np.max([np.max(t) for t in times])
-            # time_grid = np.geomspace(tmin, xlim[1] + 1, n_points)
             time_grid = np.linspace(np.log(tmin), np.log(xlim[1] + 1),
                                     n_points)
             interp_vals = np.zeros((len(times), n_points))
-            # import ipdb; ipdb.set_trace()
             for i, (t, val) in enumerate(zip(times, vals)):
                 interp_vals[i] = np.exp(np.interp(time_grid, np.log(t),
                                         np.log(val)))
@@ -274,7 +270,6 @@ if __name__ == "__main__":
                 for c in curves
             ]
             # We first translate the calls grid to the right to avoid
-            # calls[i][0] = 0 in the logarithmic interpolation
             nmin = np.min([np.min(n) for n in calls])
             nmax = np.max([np.max(n) for n in calls])
             calls_grid = np.linspace(np.log(nmin),
@@ -338,21 +333,12 @@ if __name__ == "__main__":
     if "datacleaning" in fname.stem:
         ticklist = [15, 20, 30, 40]
         labels = [r'$%d \%%$' % tick for tick in ticklist]
-        # labels[-2] = ''
         ax.set_yticks(ticklist, labels=labels)
     elif "covtype" in fname.stem:
         ticklist = [30, 35, 40]
         labels = [r'$%d \%%$' % tick for tick in ticklist]
-        # labels[-2] = ''
         ax.set_yticks(ticklist, labels=labels)
 
-    # if metric == 'objective_value':
-    #     x1, x2, y1, y2 = t_lim, xlim[1], .12, .17
-    #     axins.set_xlim(x1, x2)
-    #     axins.set_ylim(y1, y2)
-    #     axins.set_xticklabels([])
-    #     axins.set_yticklabels([])
-    #     ax.indicate_inset_zoom(axins, edgecolor="black")
     if x_axis == 'time':
         fig.savefig(
             fname.with_suffix('.pdf'), bbox_extra_artists=[x_, y_, l_],
