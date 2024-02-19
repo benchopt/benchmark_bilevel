@@ -32,8 +32,7 @@ STYLES = {
     'saba': dict(color='#d1615d', label=r'SABA'),
     'stocbio': dict(color='#85b6b2', label=r'StocBiO'),
     'srba': dict(color='#6a9f58', label=r'\textbf{SRBA}', lw=2),
-    'pzobo': dict(color='#17becf', label=r'PZOBO'),
-    'optuna': dict(color='#bcbd22', label=r'Optuna'),
+    'f2sa': dict(color='#bcbd22', label=r'F2SA'),
 }
 
 N_CALLS = {
@@ -109,13 +108,13 @@ if __name__ == "__main__":
 
     BENCHMARKS_CONFIG = dict(
         ijcnn1=(
-            "ijcnn1.parquet", 'objective_value_func',
-            'objective_value', ((1, 480), (0, 2e9)), 1e-10,
-            r'$\|\nabla h(x^t)\|^2$', 'log', ('linear', 'linear'), None,
+            "ijcnn1_021424.parquet", 'objective_value_func',
+            'objective_value_func', ((1, 480), (0, 2e9)), 1e-10,
+            r'$h(x^t)-h^*$', 'log', ('linear', 'linear'), None,
             64, 2**17, 49_990, 91_701
         ),
         datacleaning0_5=(
-            "datacleaning0_5.parquet",
+            "datacleaning0_5_021424.parquet",
             'objective_value', 'objective_test_accuracy',
             ((.1, 900), (2e4, 5e7)), None, 'Test error', 'log',
             ('log', 'log'), (None, 40), 64, 2**5, 20_000, 5_000
@@ -194,7 +193,7 @@ if __name__ == "__main__":
         )
     to_plot = [to_plot[p] for p in STYLES if p in to_plot]
     df = df.query("solver_name in @to_plot")
-    df.to_parquet(f'{fname.stem}_best_param.parquet')
+    df.to_parquet(f'{fname.stem}_best_params.parquet')
 
     solvers = [s for s in STYLES if s in df['solver'].values]
     print(solvers)
@@ -251,11 +250,6 @@ if __name__ == "__main__":
             medval = np.quantile(interp_vals, .5, axis=0)
             q1 = np.quantile(interp_vals, .2, axis=0)
             q2 = np.quantile(interp_vals, .8, axis=0)
-            curve = (
-                df_solver.groupby('stop_val').quantile([0.2, 0.5, 0.8],
-                                                       numeric_only=True)
-                .unstack()
-            )
             lines.append(ax.semilogy(
                 time_grid, medval - c_star,
                 **style
