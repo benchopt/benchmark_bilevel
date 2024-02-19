@@ -22,11 +22,11 @@ This benchmark currently implements three bilevel optimization problems: quadrat
 
 In this problem, the inner and the outer functions are quadritics functions defined of $\mathbb{R}^{d\times p}
 
-$$g(x, z) = \frac1n \sum_{i=1}^n \frac12 z^\top H_i^z z + \frac12 x^\top H_i^x x + x^\top C_i z + c_i^\top z + d_i^\top x$$
+$$g(x, z) = \\frac{1}{n}\\sum_{i=1}^n \\frac{1}{2} z^\\top H_i^z z + \\frac{1}{2} x^\\top H_i^x x + x^\\top C_i z + c_i^\\top z + d_i^\\top x$$
 
 and
 
-$$f(x, z) = \frac1m \sum_{j=1}^m \frac12 z^\top \tilde H_j^z z + \frac12 x^\top \tilde H_j^x x + x^\top \tilde C_j z + \tilde c_j^\top z + \tilde d_j^\top x$$
+$$f(x, z) = \\frac{1}{m} \sum_{j=1}^m \\frac{1}{2} z^\\top \tilde H_j^z z + \\frac{1}{2} x^\\top \tilde H_j^x x + x^\\top \tilde C_j z + \tilde c_j^\\top z + \tilde d_j^\\top x$$
 
 where $H_i^z, \tilde H_j^z$ are symmetric positive definite matrices of size $p\times p$, H_j^x, \tilde H_j^x$are symmetric positive definite matrices of size $d\times d$, $C_i, \tilde C_j$ are matrices of size $d\times p$, $c_i, \tilde c_j$ are vectors of size $d$ and $d_i, \tilde d_j$ are vectors of size $p$.
 
