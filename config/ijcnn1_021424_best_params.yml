@@ -1,0 +1,15 @@
+objective:
+  - Bilevel Optimization
+dataset:
+  - ijcnn1
+solver:
+  - AmIGO[batch_size=64,eval_freq=8192,framework=numba,n_inner_steps=10,outer_ratio=0.1,step_size=0.125,random_state=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]]
+  - StocBiO[batch_size=64,eval_freq=8192,framework=numba,n_inner_steps=10,n_shia_steps=10,outer_ratio=1.0,step_size=0.25,random_state=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+  - SABA[batch_size=64,eval_freq=32768,framework=numba,mode_init_memory=zero,outer_ratio=1.0,step_size=0.25,random_state=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+  - MRBO[batch_size=64,eta=0.5,eval_freq=32768,framework=numba,n_shia_steps=10,outer_ratio=0.03162277660168379,step_size=0.5,random_state=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+  - SRBA[batch_size=64,eval_freq=32768,framework=numba,outer_ratio=1.0,period_frac=0.5,step_size=0.5,random_state=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+  - VRBO[batch_size=64,eval_freq=128,framework=numba,n_inner_steps=10,n_shia_steps=10,outer_ratio=0.03162277660168379,period_frac=0.01,step_size=0.0625,random_state=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+n-repetitions: 1
+max-runs: 1500
+timeout: 1200
+output: ijcnn1
