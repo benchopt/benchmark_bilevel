@@ -1,0 +1,16 @@
+objective:
+  - Bilevel Optimization
+dataset:
+  - quadratic[L_cross_inner=0.1,L_cross_outer=0.1,mu_inner=[.1],n_samples_inner=[32768],n_samples_outer=[1024],dim_inner=100,dim_outer=10]
+solver:
+  - AmIGO[batch_size=64,eval_freq=16,framework=none,n_inner_steps=10,outer_ratio=1.0,step_size=0.01,random_state=[1,2,3,4,5,6,7,8,9,10]] 
+  - MRBO[batch_size=64,eta=0.5,eval_freq=16,framework=none,n_shia_steps=10,outer_ratio=0.1,step_size=0.1,random_state=[1,2,3,4,5,6,7,8,9,10]]
+  - SABA[batch_size=64,eval_freq=64,framework=none,mode_init_memory=zero,outer_ratio=1.0,step_size=0.1,random_state=[1,2,3,4,5,6,7,8,9,10]]
+  - SRBA[batch_size=64,eval_freq=64,framework=none,outer_ratio=0.1,period_frac=0.5,step_size=0.1,random_state=[1,2,3,4,5,6,7,8,9,10]]
+  - StocBiO[batch_size=64,eval_freq=16,framework=none,n_inner_steps=10,n_shia_steps=10,outer_ratio=1.0,step_size=0.1,random_state=[1,2,3,4,5,6,7,8,9,10]]
+  - VRBO[batch_size=64,eval_freq=2,framework=none,n_inner_steps=10,n_shia_steps=10,outer_ratio=1.0,period_frac=0.01,step_size=0.1,random_state=[1,2,3,4,5,6,7,8,9,10]]
+  - F2SA[batch_size=64,delta_lmbda=0.01,eval_freq=16,framework=none,lmbda0=1,n_inner_steps=10,outer_ratio=1.0,step_size=0.1,random_state=[1,2,3,4,5,6,7,8,9,10]]
+n-repetitions: 1
+max-runs: 64000
+timeout: 900
+output: quadratic

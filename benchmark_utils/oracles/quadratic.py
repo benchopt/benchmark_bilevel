@@ -42,7 +42,7 @@ def gen_matrices(n_samples, d_inner, d_outer, L_inner, L_outer, L_cross, mu,
     hess_outer = X.transpose(0, 2, 1) @ X / X.shape[1]
 
     # Generate singular vectors and values for rectangular correlation matrix
-    U, _, V = np.linalg.svd(np.random.randn(d_outer, d_inner))
+    U, _, V = np.linalg.svd(rng.randn(d_outer, d_inner))
     D = np.zeros((d_outer, d_inner))
     D[:min(d_outer, d_inner), :min(d_outer, d_inner)] = np.diag(
         np.logspace(np.log10(mu), np.log10(L_cross), min(d_outer, d_inner)))
