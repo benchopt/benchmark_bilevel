@@ -100,9 +100,13 @@ class Solver(BaseSolver):
             _, self.f_outer = self.f_outer
             self.f_inner = jax.jit(self.f_inner)
             self.f_outer = jax.jit(self.f_outer)
+            self.inner_loop = partial(
+                gd_inner_jax,
+                grad_inner=jax.grad(self.f_inner),
+            )
             self.pzobo = partial(
                 pzobo_jax,
-                gd_inner=gd_inner_jax
+                gd_inner=self.inner_loop
             )
         else:
             raise ValueError(f"Framework {self.framework} not supported.")
@@ -226,7 +230,6 @@ def pzobo_jax(f_inner, f_outer, inner_var, outer_var, mu=.1,
               state_lr=None, n_inner_steps=1, n_gaussian_vectors=1,
               max_iter=1, key=None, gd_inner=None):
 
-    grad_inner = jax.grad(f_inner, argnums=0)
     grad_outer = jax.grad(f_outer, argnums=(0, 1))
 
     def pzobo_one_iter(carry, _):
@@ -240,16 +243,15 @@ def pzobo_jax(f_inner, f_outer, inner_var, outer_var, mu=.1,
         inner_var_old = carry['inner_var'].copy()
 
         # Update inner variable by GD
-        carry['inner_var'] = gd_inner(grad_inner, carry['inner_var'],
-                                      carry['outer_var'], inner_step_size,
-                                      n_steps=n_inner_steps)
+        carry['inner_var'] = gd_inner(carry['inner_var'], carry['outer_var'],
+                                      inner_step_size, n_steps=n_inner_steps)
 
         U = jax.random.normal(carry['key'], (n_gaussian_vectors,
                                              outer_var_shape))
         outer_var_aux = carry['outer_var'] + mu * U
 
         def iter_fun(q, deltas):
-            deltasq = gd_inner(grad_inner, inner_var_old, outer_var_aux[q],
+            deltasq = gd_inner(inner_var_old, outer_var_aux[q],
                                inner_step_size, n_steps=n_inner_steps)
             deltas = deltas.at[q].set(deltasq - carry['inner_var'])
             return deltas
