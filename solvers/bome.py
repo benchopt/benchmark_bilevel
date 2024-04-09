@@ -256,7 +256,7 @@ def _bome(inner_loop, inner_oracle, outer_oracle, inner_var, outer_var,
         # Run the inner procedure
         inner_var_star = inner_loop(
             inner_oracle=inner_oracle,
-            inner_var=inner_var,
+            inner_var=inner_var.copy(),
             outer_var=outer_var,
             step_size=lr_inner,
             n_steps=n_inner_steps
