@@ -130,17 +130,15 @@ class QuadraticOracle(BaseOracle):
         def jax_oracle(inner_var, outer_var, start=0, batch_size=1):
             hess_inner = jax.lax.dynamic_slice(
                 self.hess_inner, (start, 0, 0),
-                (batch_size, self.hess_inner.shape[1],
-                 self.hess_inner.shape[2])
+                (batch_size, *self.hess_inner.shape[1:])
             )
             hess_outer = jax.lax.dynamic_slice(
                 self.hess_outer, (start, 0, 0),
-                (batch_size, self.hess_outer.shape[1],
-                 self.hess_outer.shape[2])
+                (batch_size, *self.hess_outer.shape[1:])
             )
             cross_mat = jax.lax.dynamic_slice(
                 self.cross_mat, (start, 0, 0),
-                (batch_size, self.cross_mat.shape[1], self.cross_mat.shape[2])
+                (batch_size, *self.cross_mat.shape[1:])
             )
             linear_inner = jax.lax.dynamic_slice(
                 self.linear_inner, (start, 0),
