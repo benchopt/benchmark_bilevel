@@ -45,22 +45,13 @@ def get_function(hess_inner, hess_outer, cross, linear_inner, linear_outer):
     @partial(jax.jit, static_argnames=('batch_size'))
     def f(inner_var, outer_var, start=0, batch_size=1):
         hess_inner_batch = jax.lax.dynamic_slice(
-            hess_inner, (start, 0, 0),
-            (batch_size,
-                hess_inner.shape[1],
-                hess_inner.shape[2])
+            hess_inner, (start, 0, 0), (batch_size, *hess_inner.shape[1:])
         )
         hess_outer_batch = jax.lax.dynamic_slice(
-            hess_outer, (start, 0, 0),
-            (batch_size,
-                hess_outer.shape[1],
-                hess_outer.shape[2])
+            hess_outer, (start, 0, 0), (batch_size, *hess_outer.shape[1:])
         )
         cross_mat_batch = jax.lax.dynamic_slice(
-            cross, (start, 0, 0),
-            (batch_size,
-                cross.shape[1],
-                cross.shape[2])
+            cross, (start, 0, 0), (batch_size, *cross.shape[1:])
         )
         linear_inner_batch = jax.lax.dynamic_slice(
             linear_inner, (start, 0),
@@ -127,12 +118,12 @@ class Dataset(BaseDataset):
                 keys[1]
              )
 
-            hess_inner_inner_fb = np.mean(hess_inner_inner, axis=0)
-            hess_outer_inner_fb = np.mean(hess_outer_inner, axis=0)
-            cross_inner_fb = np.mean(cross_inner, axis=0)
+            hess_inner_inner_fb = jnp.mean(hess_inner_inner, axis=0)
+            hess_outer_inner_fb = jnp.mean(hess_outer_inner, axis=0)
+            cross_inner_fb = jnp.mean(cross_inner, axis=0)
 
-            hess_outer_outer_fb = np.mean(hess_outer_outer, axis=0)
-            cross_outer_fb = np.mean(cross_outer, axis=0)
+            hess_outer_outer_fb = jnp.mean(hess_outer_outer, axis=0)
+            cross_outer_fb = jnp.mean(cross_outer, axis=0)
 
             eig = get_hessian_min_eigval(
                 hess_inner_inner_fb, cross_inner_fb, hess_outer_inner_fb,
@@ -148,10 +139,10 @@ class Dataset(BaseDataset):
             f"Generated dataset with a positive Hessian after {k+1} trial(s)."
         )
         print(f"Minimum eigenvalue of the Hessian: {eig}")
-        linear_inner_inner_fb = np.mean(linear_inner_inner, axis=0)
+        linear_inner_inner_fb = jnp.mean(linear_inner_inner, axis=0)
 
-        linear_outer_inner_fb = np.mean(linear_outer_inner, axis=0)
-        linear_outer_outer_fb = np.mean(linear_outer_outer, axis=0)
+        linear_outer_inner_fb = jnp.mean(linear_outer_inner, axis=0)
+        linear_outer_outer_fb = jnp.mean(linear_outer_outer, axis=0)
         f_inner = get_function(
             hess_inner_inner, hess_inner_outer, cross_inner,
             linear_inner_inner, linear_inner_outer
@@ -163,8 +154,9 @@ class Dataset(BaseDataset):
         )
 
         f_outer_fb = get_function(
-            hess_outer_inner_fb, hess_outer_outer_fb, cross_outer_fb,
-            linear_outer_inner_fb, linear_outer_outer_fb
+            hess_outer_inner_fb[None], hess_outer_outer_fb[None],
+            cross_outer_fb[None], linear_outer_inner_fb[None],
+            linear_outer_outer_fb[None]
         )
 
         def metrics(inner_var, outer_var):
@@ -188,7 +180,6 @@ class Dataset(BaseDataset):
         data = dict(
             pb_inner=(f_inner, self.n_samples_inner, self.dim_inner),
             pb_outer=(f_outer, self.n_samples_outer, self.dim_outer),
-            oracle='quadratic',
             metrics=metrics,
             n_reg=None,
         )

@@ -11,7 +11,7 @@ class Objective(BaseObjective):
     name = "Bilevel Optimization"
     url = "https://github.com/benchopt/benchmark_bilevel"
 
-    requirements = ["scikit-learn", "numba", "jax"]
+    requirements = ["scikit-learn", "jax"]
     min_benchopt_version = "1.5"
 
     parameters = {
@@ -23,9 +23,10 @@ class Objective(BaseObjective):
 
     def get_one_result(self):
         inner_shape, outer_shape = self.get_inner_oracle().variables_shape
-        return dict(inner_var=np.zeros(*inner_shape),
-                    outer_var=np.zeros(*outer_shape),
-                    memory=0.)
+        return dict(
+            inner_var=np.zeros(*inner_shape),
+            outer_var=np.zeros(*outer_shape)
+        )
 
     def set_data(self, pb_inner, pb_outer, metrics, n_reg):
 
@@ -34,31 +35,29 @@ class Objective(BaseObjective):
         self.metrics = metrics
 
         rng = check_random_state(self.random_state)
-        inner_shape, outer_shape = self.get_inner_oracle().variables_shape
-        if oracle == "logreg":
-            self.inner_var0 = rng.randn(*inner_shape)
-            self.outer_var0 = rng.rand(*outer_shape)
-            if self.get_inner_oracle().reg == 'exp':
-                self.outer_var0 = np.log(self.outer_var0)
-            if n_reg == 1:
-                self.outer_var0 = self.outer_var0[:1]
-        else:
-            self.inner_var0 = jnp.zeros(self.dim_inner)
-            self.outer_var0 = -2 * jnp.ones(self.dim_outer)
-            # XXX: Try random inits
+        # if oracle == "logreg":
+        #     self.inner_var0 = rng.randn(*inner_shape)
+        #     self.outer_var0 = rng.rand(*outer_shape)
+        #     if self.get_inner_oracle().reg == 'exp':
+        #         self.outer_var0 = np.log(self.outer_var0)
+        #     if n_reg == 1:
+        #         self.outer_var0 = self.outer_var0[:1]
+        # else:
+        self.inner_var0 = jnp.zeros(self.dim_inner)
+        self.outer_var0 = -2 * jnp.ones(self.dim_outer)
+        # XXX: Try random inits
 
-    def evaluate_result(self, inner_var, outer_var, memory):
+    def evaluate_result(self, inner_var, outer_var):
         if np.isnan(outer_var).any():
             raise ValueError
 
         metrics = self.metrics(inner_var, outer_var)
-        metrics.update({'memory': memory})
         return metrics
 
     def get_objective(self):
         return dict(
-            f_train=self.f_inner,
-            f_val=self.f_outer,
+            f_inner=self.f_inner,
+            f_outer=self.f_outer,
             n_inner_samples=self.n_samples_inner,
             n_outer_samples=self.n_samples_outer,
             inner_var0=self.inner_var0,
