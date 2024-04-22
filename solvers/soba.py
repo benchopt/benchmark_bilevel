@@ -87,12 +87,9 @@ class Solver(BaseSolver):
 
         self.inner_var0 = inner_var0
         self.outer_var0 = outer_var0
-        self.memory = 0
 
-    def warm_up(self):
+        # warmup
         self.run_once(2)
-        self.inner_var = self.inner_var0
-        self.outer_var = self.outer_var0
 
     def init(self):
         # Init variables
