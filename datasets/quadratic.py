@@ -2,8 +2,11 @@ from benchopt import BaseDataset
 from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
+    import jax
     import numpy as np
-    from benchmark_utils import oracles
+    import jax.numpy as jnp
+    from functools import partial
+    from benchmark_utils.gen_matrices import gen_matrices
 
 
 def get_hessian_min_eigval(hess_inner_inner, cross_inner, hess_outer_inner,
@@ -16,6 +19,62 @@ def get_hessian_min_eigval(hess_inner_inner, cross_inner, hess_outer_inner,
     tmp = cross_outer @ jac_z_star
     hess += .5 * (tmp + tmp.T)
     return np.min(np.linalg.eigvalsh(hess))
+
+
+def quadratic(inner_var, outer_var, hess_inner, hess_outer, cross,
+              linear_inner, linear_outer):
+    res = .5 * inner_var @ (hess_inner @ inner_var)
+    res += .5 * outer_var @ (hess_outer @ outer_var)
+    res += outer_var @ cross @ inner_var
+    res += linear_inner @ inner_var
+    res += linear_outer @ outer_var
+    return res
+
+
+def batched_quadratic(inner_var, outer_var, hess_inner, hess_outer, cross,
+                      linear_inner, linear_outer):
+    batched_loss = jax.vmap(quadratic, in_axes=(None, None, 0, 0, 0, 0, 0))
+    return jnp.mean(
+        batched_loss(inner_var, outer_var, hess_inner, hess_outer,
+                     cross, linear_inner, linear_outer)
+    )
+
+
+def get_function(hess_inner, hess_outer, cross, linear_inner, linear_outer):
+
+    @partial(jax.jit, static_argnames=('batch_size'))
+    def f(inner_var, outer_var, start=0, batch_size=1):
+        hess_inner_batch = jax.lax.dynamic_slice(
+            hess_inner, (start, 0, 0),
+            (batch_size,
+                hess_inner.shape[1],
+                hess_inner.shape[2])
+        )
+        hess_outer_batch = jax.lax.dynamic_slice(
+            hess_outer, (start, 0, 0),
+            (batch_size,
+                hess_outer.shape[1],
+                hess_outer.shape[2])
+        )
+        cross_mat_batch = jax.lax.dynamic_slice(
+            cross, (start, 0, 0),
+            (batch_size,
+                cross.shape[1],
+                cross.shape[2])
+        )
+        linear_inner_batch = jax.lax.dynamic_slice(
+            linear_inner, (start, 0),
+            (batch_size, linear_inner.shape[1])
+        )
+        linear_outer_batch = jax.lax.dynamic_slice(
+            linear_outer, (start, 0),
+            (batch_size, linear_outer.shape[1])
+        )
+        return batched_quadratic(
+            inner_var, outer_var, hess_inner_batch, hess_outer_batch,
+            cross_mat_batch, linear_inner_batch, linear_outer_batch
+        )
+    return f
 
 
 class Dataset(BaseDataset):
@@ -39,28 +98,59 @@ class Dataset(BaseDataset):
     }
 
     def get_data(self):
-        rng = np.random.RandomState(self.random_state)
+        key = jax.random.PRNGKey(self.random_state)
 
         for k in range(20):
-            inner_seed, outer_seed = rng.randint(2**31-1, size=2)
+            keys = jax.random.split(key, 2)
 
-            f_inner = oracles.QuadraticOracle(
-                self.n_samples_inner, self.dim_inner, self.dim_outer,
-                self.L_inner_inner, self.L_inner_outer, self.L_cross_inner,
+            (hess_inner_inner, hess_inner_outer, cross_inner,
+             linear_inner_inner, linear_inner_outer) = gen_matrices(
+                self.n_samples_inner,
+                self.dim_inner,
+                self.dim_outer,
+                self.L_inner_inner,
+                self.L_outer_inner,
+                self.L_cross_inner,
                 self.mu_inner,
-                random_state=inner_seed
+                keys[0],
             )
-            f_outer = oracles.QuadraticOracle(
-                self.n_samples_outer, self.dim_inner, self.dim_outer,
-                self.L_outer_inner, self.L_outer_outer, self.L_cross_outer,
+
+            (hess_outer_inner, hess_outer_outer, cross_outer,
+             linear_outer_inner, linear_outer_outer) = gen_matrices(
+                self.n_samples_outer,
+                self.dim_inner,
+                self.dim_outer,
+                self.L_inner_outer,
+                self.L_outer_outer,
+                self.L_cross_outer,
                 self.mu_inner,
-                random_state=outer_seed
-            )
+                keys[1]
+             )
+
+            # f_inner = oracles.QuadraticOracle(
+            #     self.n_samples_inner, self.dim_inner, self.dim_outer,
+            #     self.L_inner_inner, self.L_inner_outer, self.L_cross_inner,
+            #     self.mu_inner,
+            #     random_state=inner_seed
+            # )
+            # f_outer = oracles.QuadraticOracle(
+            #     self.n_samples_outer, self.dim_inner, self.dim_outer,
+            #     self.L_outer_inner, self.L_outer_outer, self.L_cross_outer,
+            #     self.mu_inner,
+            #     random_state=outer_seed
+            # )
+            hess_inner_inner_fb = np.mean(hess_inner_inner, axis=0)
+            hess_outer_inner_fb = np.mean(hess_outer_inner, axis=0)
+            cross_inner_fb = np.mean(cross_inner, axis=0)
+
+            hess_outer_outer_fb = np.mean(hess_outer_outer, axis=0)
+            cross_outer_fb = np.mean(cross_outer, axis=0)
+
             eig = get_hessian_min_eigval(
-                f_inner.hess_inner_full, f_inner.cross_mat_full,
-                f_outer.hess_inner_full, f_outer.hess_outer_full,
-                f_outer.cross_mat_full
+                hess_inner_inner_fb, cross_inner_fb, hess_outer_inner_fb,
+                hess_outer_outer_fb, cross_outer_fb
             )
+
             if eig >= 1e-12:
                 break
         else:
@@ -70,31 +160,44 @@ class Dataset(BaseDataset):
             f"Generated dataset with a positive Hessian after {k+1} trial(s)."
         )
         print(f"Minimum eigenvalue of the Hessian: {eig}")
-        hess_inner = f_inner.hess_inner_full
-        cross = f_inner.cross_mat_full
-        linear_inner = f_inner.linear_inner_full
+        linear_inner_inner_fb = np.mean(linear_inner_inner, axis=0)
+        linear_inner_outer_fb = np.mean(linear_inner_outer, axis=0)
 
-        def get_inner_oracle(framework="none", get_full_batch=False):
-            return f_inner.get_framework(
-                framework=framework, get_full_batch=get_full_batch
-            )
+        linear_outer_inner_fb = np.mean(linear_outer_inner, axis=0)
+        linear_outer_outer_fb = np.mean(linear_outer_outer, axis=0)
+        hess_inner_outer_fb = np.mean(hess_inner_outer, axis=0)
+        f_inner = get_function(
+            hess_inner_inner, hess_inner_outer, cross_inner,
+            linear_inner_inner, linear_inner_outer
+        )
 
-        def get_outer_oracle(framework="none", get_full_batch=False):
-            return f_outer.get_framework(
-                framework=framework, get_full_batch=get_full_batch
-            )
+        f_inner_fb = get_function(
+            hess_inner_inner_fb, hess_inner_outer_fb, cross_inner_fb,
+            linear_inner_inner_fb, linear_inner_outer_fb
+        )
+
+        f_outer = get_function(
+            hess_outer_inner, hess_outer_outer, cross_outer,
+            linear_outer_inner, linear_outer_outer
+        )
+
+        f_outer_fb = get_function(
+            hess_outer_inner_fb, hess_outer_outer_fb, cross_outer_fb,
+            linear_outer_inner_fb, linear_outer_outer_fb
+        )
 
         def metrics(inner_var, outer_var):
             inner_sol = np.linalg.solve(
-                hess_inner,
-                - linear_inner - cross.T @ outer_var
+                hess_inner_inner_fb,
+                - linear_inner_inner_fb - cross_inner_fb.T @ outer_var
             )
             v_sol = - np.linalg.solve(
-                hess_inner,
-                f_outer.get_grad_inner_var(inner_sol, outer_var)
+                hess_inner_inner_fb,
+                jax.grad(f_outer_fb, argnums=(0, ))(inner_sol, outer_var)
             )
-            grad_value = f_outer.get_grad_outer_var(inner_sol, outer_var)
-            grad_value += cross @ v_sol
+            grad_value = jax.grad(f_outer_fb, argnums=(1, ))(inner_sol,
+                                                             outer_var)
+            grad_value += cross_inner_fb @ v_sol
             return dict(
                 func=float(f_outer.get_value(inner_sol, outer_var)),
                 value=np.linalg.norm(grad_value)**2,
@@ -102,8 +205,8 @@ class Dataset(BaseDataset):
             )
 
         data = dict(
-            get_inner_oracle=get_inner_oracle,
-            get_outer_oracle=get_outer_oracle,
+            f_inner=f_inner,
+            f_outer=f_outer,
             oracle='quadratic',
             metrics=metrics,
             n_reg=None,
