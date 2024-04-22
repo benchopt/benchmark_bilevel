@@ -193,10 +193,8 @@ class Dataset(BaseDataset):
             )
 
         data = dict(
-            f_inner=f_inner,
-            f_outer=f_outer,
-            n_samples_inner=self.n_samples_inner,
-            n_samples_outer=self.n_samples_outer,
+            pb_inner=(f_inner, self.n_samples_inner, self.dim_inner),
+            pb_outer=(f_outer, self.n_samples_outer, self.dim_outer),
             oracle='quadratic',
             metrics=metrics,
             n_reg=None,

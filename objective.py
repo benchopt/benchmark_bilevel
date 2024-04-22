@@ -26,15 +26,10 @@ class Objective(BaseObjective):
                     outer_var=np.zeros(*outer_shape),
                     memory=0.)
 
-    def set_data(self, f_inner, f_outer, oracle, n_samples_inner,
-                 n_samples_outer,
-                 metrics,
-                 n_reg):
+    def set_data(self, pb_inner, pb_outer, metrics, n_reg):
 
-        self.f_inner = f_inner
-        self.f_outer = f_outer
-        self.n_samples_inner = n_samples_inner
-        self.n_samples_outer = n_samples_outer
+        self.f_inner, self.n_samples_inner, self.dim_inner = pb_inner
+        self.f_outer, self.n_samples_outer, self.dim_outer = pb_outer
         self.metrics = metrics
 
         rng = check_random_state(self.random_state)
@@ -47,8 +42,8 @@ class Objective(BaseObjective):
             if n_reg == 1:
                 self.outer_var0 = self.outer_var0[:1]
         else:
-            self.inner_var0 = np.zeros(*inner_shape)
-            self.outer_var0 = -2 * np.ones(*outer_shape)
+            self.inner_var0 = np.zeros(self.dim_inner)
+            self.outer_var0 = -2 * np.ones(self.dim_outer)
             # XXX: Try random inits
 
     def evaluate_result(self, inner_var, outer_var, memory):
