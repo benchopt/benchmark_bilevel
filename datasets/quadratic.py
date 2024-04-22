@@ -160,11 +160,11 @@ class Dataset(BaseDataset):
         )
 
         def metrics(inner_var, outer_var):
-            inner_sol = np.linalg.solve(
+            inner_sol = jnp.linalg.solve(
                 hess_inner_inner_fb,
                 - linear_inner_inner_fb - cross_inner_fb.T @ outer_var
             )
-            v_sol = - np.linalg.solve(
+            v_sol = - jnp.linalg.solve(
                 hess_inner_inner_fb,
                 jax.grad(f_outer_fb, argnums=0)(inner_sol, outer_var)
             )
