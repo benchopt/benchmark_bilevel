@@ -3,6 +3,7 @@ from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
     import numpy as np
+    import jax.numpy as jnp
     from sklearn.utils import check_random_state
 
 
@@ -42,8 +43,8 @@ class Objective(BaseObjective):
             if n_reg == 1:
                 self.outer_var0 = self.outer_var0[:1]
         else:
-            self.inner_var0 = np.zeros(self.dim_inner)
-            self.outer_var0 = -2 * np.ones(self.dim_outer)
+            self.inner_var0 = jnp.zeros(self.dim_inner)
+            self.outer_var0 = -2 * jnp.ones(self.dim_outer)
             # XXX: Try random inits
 
     def evaluate_result(self, inner_var, outer_var, memory):
