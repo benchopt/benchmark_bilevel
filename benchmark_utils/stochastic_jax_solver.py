@@ -92,7 +92,7 @@ class StochasticJaxSolver(BaseSolver, ABC):
         # Start algorithm
         while callback():
             carry = self.one_epoch(carry, self.eval_freq)
-            self.inner_var = carry["inner_var"],
+            self.inner_var = carry["inner_var"]
             self.outer_var = carry["outer_var"]
 
     def get_result(self):
