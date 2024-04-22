@@ -166,13 +166,13 @@ class Dataset(BaseDataset):
             )
             v_sol = - np.linalg.solve(
                 hess_inner_inner_fb,
-                jax.grad(f_outer_fb, argnums=(0, ))(inner_sol, outer_var)
+                jax.grad(f_outer_fb, argnums=0)(inner_sol, outer_var)
             )
-            grad_value = jax.grad(f_outer_fb, argnums=(1, ))(inner_sol,
+            grad_value = jax.grad(f_outer_fb, argnums=1)(inner_sol,
                                                              outer_var)
             grad_value += cross_inner_fb @ v_sol
             return dict(
-                func=float(f_outer.get_value(inner_sol, outer_var)),
+                func=float(f_outer(inner_sol, outer_var)),
                 value=np.linalg.norm(grad_value)**2,
                 inner_distance=np.linalg.norm(inner_sol - inner_var)**2,
             )

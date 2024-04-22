@@ -181,5 +181,5 @@ class Solver(BaseSolver):
             return carry
 
         return jax.jit(
-            one_epoch, static_argnums=(1,), donate_argnums=0
+            one_epoch, static_argnums=(1,)
         )
