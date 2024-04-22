@@ -36,8 +36,11 @@ def gen_matrices(n_samples, d_inner, d_outer, L_inner, L_outer,
     # Generate singular vectors and values for rectangular correlation matrix
     U, _, V = jnp.linalg.svd(jax.random.normal(keys[4], (d_outer, d_inner)))
     D = jnp.zeros((d_outer, d_inner))
-    D[:min(d_outer, d_inner), :min(d_outer, d_inner)] = jnp.diag(
-        jnp.logspace(jnp.log10(mu), jnp.log10(L_cross), min(d_outer, d_inner)))
+    D = D.at[:min(d_outer, d_inner), :min(d_outer, d_inner)].set(
+        jnp.diag(jnp.logspace(jnp.log10(mu),
+                              jnp.log10(L_cross),
+                              min(d_outer, d_inner)))
+    )
 
     # Generate x with correlation matrix UDV^T
     X = jax.random.normal(keys[5], (n_samples, 1, d_inner))
