@@ -26,11 +26,11 @@ class Objective(BaseObjective):
                     outer_var=np.zeros(*outer_shape),
                     memory=0.)
 
-    def set_data(self, get_inner_oracle, get_outer_oracle, oracle, metrics,
+    def set_data(self, f_inner, f_outer, oracle, metrics,
                  n_reg):
 
-        self.get_inner_oracle = get_inner_oracle
-        self.get_outer_oracle = get_outer_oracle
+        self.f_inner = f_inner
+        self.f_oute = f_outer
         self.metrics = metrics
 
         rng = check_random_state(self.random_state)
