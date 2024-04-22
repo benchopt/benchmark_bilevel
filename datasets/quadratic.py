@@ -127,18 +127,6 @@ class Dataset(BaseDataset):
                 keys[1]
              )
 
-            # f_inner = oracles.QuadraticOracle(
-            #     self.n_samples_inner, self.dim_inner, self.dim_outer,
-            #     self.L_inner_inner, self.L_inner_outer, self.L_cross_inner,
-            #     self.mu_inner,
-            #     random_state=inner_seed
-            # )
-            # f_outer = oracles.QuadraticOracle(
-            #     self.n_samples_outer, self.dim_inner, self.dim_outer,
-            #     self.L_outer_inner, self.L_outer_outer, self.L_cross_outer,
-            #     self.mu_inner,
-            #     random_state=outer_seed
-            # )
             hess_inner_inner_fb = np.mean(hess_inner_inner, axis=0)
             hess_outer_inner_fb = np.mean(hess_outer_inner, axis=0)
             cross_inner_fb = np.mean(cross_inner, axis=0)
@@ -207,6 +195,8 @@ class Dataset(BaseDataset):
         data = dict(
             f_inner=f_inner,
             f_outer=f_outer,
+            n_samples_inner=self.n_samples_inner,
+            n_samples_outer=self.n_samples_outer,
             oracle='quadratic',
             metrics=metrics,
             n_reg=None,

@@ -471,7 +471,8 @@ def _saba(variance_reduction, inner_oracle, outer_oracle, inner_var, outer_var,
 
 
 @partial(jax.jit, static_argnums=(0, 1),
-         static_argnames=('inner_sampler', 'outer_sampler', 'max_iter'))
+         static_argnames=('inner_sampler', 'outer_sampler', 'max_iter'),
+         donate_argnums=(5,))
 def saba_jax(f_inner, f_outer, inner_var, outer_var, v, memory,
              state_inner_sampler=None, state_outer_sampler=None, state_lr=None,
              inner_sampler=None, outer_sampler=None, max_iter=1):

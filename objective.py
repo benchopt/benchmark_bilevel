@@ -26,11 +26,15 @@ class Objective(BaseObjective):
                     outer_var=np.zeros(*outer_shape),
                     memory=0.)
 
-    def set_data(self, f_inner, f_outer, oracle, metrics,
+    def set_data(self, f_inner, f_outer, oracle, n_samples_inner,
+                 n_samples_outer,
+                 metrics,
                  n_reg):
 
         self.f_inner = f_inner
-        self.f_oute = f_outer
+        self.f_outer = f_outer
+        self.n_samples_inner = n_samples_inner
+        self.n_samples_outer = n_samples_outer
         self.metrics = metrics
 
         rng = check_random_state(self.random_state)
@@ -57,10 +61,10 @@ class Objective(BaseObjective):
 
     def get_objective(self):
         return dict(
-            f_train=self.get_inner_oracle,
-            f_val=self.get_outer_oracle,
-            n_inner_samples=self.get_inner_oracle().n_samples,
-            n_outer_samples=self.get_outer_oracle().n_samples,
+            f_train=self.f_inner,
+            f_val=self.f_outer,
+            n_inner_samples=self.n_samples_inner,
+            n_outer_samples=self.n_samples_outer,
             inner_var0=self.inner_var0,
             outer_var0=self.outer_var0,
         )
