@@ -1,8 +1,6 @@
 import numpy as np
 
-import jax.lax
-import jax.random
-from jax import jit
+import jax
 import jax.numpy as jnp
 
 
@@ -56,7 +54,7 @@ class MinibatchSampler():
         return selector, (idx, weight)
 
 
-@jit
+@jax.jit
 def keep_ibatch(state):
     return state['i_batch'] + 1, state['batch_order'], state['key'],
 
@@ -95,6 +93,6 @@ def init_sampler(n_samples=10, batch_size=1, random_state=1):
     )
 
     return (
-        jit(lambda state: _sampler(n_batches, batch_size, weights, state)),
+        jax.jit(lambda state: _sampler(n_batches, batch_size, weights, state)),
         state
     )
