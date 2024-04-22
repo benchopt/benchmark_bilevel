@@ -28,13 +28,14 @@ class Objective(BaseObjective):
             outer_var=np.zeros(*outer_shape)
         )
 
-    def set_data(self, pb_inner, pb_outer, metrics, n_reg):
+    def set_data(self, pb_inner, pb_outer, oracle, metrics, n_reg):
 
         self.f_inner, self.n_samples_inner, self.dim_inner = pb_inner
         self.f_outer, self.n_samples_outer, self.dim_outer = pb_outer
         self.metrics = metrics
 
         rng = check_random_state(self.random_state)
+<<<<<<< HEAD
         # if oracle == "logreg":
         #     self.inner_var0 = rng.randn(*inner_shape)
         #     self.outer_var0 = rng.rand(*outer_shape)
@@ -46,6 +47,20 @@ class Objective(BaseObjective):
         self.inner_var0 = jnp.zeros(self.dim_inner)
         self.outer_var0 = -2 * jnp.ones(self.dim_outer)
         # XXX: Try random inits
+=======
+        inner_shape, outer_shape = self.dim_inner, self.dim_outer
+        if oracle == "logreg":
+            self.inner_var0 = rng.randn(*inner_shape)
+            self.outer_var0 = rng.rand(*outer_shape)
+            if self.get_inner_oracle().reg == 'exp':
+                self.outer_var0 = np.log(self.outer_var0)
+            if n_reg == 1:
+                self.outer_var0 = self.outer_var0[:1]
+        else:
+            self.inner_var0 = jnp.zeros(self.dim_inner)
+            self.outer_var0 = -2 * jnp.ones(self.dim_outer)
+            # XXX: Try random inits
+>>>>>>> 8bb01e0 (FIX objective)
 
     def evaluate_result(self, inner_var, outer_var):
         if np.isnan(outer_var).any():
