@@ -149,19 +149,12 @@ class Dataset(BaseDataset):
         )
         print(f"Minimum eigenvalue of the Hessian: {eig}")
         linear_inner_inner_fb = np.mean(linear_inner_inner, axis=0)
-        linear_inner_outer_fb = np.mean(linear_inner_outer, axis=0)
 
         linear_outer_inner_fb = np.mean(linear_outer_inner, axis=0)
         linear_outer_outer_fb = np.mean(linear_outer_outer, axis=0)
-        hess_inner_outer_fb = np.mean(hess_inner_outer, axis=0)
         f_inner = get_function(
             hess_inner_inner, hess_inner_outer, cross_inner,
             linear_inner_inner, linear_inner_outer
-        )
-
-        f_inner_fb = get_function(
-            hess_inner_inner_fb, hess_inner_outer_fb, cross_inner_fb,
-            linear_inner_inner_fb, linear_inner_outer_fb
         )
 
         f_outer = get_function(
