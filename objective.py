@@ -28,7 +28,7 @@ class Objective(BaseObjective):
             outer_var=np.zeros(*outer_shape)
         )
 
-    def set_data(self, pb_inner, pb_outer, oracle, metrics, n_reg):
+    def set_data(self, pb_inner, pb_outer, metrics, n_reg):
 
         self.f_inner, self.n_samples_inner, self.dim_inner = pb_inner
         self.f_outer, self.n_samples_outer, self.dim_outer = pb_outer

@@ -169,7 +169,7 @@ class Dataset(BaseDataset):
                 jax.grad(f_outer_fb, argnums=0)(inner_sol, outer_var)
             )
             grad_value = jax.grad(f_outer_fb, argnums=1)(inner_sol,
-                                                             outer_var)
+                                                         outer_var)
             grad_value += cross_inner_fb @ v_sol
             return dict(
                 func=float(f_outer(inner_sol, outer_var)),

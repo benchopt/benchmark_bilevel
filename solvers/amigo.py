@@ -34,10 +34,10 @@ class Solver(StochasticJaxSolver):
     def init(self):
 
         # Init variables
-        inner_var = self.inner_var0.copy()
-        outer_var = self.outer_var0.copy()
+        self.inner_var = self.inner_var0.copy()
+        self.outer_var = self.outer_var0.copy()
 
-        v = jnp.zeros_like(inner_var)
+        v = jnp.zeros_like(self.inner_var)
 
         step_sizes = jnp.array(
             [self.step_size, self.step_size,
@@ -53,7 +53,7 @@ class Solver(StochasticJaxSolver):
         #     n_steps=self.n_inner_steps
         # )
         return dict(
-            inner_var=inner_var, outer_var=outer_var, v=v,
+            inner_var=self.inner_var, outer_var=self.outer_var, v=v,
             state_lr=state_lr,
             state_inner_sampler=self.state_inner_sampler,
             state_outer_sampler=self.state_outer_sampler,
