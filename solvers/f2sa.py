@@ -4,9 +4,9 @@ from benchopt.stopping_criterion import SufficientProgressCriterion
 from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
-    import numpy as np
-    from numba import njit
-    from numba.experimental import jitclass
+    import jax
+    import jax.numpy as jnp
+    from functools import partial
 
     from benchmark_utils import constants
     from benchmark_utils.get_memory import get_memory
@@ -15,13 +15,6 @@ with safe_import_context() as import_ctx:
     from benchmark_utils.minibatch_sampler import MinibatchSampler
     from benchmark_utils.minibatch_sampler import spec as mbs_spec
     from benchmark_utils.learning_rate_scheduler import init_lr_scheduler
-    from benchmark_utils.learning_rate_scheduler import spec as sched_spec
-    from benchmark_utils.oracles import MultiLogRegOracle, DataCleaningOracle
-    from benchmark_utils.learning_rate_scheduler import LearningRateScheduler
-
-    import jax
-    import jax.numpy as jnp
-    from functools import partial
 
 
 class Solver(BaseSolver):

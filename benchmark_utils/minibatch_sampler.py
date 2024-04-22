@@ -1,19 +1,9 @@
 import numpy as np
-from numba import int64
 
 import jax.lax
 import jax.random
 from jax import jit
 import jax.numpy as jnp
-
-
-spec = [  # specifications for numba class
-    ('n_samples', int64),
-    ('batch_size', int64),
-    ('i_batch', int64),
-    ('n_batches', int64),
-    ('batch_order', int64[:]),
-]
 
 
 class MinibatchSampler():
@@ -71,13 +61,11 @@ def keep_ibatch(state):
     return state['i_batch'] + 1, state['batch_order'], state['key'],
 
 
-@jit
 def reset_ibatch(state):
     key1, key = jax.random.split(state['key'])
     return 0, jax.random.permutation(key1, state['batch_order']), key,
 
 
-@jit
 def _sampler(n_batches, batch_size, weights, state):
     """Jax version of the minibatch sampler."""
     idx = state['batch_order'][state['i_batch']]
