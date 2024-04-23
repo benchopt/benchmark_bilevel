@@ -8,7 +8,6 @@ from benchopt import safe_import_context
 with safe_import_context() as import_ctx:
     from benchmark_utils import constants
     from benchmark_utils.minibatch_sampler import init_sampler
-    from benchmark_utils.learning_rate_scheduler import update_lr
 
     import jax
     from functools import partial

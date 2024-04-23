@@ -4,7 +4,7 @@ from benchopt import safe_import_context
 with safe_import_context() as import_ctx:
     import numpy as np
     import jax.numpy as jnp
-    from sklearn.utils import check_random_state
+    # from sklearn.utils import check_random_state
 
 
 class Objective(BaseObjective):
@@ -34,7 +34,7 @@ class Objective(BaseObjective):
         self.f_outer, self.n_samples_outer, self.dim_outer = pb_outer
         self.metrics = metrics
 
-        rng = check_random_state(self.random_state)
+        # rng = check_random_state(self.random_state)
         # if oracle == "logreg":
         #     self.inner_var0 = rng.randn(*inner_shape)
         #     self.outer_var0 = rng.rand(*outer_shape)
