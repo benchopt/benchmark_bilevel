@@ -110,4 +110,3 @@ class Solver(StochasticJaxSolver):
             return carry, _
 
         return amigo_one_iter
-
