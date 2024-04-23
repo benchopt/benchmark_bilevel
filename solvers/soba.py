@@ -3,16 +3,11 @@ from benchmark_utils.stochastic_jax_solver import StochasticJaxSolver
 from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
-    import numpy as np
-
-    from benchmark_utils import constants
-    from benchmark_utils.minibatch_sampler import init_sampler
     from benchmark_utils.learning_rate_scheduler import update_lr
     from benchmark_utils.learning_rate_scheduler import init_lr_scheduler
 
     import jax
     import jax.numpy as jnp
-    from functools import partial
 
 
 class Solver(StochasticJaxSolver):
