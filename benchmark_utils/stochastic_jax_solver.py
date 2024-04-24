@@ -112,4 +112,3 @@ class StochasticJaxSolver(BaseSolver, ABC):
         return jax.jit(
             one_epoch, static_argnums=(1,)
         )
-
