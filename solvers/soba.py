@@ -30,8 +30,8 @@ class Solver(StochasticJaxSolver):
         # Init variables
         self.inner_var = self.inner_var0.copy()
         self.outer_var = self.outer_var0.copy()
-
         v = jnp.zeros_like(self.inner_var)
+
         # Init lr scheduler
         step_sizes = jnp.array(
             [self.step_size, self.step_size / self.outer_ratio]

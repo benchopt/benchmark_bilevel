@@ -3,11 +3,11 @@ from benchmark_utils.stochastic_jax_solver import StochasticJaxSolver
 from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
-    import jax
-    import jax.numpy as jnp
-
     from benchmark_utils.learning_rate_scheduler import update_lr
     from benchmark_utils.learning_rate_scheduler import init_lr_scheduler
+
+    import jax
+    import jax.numpy as jnp
 
 
 class Solver(StochasticJaxSolver):
@@ -29,7 +29,6 @@ class Solver(StochasticJaxSolver):
         # Init variables
         self.inner_var = self.inner_var0.copy()
         self.outer_var = self.outer_var0.copy()
-
         v = jnp.zeros_like(self.inner_var)
 
         # Init lr scheduler
@@ -49,8 +48,8 @@ class Solver(StochasticJaxSolver):
         )
 
     def get_step(self, inner_sampler, outer_sampler):
-        grad_inner_fun = jax.grad(self.f_inner, argnums=0)
-        grad_outer_fun = jax.grad(self.f_outer, argnums=(0, 1))
+        grad_inner = jax.grad(self.f_inner, argnums=0)
+        grad_outer = jax.grad(self.f_outer, argnums=(0, 1))
 
         def fsla_one_iter(carry, _):
 
@@ -62,9 +61,9 @@ class Solver(StochasticJaxSolver):
             start_inner, *_, carry['state_inner_sampler'] = inner_sampler(
                 carry['state_inner_sampler']
             )
-            grad_inner_var = grad_inner_fun(carry['inner_var'],
-                                            carry['outer_var'],
-                                            start_inner)
+            grad_inner_var = grad_inner(carry['inner_var'],
+                                        carry['outer_var'],
+                                        start_inner)
             inner_var_old = carry['inner_var'].copy()
             carry['inner_var'] -= inner_lr * grad_inner_var
 
@@ -73,16 +72,16 @@ class Solver(StochasticJaxSolver):
                 carry['state_inner_sampler']
             )
             _, hvp_fun = jax.vjp(
-                lambda z: grad_inner_fun(z, carry['outer_var'], start_inner2),
+                lambda z: grad_inner(z, carry['outer_var'], start_inner2),
                 carry['inner_var']
             )
 
             start_outer, *_, carry['state_outer_sampler'] = outer_sampler(
                 carry['state_outer_sampler']
             )
-            grad_outer_in, _ = grad_outer_fun(carry['inner_var'],
-                                              carry['outer_var'],
-                                              start_outer)
+            grad_outer_in, _ = grad_outer(carry['inner_var'],
+                                          carry['outer_var'],
+                                          start_outer)
             v_old = carry['v'].copy()
             carry['v'] -= inner_lr * (hvp_fun(carry['v'])[0] - grad_outer_in)
 
@@ -91,21 +90,21 @@ class Solver(StochasticJaxSolver):
             start_outer2, *_, carry['state_outer_sampler'] = outer_sampler(
                 carry['state_outer_sampler']
             )
-            _, impl_grad = grad_outer_fun(
+            _, impl_grad = grad_outer(
                 carry['inner_var'], carry['outer_var'], start_outer2
             )
-            _, impl_grad_old = grad_outer_fun(
+            _, impl_grad_old = grad_outer(
                 inner_var_old, carry['memory_outer'][0], start_outer2
             )
             start_inner3, *_, carry['state_inner_sampler'] = inner_sampler(
                 carry['state_inner_sampler']
             )
             _, cross_v_fun = jax.vjp(
-                lambda x: grad_inner_fun(carry['inner_var'], x, start_inner3),
+                lambda x: grad_inner(carry['inner_var'], x, start_inner3),
                 carry['outer_var']
             )
             _, cross_v_fun_old = jax.vjp(
-                lambda x: grad_inner_fun(inner_var_old, x, start_inner3),
+                lambda x: grad_inner(inner_var_old, x, start_inner3),
                 carry['memory_outer'][0]
             )
             impl_grad -= cross_v_fun(carry['v'])[0]
