@@ -76,7 +76,7 @@ class Solver(StochasticJaxSolver):
             return memory
 
         def saba_one_iter(carry, _):
-            (inner_step_size, outer_step_size), carry['state_lr'] = update_lr(
+            (inner_lr, outer_lr), carry['state_lr'] = update_lr(
                 carry['state_lr']
             )
 
@@ -115,9 +115,15 @@ class Solver(StochasticJaxSolver):
             )
 
             # Step.3 - update inner variable with SGD.
-            carry['inner_var'] -= inner_step_size * grad_inner_var
-            carry['v'] -= inner_step_size * (hvp + grad_in_outer)
-            carry['outer_var'] -= outer_step_size * (cross_v + grad_out_outer)
+            carry['inner_var'] -= inner_lr * carry['memory']['inner_grad'][-1]
+            carry['v'] -= inner_lr * (
+                carry['memory']['hvp'][-1]
+                + carry['memory']['grad_in_outer'][-1]
+            )
+            carry['outer_var'] -= outer_lr * (
+                carry['memory']['cross_v'][-1] 
+                + carry['memory']['grad_out_outer'][-1]
+            )
 
             return carry, _
 
