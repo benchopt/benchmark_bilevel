@@ -52,9 +52,9 @@ class Solver(StochasticJaxSolver):
             inner_size=self.inner_var.shape[0],
             outer_size=self.outer_var.shape[0],
         )
-        return dict(
+        return memory, dict(
             inner_var=self.inner_var, outer_var=self.outer_var, v=v,
-            state_lr=state_lr, memory=memory,
+            state_lr=state_lr,
             state_inner_sampler=self.state_inner_sampler,
             state_outer_sampler=self.state_outer_sampler,
         )
@@ -76,6 +76,7 @@ class Solver(StochasticJaxSolver):
             return memory
 
         def saba_one_iter(carry, _):
+            memory, carry = carry
             (inner_lr, outer_lr), carry['state_lr'] = update_lr(
                 carry['state_lr']
             )
@@ -109,25 +110,49 @@ class Solver(StochasticJaxSolver):
                 'grad_in_outer': (grad_in_outer, id_outer, weight_outer),
                 'grad_out_outer': (grad_out_outer, id_outer, weight_outer),
             }
-            carry['memory'] = jax.tree_map(
+            memory = jax.tree_map(
                 lambda mem, up: variance_reduction(mem, *up),
-                carry['memory'], updates
+                memory, updates
             )
 
             # Step.3 - update inner variable with SGD.
-            carry['inner_var'] -= inner_lr * carry['memory']['inner_grad'][-1]
+            carry['inner_var'] -= inner_lr * memory['inner_grad'][-1]
             carry['v'] -= inner_lr * (
-                carry['memory']['hvp'][-1]
-                + carry['memory']['grad_in_outer'][-1]
+                memory['hvp'][-1]
+                + memory['grad_in_outer'][-1]
             )
             carry['outer_var'] -= outer_lr * (
-                carry['memory']['cross_v'][-1] 
-                + carry['memory']['grad_out_outer'][-1]
+                memory['cross_v'][-1]
+                + memory['grad_out_outer'][-1]
             )
 
-            return carry, _
+            return (memory, carry), _
 
         return saba_one_iter
+
+    def get_one_epoch_jitted(self, inner_sampler, outer_sampler):
+        step = self.get_step(inner_sampler, outer_sampler)
+
+        def one_epoch(carry, memory, eval_freq):
+            (memory, carry), _ = jax.lax.scan(
+                step, init=(memory, carry), xs=None,
+                length=eval_freq,
+            )
+            return memory, carry
+
+        return jax.jit(
+            one_epoch, static_argnums=2,
+            donate_argnums=1
+        )
+
+    def run(self, callback):
+        memory, carry = self.init()
+
+        # Start algorithm
+        while callback():
+            memory, carry = self.one_epoch(carry, memory, self.eval_freq)
+            self.inner_var = carry["inner_var"]
+            self.outer_var = carry["outer_var"]
 
 
 def init_memory(
