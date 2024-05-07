@@ -25,6 +25,8 @@ class StochasticJaxSolver(BaseSolver, ABC):
         'random_state': [1],
     }
 
+    need_fb: bool = False
+
     @staticmethod
     def get_next(stop_val):
         return stop_val + 1
@@ -44,6 +46,14 @@ class StochasticJaxSolver(BaseSolver, ABC):
         self.f_outer = f_outer
         self.n_inner_samples = n_inner_samples
         self.n_outer_samples = n_outer_samples
+
+        if self.need_fb:
+            self.f_inner_fb = partial(self.f_inner,
+                                      batch_size=self.n_inner_samples,
+                                      start=0)
+            self.f_outer_fb = partial(self.f_outer,
+                                      batch_size=self.n_outer_samples,
+                                      start=0)
 
         if self.batch_size == "full":
             self.batch_size_inner = n_inner_samples
