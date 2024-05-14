@@ -105,6 +105,7 @@ class Solver(StochasticJaxSolver):
             implicit_grad = vjp_fun(carry['v'])[0]
             grad_outer_var = grad_out - implicit_grad
 
+            # Update the outer variable
             carry['outer_var'] -= outer_lr * grad_outer_var
 
             return carry, _
