@@ -3,8 +3,9 @@ from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
     import numpy as np
+
+    import jax
     import jax.numpy as jnp
-    # from sklearn.utils import check_random_state
 
 
 class Objective(BaseObjective):
@@ -28,23 +29,25 @@ class Objective(BaseObjective):
             outer_var=np.zeros(*outer_shape)
         )
 
-    def set_data(self, pb_inner, pb_outer, metrics, n_reg):
+    def set_data(self, pb_inner, pb_outer, metrics, n_reg, reg=None,
+                 oracle=None):
 
         self.f_inner, self.n_samples_inner, self.dim_inner = pb_inner
         self.f_outer, self.n_samples_outer, self.dim_outer = pb_outer
         self.metrics = metrics
 
-        # rng = check_random_state(self.random_state)
-        # if oracle == "logreg":
-        #     self.inner_var0 = rng.randn(*inner_shape)
-        #     self.outer_var0 = rng.rand(*outer_shape)
-        #     if self.get_inner_oracle().reg == 'exp':
-        #         self.outer_var0 = np.log(self.outer_var0)
-        #     if n_reg == 1:
-        #         self.outer_var0 = self.outer_var0[:1]
-        # else:
-        self.inner_var0 = jnp.zeros(self.dim_inner)
-        self.outer_var0 = -2 * jnp.ones(self.dim_outer)
+        key = jax.random.PRNGKey(self.random_state)
+        if oracle == "logreg":
+            keys = jax.random.split(key, 2)
+            self.inner_var0 = jax.random.normal(keys[0], (self.dim_inner, ))
+            self.outer_var0 = jax.random.uniform(keys[1], (self.dim_outer, ))
+            if reg == 'exp':
+                self.outer_var0 = jnp.log(self.outer_var0)
+            if n_reg == 1:
+                self.outer_var0 = self.outer_var0[:1]
+        else:
+            self.inner_var0 = jnp.zeros(self.dim_inner)
+            self.outer_var0 = -2 * jnp.ones(self.dim_outer)
         # XXX: Try random inits
 
     def evaluate_result(self, inner_var, outer_var):

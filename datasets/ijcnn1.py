@@ -110,5 +110,7 @@ class Dataset(BaseDataset):
             pb_outer=(f_outer, self.n_samples_outer, self.dim_outer),
             metrics=metrics,
             n_reg=None,
+            oracle='logreg',
+            reg=self.reg
         )
         return data
