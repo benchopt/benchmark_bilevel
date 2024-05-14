@@ -97,13 +97,12 @@ class Dataset(BaseDataset):
 
         def metrics(inner_var, outer_var):
             (value_fun, inner_star), grad_value = value_and_grad(outer_var)
-
             return dict(
-                value_func=value_fun,
-                value=np.linalg.norm(grad_value)**2,
-                inner_distance=np.linalg.norm(inner_star-inner_var)**2,
-                norm_outer_var=np.linalg.norm(outer_var)**2,
-                norm_regul=np.linalg.norm(np.exp(outer_var))**2,
+                value_func=float(value_fun),
+                value=float(jnp.linalg.norm(grad_value)**2),
+                inner_distance=float(jnp.linalg.norm(inner_star-inner_var)**2),
+                norm_outer_var=float(jnp.linalg.norm(outer_var)**2),
+                norm_regul=float(jnp.linalg.norm(np.exp(outer_var))**2),
             )
 
         data = dict(
