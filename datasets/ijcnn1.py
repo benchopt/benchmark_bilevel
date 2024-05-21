@@ -17,7 +17,6 @@ def loss_sample(inner_var, outer_var, x, y):
     return -log_sigmoid(y*jnp.dot(inner_var, x))
 
 
-@jax.jit
 def loss(inner_var, outer_var, X, y):
     batched_loss = jax.vmap(loss_sample, in_axes=(None, None, 0, 0))
     return jnp.mean(batched_loss(inner_var, outer_var, X, y), axis=0)
