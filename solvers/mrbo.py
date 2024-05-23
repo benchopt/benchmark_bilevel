@@ -32,11 +32,11 @@ class Solver(StochasticJaxSolver):
 
     def init(self):
         # Init variables
-        inner_var = self.inner_var.copy()
-        outer_var = self.outer_var.copy()
+        self.inner_var = self.inner_var0.copy()
+        self.outer_var = self.outer_var0.copy()
 
-        memory_inner = jnp.zeros((2, *inner_var.shape))
-        memory_outer = jnp.zeros((2, *outer_var.shape))
+        memory_inner = jnp.zeros((2, *self.inner_var.shape))
+        memory_outer = jnp.zeros((2, *self.outer_var.shape))
         step_sizes = jnp.array(  # (inner_ss, hia_lr, eta, outer_ss)
             [
                 self.step_size,
@@ -49,7 +49,7 @@ class Solver(StochasticJaxSolver):
         state_lr = init_lr_scheduler(step_sizes, exponents)
 
         return dict(
-            inner_var=inner_var, outer_var=outer_var,
+            inner_var=self.inner_var, outer_var=self.outer_var,
             memory_inner=memory_inner, memory_outer=memory_outer,
             state_lr=state_lr,
             state_inner_sampler=self.state_inner_sampler,
@@ -61,9 +61,8 @@ class Solver(StochasticJaxSolver):
         grad_outer_fun = jax.grad(self.f_outer, argnums=(0, 1))
 
         joint_shia = partial(
-            joint_shia_jax, grad_outer=grad_outer_fun,
-            grad_inner=grad_inner_fun, n_steps=self.n_shia_steps,
-            sampler=inner_sampler
+            joint_shia_jax, grad_inner=grad_inner_fun,
+            n_steps=self.n_shia_steps, sampler=inner_sampler
         )
 
         def mrbo_one_iter(carry, _):

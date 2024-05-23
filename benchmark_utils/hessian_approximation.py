@@ -201,7 +201,7 @@ def joint_shia(
     return step_size * s, step_size * s_old
 
 
-@partial(jax.jit, static_argnames=('sampler', 'n_steps', 'grad_inner'))
+# @partial(jax.jit, static_argnames=('sampler', 'n_steps', 'grad_inner'))
 def joint_shia_jax(
     inner_var, outer_var, v, inner_var_old, outer_var_old, v_old,
     state_sampler, step_size, sampler=None, n_steps=1, grad_inner=None
