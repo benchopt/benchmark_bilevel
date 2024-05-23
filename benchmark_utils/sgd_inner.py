@@ -2,23 +2,6 @@ import jax
 from functools import partial
 
 
-def sgd_inner(inner_oracle, inner_var, outer_var, step_size, sampler=None,
-              n_steps=1):
-    """
-    Perform stochastic gradient descent on the inner problem.
-    """
-
-    for i in range(n_steps):
-        inner_slice, _ = sampler.get_batch()
-        grad_inner = inner_oracle.grad_inner_var(
-            inner_var, outer_var, inner_slice
-        )
-        inner_var -= step_size * grad_inner
-
-    return inner_var
-
-
-@partial(jax.jit, static_argnames=('sampler', 'n_steps', 'grad_inner'))
 def sgd_inner_jax(inner_var, outer_var, state_sampler, step_size,
                   sampler=None, n_steps=1, grad_inner=None):
     """
