@@ -186,7 +186,7 @@ class Solver(BaseSolver):
             outer_sampler = self.MinibatchSampler(
                 self.f_outer.n_samples, batch_size=self.batch_size_outer
             )
-            step_sizes = np.array(  # (inner_ss, hia_lr, outer_ss)
+            step_sizes = np.array(  # (inner_lr, outer_lr)
                 [
                     self.step_size,
                     self.step_size / self.outer_ratio,
