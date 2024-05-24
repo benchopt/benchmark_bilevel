@@ -29,7 +29,6 @@ class Solver(BaseSolver):
     parameters = {
         'step_size': [.1],
         'outer_ratio': [1.],
-        'eval_freq': [1],
         'random_state': [1],
         'mu': [.1],
         'n_inner_steps': [10],
@@ -50,8 +49,8 @@ class Solver(BaseSolver):
             grad_inner=jax.grad(self.f_inner),
         )
 
-        self.inner_var = inner_var0
-        self.outer_var = outer_var0
+        self.inner_var = inner_var0.copy()
+        self.outer_var = outer_var0.copy()
         self.inner_var0 = inner_var0
         self.outer_var0 = outer_var0
 
@@ -59,8 +58,8 @@ class Solver(BaseSolver):
 
     def run(self, callback):
         # Init variables
-        self.inner_var = self.inner_var.copy()
-        self.outer_var = self.outer_var.copy()
+        self.inner_var = self.inner_var0.copy()
+        self.outer_var = self.outer_var0.copy()
 
         # Init lr scheduler
         step_sizes = jnp.array(
