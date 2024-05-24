@@ -65,11 +65,15 @@ class StochasticJaxSolver(BaseSolver, ABC):
         self.f_inner = partial(self.f_inner, batch_size=self.batch_size_inner)
         self.f_outer = partial(self.f_outer, batch_size=self.batch_size_outer)
 
+        keys = jax.random.split(jax.random.PRNGKey(self.random_state), 2)
+
         inner_sampler, self.state_inner_sampler = init_sampler(
-            n_samples=n_inner_samples, batch_size=self.batch_size_inner
+            n_samples=n_inner_samples, batch_size=self.batch_size_inner,
+            key=keys[0]
         )
         outer_sampler, self.state_outer_sampler = init_sampler(
-            n_samples=n_outer_samples, batch_size=self.batch_size_outer
+            n_samples=n_outer_samples, batch_size=self.batch_size_outer,
+            key=keys[1]
         )
         self.one_epoch = self.get_one_epoch_jitted(
             inner_sampler, outer_sampler
