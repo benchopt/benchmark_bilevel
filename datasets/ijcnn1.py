@@ -105,8 +105,10 @@ class Dataset(BaseDataset):
             )
 
         data = dict(
-            pb_inner=(f_inner, self.n_samples_inner, self.dim_inner),
-            pb_outer=(f_outer, self.n_samples_outer, self.dim_outer),
+            pb_inner=(f_inner, self.n_samples_inner, self.dim_inner,
+                      f_inner_fb),
+            pb_outer=(f_outer, self.n_samples_outer, self.dim_outer,
+                      f_outer_fb),
             metrics=metrics,
             n_reg=None,
             oracle='logreg',

@@ -122,6 +122,9 @@ class Dataset(BaseDataset):
             hess_outer_inner_fb = jnp.mean(hess_outer_inner, axis=0)
             cross_inner_fb = jnp.mean(cross_inner, axis=0)
 
+            hess_inner_outer_fb = jnp.mean(hess_inner_outer, axis=0)
+            linear_inner_outer_fb = jnp.mean(linear_inner_outer, axis=0)
+
             hess_outer_outer_fb = jnp.mean(hess_outer_outer, axis=0)
             cross_outer_fb = jnp.mean(cross_outer, axis=0)
 
@@ -148,6 +151,12 @@ class Dataset(BaseDataset):
             linear_inner_inner, linear_inner_outer
         )
 
+        f_inner_fb = get_function(
+            hess_inner_inner_fb[None], hess_inner_outer_fb[None],
+            cross_inner_fb[None], linear_inner_inner_fb[None],
+            linear_inner_outer_fb[None]
+        )
+
         f_outer = get_function(
             hess_outer_inner, hess_outer_outer, cross_outer,
             linear_outer_inner, linear_outer_outer
@@ -159,17 +168,19 @@ class Dataset(BaseDataset):
             linear_outer_outer_fb[None]
         )
 
+        grad_outer = jax.jit(jax.grad(f_outer_fb, argnums=(0, 1)))
+
         def metrics(inner_var, outer_var):
             inner_sol = jnp.linalg.solve(
                 hess_inner_inner_fb,
                 - linear_inner_inner_fb - cross_inner_fb.T @ outer_var
             )
+            grad_in, grad_out = grad_outer(inner_sol, outer_var)
             v_sol = - jnp.linalg.solve(
                 hess_inner_inner_fb,
-                jax.grad(f_outer_fb, argnums=0)(inner_sol, outer_var)
+                grad_in
             )
-            grad_value = jax.grad(f_outer_fb, argnums=1)(inner_sol,
-                                                         outer_var)
+            grad_value = grad_out
             grad_value += cross_inner_fb @ v_sol
             return dict(
                 func=float(f_outer(inner_sol, outer_var)),
@@ -178,8 +189,10 @@ class Dataset(BaseDataset):
             )
 
         data = dict(
-            pb_inner=(f_inner, self.n_samples_inner, self.dim_inner),
-            pb_outer=(f_outer, self.n_samples_outer, self.dim_outer),
+            pb_inner=(f_inner, self.n_samples_inner, self.dim_inner,
+                      f_inner_fb),
+            pb_outer=(f_outer, self.n_samples_outer, self.dim_outer,
+                      f_outer_fb),
             metrics=metrics,
             n_reg=None,
         )

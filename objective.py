@@ -32,8 +32,10 @@ class Objective(BaseObjective):
     def set_data(self, pb_inner, pb_outer, metrics, n_reg, reg=None,
                  oracle=None):
 
-        self.f_inner, self.n_samples_inner, self.dim_inner = pb_inner
-        self.f_outer, self.n_samples_outer, self.dim_outer = pb_outer
+        (self.f_inner, self.n_samples_inner, self.dim_inner,
+         self.f_inner_fb) = pb_inner
+        (self.f_outer, self.n_samples_outer, self.dim_outer,
+         self.f_outer_fb) = pb_outer
         self.metrics = metrics
 
         key = jax.random.PRNGKey(self.random_state)
@@ -65,4 +67,6 @@ class Objective(BaseObjective):
             n_outer_samples=self.n_samples_outer,
             inner_var0=self.inner_var0,
             outer_var0=self.outer_var0,
+            f_inner_fb=self.f_inner_fb,
+            f_outer_fb=self.f_outer_fb,
         )

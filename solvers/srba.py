@@ -26,8 +26,6 @@ class Solver(StochasticJaxSolver):
         **StochasticJaxSolver.parameters
     }
 
-    need_fb: bool = True  # The solver requires full-batch oracles
-
     def init(self):
         # Init variables
         self.inner_var = self.inner_var0.copy()
