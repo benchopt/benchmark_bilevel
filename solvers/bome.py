@@ -29,7 +29,6 @@ class Solver(BaseSolver):
     parameters = {
         'step_size': [.1],
         'outer_ratio': [1.],
-        'eval_freq': [1],
         'random_state': [1],
         'choice_phi': ["grad_norm"],
         'eta': [5e-1],
