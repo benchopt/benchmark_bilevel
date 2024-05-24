@@ -76,7 +76,8 @@ def _sampler(n_batches, batch_size, weights, state):
     return start, idx, weight, state
 
 
-def init_sampler(n_samples=10, batch_size=1, random_state=1):
+def init_sampler(n_samples=10, batch_size=1,
+                 key=jax.random.PRNGKey(1)):
     """Initialize the minibatch sampler."""
     n_batches = (n_samples + batch_size - 1) // batch_size
 
@@ -89,7 +90,7 @@ def init_sampler(n_samples=10, batch_size=1, random_state=1):
     state = dict(
         batch_order=jnp.arange(n_batches),
         i_batch=jnp.array(0),
-        key=jax.random.PRNGKey(random_state),
+        key=key,
     )
 
     return (
