@@ -103,6 +103,7 @@ class Solver(BaseSolver):
             outer_var_aux = self.outer_var + self.mu * U
             deltas = vmapped_inner(inner_var_old, outer_var_aux,
                                    inner_step_size)
+            deltas -= self.inner_var
             deltas /= self.mu
             grad_outer_in, grad_outer_out = grad_outer(self.inner_var,
                                                        self.outer_var)
