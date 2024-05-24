@@ -27,7 +27,7 @@ class Solver(BaseSolver):
 
     # any parameter defined here is accessible as a class attribute
     parameters = {
-        'step_size': [.01],
+        'step_size': [.1],
         'outer_ratio': [1.],
         'eval_freq': [1],
         'random_state': [1],
@@ -96,10 +96,12 @@ class Solver(BaseSolver):
             self.inner_var = inner_pzobo(self.inner_var, self.outer_var,
                                          inner_step_size)
 
+            # Generate Gaussian vectors
             U = jax.random.normal(key, (self.n_gaussian_vectors,
                                         self.outer_var.shape[0]))
-            outer_var_aux = self.outer_var + self.mu * U
 
+            # Perturbate the outer variable in random directions
+            outer_var_aux = self.outer_var + self.mu * U
             deltas = vmapped_inner(inner_var_old, outer_var_aux,
                                    inner_step_size)
             deltas /= self.mu
