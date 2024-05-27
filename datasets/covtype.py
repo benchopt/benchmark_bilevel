@@ -124,9 +124,9 @@ class Dataset(BaseDataset):
             val_acc = accuracy(inner_var, X_val, y_val)
             train_acc = accuracy(inner_var, X_train, y_train)
             return dict(
-                train_accuracy=train_acc,
-                value=val_acc,
-                test_accuracy=acc
+                train_accuracy=float(train_acc),
+                value=float(val_acc),
+                test_accuracy=float(acc)
             )
 
         data = dict(
