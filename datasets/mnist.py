@@ -174,16 +174,16 @@ class Dataset(BaseDataset):
             inner_var = inner_var.reshape(self.n_features,
                                           self.n_classes)
             prod = X @ inner_var
-            return np.mean(np.argmax(prod, axis=1) != y)
+            return jnp.mean(jnp.argmax(prod, axis=1) != y)
 
         def metrics(inner_var, outer_var):
             acc = accuracy(inner_var, X_test, y_test)
             val_acc = accuracy(inner_var, X_val, y_val)
             train_acc = accuracy(inner_var, X_train, y_train)
             return dict(
-                train_accuracy=train_acc,
-                value=val_acc,
-                test_accuracy=acc
+                train_accuracy=float(train_acc),
+                value=float(val_acc),
+                test_accuracy=float(acc)
             )
 
         data = dict(

@@ -117,7 +117,7 @@ class Dataset(BaseDataset):
             inner_var = inner_var.reshape(self.n_features,
                                           self.n_classes)
             prod = X @ inner_var
-            return np.mean(np.argmax(prod, axis=1) != y)
+            return jnp.mean(jnp.argmax(prod, axis=1) != y)
 
         def metrics(inner_var, outer_var):
             acc = accuracy(inner_var, X_test, y_test)
