@@ -136,7 +136,7 @@ class Dataset(BaseDataset):
         self.n_samples_outer = X_val.shape[0]
 
         self.dim_inner = self.n_features * self.n_classes
-        self.dim_outer = self.n_classes
+        self.dim_outer = self.n_samples_inner
 
         @partial(jax.jit, static_argnames=('batch_size'))
         def f_inner(inner_var, outer_var, start=0, batch_size=1):
@@ -146,7 +146,10 @@ class Dataset(BaseDataset):
             y = jax.lax.dynamic_slice(
                 y_train, (start, 0), (batch_size, self.n_classes)
             )
-            res = loss(inner_var, outer_var, x, y)
+            outer_var_batch = jax.lax.dynamic_slice(
+                outer_var, (start, ), (batch_size, )
+            )
+            res = weighted_loss(inner_var, outer_var_batch, x, y)
 
             res += self.reg * np.sum(inner_var**2)
             return res
