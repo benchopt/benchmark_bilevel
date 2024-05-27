@@ -46,9 +46,9 @@ class Dataset(BaseDataset):
     def get_data(self):
         rng = np.random.RandomState(self.random_state)
         X, y = fetch_covtype(return_X_y=True, download_if_missing=True)
+        y -= 1
         if y.ndim == 1:
             y = OneHotEncoder().fit_transform(y[:, None]).toarray()
-        y -= 1
 
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=.2, random_state=rng
@@ -136,6 +136,6 @@ class Dataset(BaseDataset):
                       f_outer_fb),
             metrics=metrics,
             oracle='multilogreg',
-            n_reg=self.n_reg,
+            n_reg=None,
         )
         return data
