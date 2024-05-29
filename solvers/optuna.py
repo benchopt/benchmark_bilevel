@@ -56,26 +56,27 @@ class Solver(BaseSolver):
             def obj_optuna(trial):
                 outer_var_flat = self.outer_var.ravel()
                 for k in range(len(outer_var_flat)):
-                    outer_var_flat.at[k].set(
+                    outer_var_flat = outer_var_flat.at[k].set(
                         trial.suggest_float(
-                            f'outer_var{k}',
-                            -15,
+                            f'outer_var_{k}',
+                            -5,
                             5
                         )
                     )
+
                 outer_var = outer_var_flat.reshape(self.outer_var.shape)
-                inner_var = self.get_inner_sol(self.inner_var, self.outer_var)
+                inner_var = self.get_inner_sol(self.inner_var, outer_var)
                 return self.f_outer(inner_var, outer_var)
 
             sampler = optuna.samplers.TPESampler(seed=self.random_state)
-            study = optuna.create_study(direction='minimize', sampler=sampler)
+            study = optuna.create_study(sampler=sampler)
             study.optimize(obj_optuna, n_trials=n_iter)
             trial = study.best_trial
             outer_var = jnp.array(list(trial.params.values())).reshape(
                 self.outer_var.shape
             )
 
-        self.outer_var = outer_var
+        self.outer_var = outer_var.copy()
         self.inner_var = self.get_inner_sol(self.inner_var,
                                             self.outer_var)
 
