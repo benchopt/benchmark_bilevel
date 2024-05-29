@@ -25,6 +25,8 @@ class StochasticJaxSolver(BaseSolver, ABC):
         'random_state': [1],
     }
 
+    requirements = ["jax"]
+
     need_fb: bool = False
 
     @staticmethod

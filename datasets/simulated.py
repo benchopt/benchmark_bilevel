@@ -107,18 +107,26 @@ class Dataset(BaseDataset):
 
         hess_inner_inner_fb = jnp.mean(hess_inner_inner, axis=0)
         hess_outer_inner_fb = jnp.mean(hess_outer_inner, axis=0)
+        hess_inner_outer_fb = jnp.mean(hess_inner_outer, axis=0)
         cross_inner_fb = jnp.mean(cross_inner, axis=0)
 
         hess_outer_outer_fb = jnp.mean(hess_outer_outer, axis=0)
         cross_outer_fb = jnp.mean(cross_outer, axis=0)
 
         linear_inner_inner_fb = jnp.mean(linear_inner_inner, axis=0)
+        linear_inner_outer_fb = jnp.mean(linear_inner_outer, axis=0)
 
         linear_outer_inner_fb = jnp.mean(linear_outer_inner, axis=0)
         linear_outer_outer_fb = jnp.mean(linear_outer_outer, axis=0)
         f_inner = get_function(
             hess_inner_inner, hess_inner_outer, cross_inner,
             linear_inner_inner, linear_inner_outer
+        )
+
+        f_inner_fb = get_function(
+            hess_inner_inner_fb[None], hess_inner_outer_fb[None],
+            cross_inner_fb[None], linear_inner_inner_fb[None],
+            linear_inner_outer_fb[None]
         )
 
         f_outer = get_function(
@@ -151,8 +159,10 @@ class Dataset(BaseDataset):
             )
 
         data = dict(
-            pb_inner=(f_inner, self.n_samples_inner, self.dim_inner),
-            pb_outer=(f_outer, self.n_samples_outer, self.dim_outer),
+            pb_inner=(f_inner, self.n_samples_inner, self.dim_inner,
+                      f_inner_fb),
+            pb_outer=(f_outer, self.n_samples_outer, self.dim_outer,
+                      f_outer_fb),
             metrics=metrics,
             n_reg=None,
         )
