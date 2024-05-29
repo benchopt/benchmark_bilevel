@@ -25,7 +25,7 @@ class StochasticJaxSolver(BaseSolver, ABC):
         'random_state': [1],
     }
 
-    requirements = ["jax"]
+    requirements = ["pip:jax"]
 
     need_fb: bool = False
 
