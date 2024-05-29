@@ -12,7 +12,7 @@ class Objective(BaseObjective):
     name = "Bilevel Optimization"
     url = "https://github.com/benchopt/benchmark_bilevel"
 
-    requirements = ["scikit-learn", "pip:jax"]
+    requirements = ["scikit-learn", "pip:jax", "pip:jaxlib"]
     min_benchopt_version = "1.5"
 
     parameters = {
