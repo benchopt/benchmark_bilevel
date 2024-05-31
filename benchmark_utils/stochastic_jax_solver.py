@@ -74,8 +74,6 @@ class StochasticJaxSolver(BaseSolver, ABC):
 
     requirements = ["jax", "jaxlib"]
 
-    need_fb: bool = False
-
     @staticmethod
     def get_next(stop_val):
         return stop_val + 1
