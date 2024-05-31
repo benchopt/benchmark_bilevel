@@ -8,13 +8,12 @@ with safe_import_context() as import_ctx:
     import jax
     import jax.numpy as jnp
     from functools import partial
-    from jax.nn import log_sigmoid
 
     from jaxopt import LBFGS
 
 
 def loss_sample(inner_var, outer_var, x, y):
-    return -log_sigmoid(y*jnp.dot(inner_var, x))
+    return -jax.nn.log_sigmoid(y*jnp.dot(inner_var, x))
 
 
 def loss(inner_var, outer_var, X, y):

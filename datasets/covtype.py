@@ -9,7 +9,6 @@ with safe_import_context() as import_ctx:
 
     import jax
     import jax.numpy as jnp
-    from jax.nn import logsumexp
 
     from functools import partial
 
@@ -19,7 +18,7 @@ def loss_sample(inner_var_flat, outer_var, x, y):
     n_features = x.shape[0]
     inner_var = inner_var_flat.reshape(n_features, n_classes)
     prod = jnp.dot(x, inner_var)
-    lse = logsumexp(prod)
+    lse = jax.nn.logsumexp(prod)
     loss = -jnp.where(y == 1, prod, 0).sum() + lse
     return loss
 
