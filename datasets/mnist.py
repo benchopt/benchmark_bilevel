@@ -13,7 +13,6 @@ with safe_import_context() as import_ctx:
 
     import jax
     import jax.numpy as jnp
-    from jax.nn import logsumexp, sigmoid
 
     from functools import partial
 
@@ -55,7 +54,7 @@ def loss_sample(inner_var_flat, outer_var, x, y):
     n_features = x.shape[0]
     inner_var = inner_var_flat.reshape(n_features, n_classes)
     prod = jnp.dot(x, inner_var)
-    lse = logsumexp(prod)
+    lse = jax.nn.logsumexp(prod)
     loss = -jnp.where(y == 1, prod, 0).sum() + lse
     return loss
 
@@ -66,7 +65,7 @@ def loss(inner_var, outer_var, X, y):
 
 
 def weighted_loss(inner_var, outer_var, X, y):
-    weights = sigmoid(outer_var)
+    weights = jax.nn.sigmoid(outer_var)
     batched_loss = jax.vmap(loss_sample, in_axes=(None, None, 0, 0))
     return jnp.mean(weights * batched_loss(inner_var, outer_var, X, y),
                     axis=0)

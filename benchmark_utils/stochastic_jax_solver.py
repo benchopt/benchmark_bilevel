@@ -41,7 +41,22 @@ class StochasticJaxSolver(BaseSolver, ABC):
         ----------
         f_inner, f_outer: callable
             Inner and outer objective function for the bilevel optimization
-            problem. Should take in
+            problem. Should take as input:
+                * inner_var: array-like, shape (dim_inner,)
+                * outer_var: array-like, shape (dim_outer,)
+                * start: int, the starting index of the minibatch
+                * batch_size: int, the size of the minibatch
+
+        n_inner_samples, n_outer_samples: int
+            Number of samples to draw for the inner and outer objective
+            functions.
+
+        inner_var0, outer_var0: array-like, shape (dim_inner,) (dim_outer,)
+
+        f_inner_fb, f_outer_fb: callable
+            Full batch version of f_inner and f_outer. Should take as input:
+                * inner_var: array-like, shape (dim_inner,)
+                * outer_var: array-like, shape (dim_outer,)
         """
 
         self.f_inner = f_inner
@@ -92,11 +107,14 @@ class StochasticJaxSolver(BaseSolver, ABC):
 
     @abstractmethod
     def get_step(self, inner_sampler, outer_sampler):
-        """Returns a function that compute one iteration of the sto algorithm.
+        """Returns a function that compute one iteration of the stochastic
+        algorithm.
         """
         ...
 
     def run(self, callback):
+        """Run the solver.
+        The callback is called every `self.eval_freq`iterations."""
         carry = self.init()
 
         # Start algorithm
