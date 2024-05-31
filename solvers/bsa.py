@@ -92,7 +92,6 @@ class Solver(StochasticJaxSolver):
             grad_outer_var = grad_out - implicit_grad
 
             carry['outer_var'] -= outer_lr * grad_outer_var
-            # inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)
 
             carry['inner_var'], carry['state_inner_sampler'] = sgd_inner(
                 carry['inner_var'], carry['outer_var'],

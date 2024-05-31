@@ -136,8 +136,5 @@ class Solver(StochasticJaxSolver):
             carry['inner_var'] -= inner_lr * carry['memory_inner'][1]
             carry['outer_var'] -= outer_lr * carry['memory_outer'][1]
 
-            # #Use prox to make sure we do not diverge
-            # # inner_var, outer_var = inner_oracle.prox(inner_var, outer_var)
-
             return carry, _
         return sustain_one_iter

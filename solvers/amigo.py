@@ -43,13 +43,6 @@ class Solver(StochasticJaxSolver):
         )
         exponents = jnp.zeros(3)
         state_lr = init_lr_scheduler(step_sizes, exponents)
-
-        # # Start algorithm
-        # inner_var, self.state_inner_sampler = self.sgd_inner(
-        #     inner_var, outer_var,
-        #     self.state_inner_sampler, step_size=self.step_size,
-        #     n_steps=self.n_inner_steps
-        # )
         return dict(
             inner_var=self.inner_var, outer_var=self.outer_var, v=v,
             state_lr=state_lr,
