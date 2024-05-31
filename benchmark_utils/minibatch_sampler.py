@@ -2,7 +2,6 @@ import jax
 import jax.numpy as jnp
 
 
-@jax.jit
 def keep_ibatch(state):
     return state['i_batch'] + 1, state['batch_order'], state['key'],
 
@@ -42,6 +41,6 @@ def init_sampler(n_samples=10, batch_size=1,
     )
 
     return (
-        jax.jit(lambda state: _sampler(n_batches, batch_size, weights, state)),
+        lambda state: _sampler(n_batches, batch_size, weights, state),
         state
     )
