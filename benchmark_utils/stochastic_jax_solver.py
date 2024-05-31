@@ -14,6 +14,53 @@ with safe_import_context() as import_ctx:
 
 
 class StochasticJaxSolver(BaseSolver, ABC):
+    """Base class for stochastic solvers using JAX.
+
+    Attributes
+    ----------
+    f_inner, f_outer: callable
+        Inner and outer objective function for the bilevel optimization
+        problem. Should take as input:
+            * inner_var: array-like, shape (dim_inner,)
+            * outer_var: array-like, shape (dim_outer,)
+            * start: int, the starting index of the minibatch
+            * batch_size: int, the size of the minibatch
+
+    n_inner_samples, n_outer_samples: int
+        Number of samples to draw for the inner and outer objective functions.
+
+    inner_var0, outer_var0: array-like, shape (dim_inner,) (dim_outer,)
+
+    f_inner_fb, f_outer_fb: callable
+        Full batch version of f_inner and f_outer. Should take as input:
+            * inner_var: array-like, shape (dim_inner,)
+            * outer_var: array-like, shape (dim_outer,)
+
+    batch_size: int or 'full'
+        Size of the minibatch to use. If 'full', the full batch is used.
+
+    random_state: int
+        Random seed to use.
+
+    eval_freq: int
+        Frequency at which to evaluate the objective function.
+
+    stop_val: int
+        Current iteration of the solver.
+
+    stopping_criterion: SufficientProgressCriterion
+        Stopping criterion for the solver.
+
+    one_epoch: callable
+        Function that runs one epoch of the solver.
+
+    inner_var, outer_var: array-like, shape (dim_inner,) (dim_outer,)
+        Current values of the inner and outer variables.
+
+    state_inner_sampler, state_outer_sampler: array-like
+        State of the random number generator for the inner and outer sampler.
+
+    """
 
     stopping_criterion = SufficientProgressCriterion(
         patience=constants.PATIENCE, strategy='callback'
