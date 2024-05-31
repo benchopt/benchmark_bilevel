@@ -110,7 +110,7 @@ class Solver(StochasticJaxSolver):
                 'grad_in_outer': (grad_in_outer, id_outer, weight_outer),
                 'grad_out_outer': (grad_out_outer, id_outer, weight_outer),
             }
-            memory = jax.tree_map(
+            memory = jax.tree.map(
                 lambda mem, up: variance_reduction(mem, *up),
                 memory, updates
             )
