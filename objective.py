@@ -2,8 +2,6 @@ from benchopt import BaseObjective
 from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
-    import numpy as np
-
     import jax
     import jax.numpy as jnp
 
@@ -23,10 +21,10 @@ class Objective(BaseObjective):
         self.random_state = random_state
 
     def get_one_result(self):
-        inner_shape, outer_shape = self.get_inner_oracle().variables_shape
+        inner_shape, outer_shape = self.dim_inner, self.dim_outer
         return dict(
-            inner_var=np.zeros(*inner_shape),
-            outer_var=np.zeros(*outer_shape)
+            inner_var=jnp.zeros(inner_shape),
+            outer_var=jnp.zeros(outer_shape)
         )
 
     def set_data(self, pb_inner, pb_outer, metrics, n_reg, reg=None,
@@ -53,7 +51,7 @@ class Objective(BaseObjective):
         # XXX: Try random inits
 
     def evaluate_result(self, inner_var, outer_var):
-        if np.isnan(outer_var).any():
+        if jnp.isnan(outer_var).any():
             raise ValueError
 
         metrics = self.metrics(inner_var, outer_var)
