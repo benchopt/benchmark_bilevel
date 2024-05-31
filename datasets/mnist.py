@@ -17,7 +17,7 @@ with safe_import_context() as import_ctx:
     from functools import partial
 
 
-BASE_URL = "https://ossci-datasets.s3.amazonaws.com/mnist/"
+BASE_URL = "https://ossci-datasets.s3.amazonaws.com/mnist"
 DATA_DIR = Path(__file__).parent / "data"
 
 
