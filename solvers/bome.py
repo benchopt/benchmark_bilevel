@@ -40,21 +40,19 @@ class Solver(BaseSolver):
         return stop_val + 1
 
     def set_objective(self, f_inner, f_outer, n_inner_samples, n_outer_samples,
-                      inner_var0, outer_var0, f_inner_fb, f_outer_fb,):
+                      inner_var0, outer_var0):
 
-        self.f_inner = f_inner_fb
-        self.f_outer = f_outer_fb
+        self.f_inner = partial(f_inner, start=0, batch_size=n_inner_samples)
+        self.f_outer = partial(f_outer, start=0, batch_size=n_outer_samples)
 
-        self.inner_var = inner_var0
-        self.outer_var = outer_var0
         self.inner_var0 = inner_var0
         self.outer_var0 = outer_var0
 
         self.run_once(2)
 
     def run(self, callback):
-        self.inner_var = self.inner_var0
-        self.outer_var = self.outer_var0
+        self.inner_var = self.inner_var0.copy()
+        self.outer_var = self.outer_var0.copy()
 
         # Init lr scheduler
         step_sizes = jnp.array(

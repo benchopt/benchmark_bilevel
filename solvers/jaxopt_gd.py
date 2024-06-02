@@ -41,38 +41,39 @@ class Solver(BaseSolver):
         return stop_val + 1
 
     def set_objective(self, f_inner, f_outer, n_inner_samples, n_outer_samples,
-                      inner_var0, outer_var0, f_inner_fb, f_outer_fb,):
-        self.f_inner = f_inner_fb
-        self.f_outer = f_outer_fb
+                      inner_var0, outer_var0):
+        self.f_inner = partial(f_inner, start=0, batch_size=n_inner_samples)
+        self.f_outer = partial(f_outer, start=0, batch_size=n_outer_samples)
 
-        @partial(jax.jit, static_argnames=("f", "n_steps"))
-        def inner_solver_fun(outer_var, inner_var, f=None, n_steps=1):
+        if self.inner_solver == 'gd':
+            solver = jaxopt.GradientDescent(
+                fun=self.f_inner, maxiter=self.n_inner_steps,
+                implicit_diff=True, acceleration=False
+            )
+        elif self.inner_solver == 'lbfgs':
+            solver = jaxopt.LBFGS(
+                fun=self.f_inner, maxiter=self.n_inner_steps,
+                implicit_diff=True,
+            )
+        else:
+            raise ValueError(
+                f"Inner solver {self.inner_solver} not available"
+            )
+
+        def value_fun(inner_var, outer_var):
             """Solver used to solve the inner problem.
 
             The output of this function is differentiable w.r.t. the
             outer_variable. The Jacobian is computed using implicit
             differentiation with a conjugate gradient solver.
             """
-            if self.inner_solver == 'gd':
-                solver = jaxopt.GradientDescent(
-                    fun=f, maxiter=n_steps, implicit_diff=True,
-                    acceleration=False
-                )
-            elif self.inner_solver == 'lbfgs':
-                solver = jaxopt.LBFGS(
-                    fun=f, maxiter=n_steps, implicit_diff=True,
-                )
-            else:
-                raise ValueError(f"Inner solver {self.inner_solver} not"
-                                 + "available")
-            return solver.run(inner_var, outer_var).params
+            inner_var = solver.run(inner_var, outer_var).params
+            return self.f_outer(inner_var, outer_var), inner_var
 
-        self.inner_solver_fun = partial(inner_solver_fun,
-                                        f=self.f_inner,
-                                        n_steps=self.n_inner_steps)
+        self.value_grad = jax.jit(jax.value_and_grad(
+            value_fun, argnums=1, has_aux=True
+        ))
 
-        self.inner_var = inner_var0
-        self.outer_var = outer_var0
         self.inner_var0 = inner_var0
         self.outer_var0 = outer_var0
 
@@ -81,27 +82,20 @@ class Solver(BaseSolver):
     def run(self, callback):
 
         # Init variables
-        inner_var = self.inner_var.copy()
-        outer_var = self.outer_var.copy()
+        self.inner_var = self.inner_var0.copy()
+        self.outer_var = self.outer_var0.copy()
 
         step_sizes = jnp.array(
             [self.step_size_outer]
         )
         exponents = jnp.zeros(1)
         state_lr = init_lr_scheduler(step_sizes, exponents)
-        grad_outer = jax.jit(jax.grad(self.f_outer, argnums=(0, 1)))
 
         while callback():
             outer_lr, state_lr = update_lr(state_lr)
-
-            self.inner_var, jvp_fun = jax.vjp(self.inner_solver_fun,
-                                              self.outer_var,
-                                              self.inner_var)
-
-            grad_outer_in, grad_outer_out = grad_outer(inner_var,
-                                                       outer_var)
-
-            implicit_grad = grad_outer_out + jvp_fun(grad_outer_in)[0]
+            (_, self.inner_var), implicit_grad = self.value_grad(
+                self.inner_var, self.outer_var
+            )
             self.outer_var -= outer_lr * implicit_grad
 
     def get_result(self):

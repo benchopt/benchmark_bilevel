@@ -1,3 +1,5 @@
+import functools
+
 from benchmark_utils.stochastic_jax_solver import StochasticJaxSolver
 from benchopt import safe_import_context
 
@@ -31,7 +33,6 @@ class Solver(StochasticJaxSolver):
         self.inner_var = self.inner_var0.copy()
         self.outer_var = self.outer_var0.copy()
         v = jnp.zeros_like(self.inner_var)
-
         # Init lr scheduler
         step_sizes = jnp.array(
             [self.step_size, self.step_size / self.outer_ratio]
@@ -58,11 +59,20 @@ class Solver(StochasticJaxSolver):
         )
 
     def get_step(self, inner_sampler, outer_sampler):
-        grad_inner_fb = jax.grad(self.f_inner_fb, argnums=0)
-        grad_outer_fb = jax.grad(self.f_outer_fb, argnums=(0, 1))
 
+        # Gradients
         grad_inner = jax.grad(self.f_inner, argnums=0)
         grad_outer = jax.grad(self.f_outer, argnums=(0, 1))
+
+        # Full batch gradients
+        f_inner_fb = functools.partial(
+            self.f_inner, start=0, batch_size=self.n_inner_samples
+        )
+        f_outer_fb = functools.partial(
+            self.f_outer, start=0, batch_size=self.n_outer_samples
+        )
+        grad_inner_fb = jax.grad(f_inner_fb, argnums=0)
+        grad_outer_fb = jax.grad(f_outer_fb, argnums=(0, 1))
 
         def fb_directions(inner_var, outer_var, v, inner_var_old,
                           outer_var_old, v_old, d_inner, d_v, d_outer,

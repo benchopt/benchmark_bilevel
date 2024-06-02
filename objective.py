@@ -64,7 +64,5 @@ class Objective(BaseObjective):
             n_inner_samples=self.n_samples_inner,
             n_outer_samples=self.n_samples_outer,
             inner_var0=self.inner_var0,
-            outer_var0=self.outer_var0,
-            f_inner_fb=self.f_inner_fb,
-            f_outer_fb=self.f_outer_fb,
+            outer_var0=self.outer_var0
         )

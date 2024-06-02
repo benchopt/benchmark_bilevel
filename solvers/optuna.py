@@ -8,6 +8,7 @@ with safe_import_context() as import_ctx:
     import jax.numpy as jnp
 
     from jaxopt import LBFGS
+    from functools import partial
 
 
 class Solver(BaseSolver):
@@ -31,19 +32,21 @@ class Solver(BaseSolver):
         return stop_val + 1
 
     def set_objective(self, f_inner, f_outer, n_inner_samples, n_outer_samples,
-                      inner_var0, outer_var0, f_inner_fb, f_outer_fb,):
-        self.inner_var = inner_var0
-        self.outer_var = outer_var0
+                      inner_var0, outer_var0):
+        self.inner_var0 = inner_var0
+        self.outer_var0 = outer_var0
 
-        self.f_inner = f_inner_fb
-        self.f_outer = f_outer_fb
+        self.f_inner = partial(f_inner, start=0, batch_size=n_inner_samples)
+        self.f_outer = partial(f_outer, start=0, batch_size=n_outer_samples)
 
         self.solver_inner = LBFGS(fun=self.f_inner)
 
         @jax.jit
         def get_inner_sol(inner_var_init, outer_var):
-            return self.solver_inner.run(inner_var_init,
-                                         outer_var).params
+            return self.solver_inner.run(
+                inner_var_init, outer_var
+            ).params
+
         self.get_inner_sol = get_inner_sol
 
         self.run_once(2)
@@ -51,7 +54,7 @@ class Solver(BaseSolver):
     def run(self, n_iter):
         optuna.logging.set_verbosity(optuna.logging.WARNING)
         if n_iter == 0:
-            outer_var = self.outer_var.copy()
+            outer_var = self.outer_var0.copy()
         else:
             def obj_optuna(trial):
                 outer_var_flat = self.outer_var.ravel()
@@ -65,7 +68,7 @@ class Solver(BaseSolver):
                     )
 
                 outer_var = outer_var_flat.reshape(self.outer_var.shape)
-                inner_var = self.get_inner_sol(self.inner_var, outer_var)
+                inner_var = self.get_inner_sol(self.inner_var0, outer_var)
                 return self.f_outer(inner_var, outer_var)
 
             sampler = optuna.samplers.TPESampler(seed=self.random_state)
@@ -77,7 +80,7 @@ class Solver(BaseSolver):
             )
 
         self.outer_var = outer_var.copy()
-        self.inner_var = self.get_inner_sol(self.inner_var,
+        self.inner_var = self.get_inner_sol(self.inner_var0,
                                             self.outer_var)
 
     def get_result(self):

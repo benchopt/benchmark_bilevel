@@ -63,11 +63,20 @@ class Solver(StochasticJaxSolver):
         )
 
     def get_step(self, inner_sampler, outer_sampler):
-        grad_inner_fb = jax.grad(self.f_inner_fb, argnums=0)
-        grad_outer_fb = jax.grad(self.f_outer_fb, argnums=(0, 1))
 
+        # Gradients
         grad_inner = jax.grad(self.f_inner, argnums=0)
         grad_outer = jax.grad(self.f_outer, argnums=(0, 1))
+
+        # Full batch gradients
+        f_inner_fb = partial(
+            self.f_inner, start=0, batch_size=self.n_inner_samples
+        )
+        f_outer_fb = partial(
+            self.f_outer, start=0, batch_size=self.n_outer_samples
+        )
+        grad_inner_fb = jax.grad(f_inner_fb, argnums=0)
+        grad_outer_fb = jax.grad(f_outer_fb, argnums=(0, 1))
 
         shia_fb = partial(
             shia_fb_jax, grad_inner=grad_inner_fb, n_steps=self.n_shia_steps

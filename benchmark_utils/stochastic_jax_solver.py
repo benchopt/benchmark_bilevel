@@ -79,7 +79,7 @@ class StochasticJaxSolver(BaseSolver, ABC):
         return stop_val + 1
 
     def set_objective(self, f_inner, f_outer, n_inner_samples, n_outer_samples,
-                      inner_var0, outer_var0, f_inner_fb, f_outer_fb,):
+                      inner_var0, outer_var0):
         """Set the problem to solve.
 
         Parameters
@@ -108,9 +108,6 @@ class StochasticJaxSolver(BaseSolver, ABC):
         self.f_outer = f_outer
         self.n_inner_samples = n_inner_samples
         self.n_outer_samples = n_outer_samples
-
-        self.f_inner_fb = f_inner_fb
-        self.f_outer_fb = f_outer_fb
 
         if self.batch_size == "full":
             self.batch_size_inner = n_inner_samples
