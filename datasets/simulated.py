@@ -194,6 +194,5 @@ class Dataset(BaseDataset):
             pb_outer=(f_outer, self.n_samples_outer, self.dim_outer,
                       f_outer_fb),
             metrics=metrics,
-            n_reg=None,
         )
         return data

@@ -36,13 +36,16 @@ class Dataset(BaseDataset):
     requirements = ["scikit-learn"]
 
     parameters = {
-        'reg': ['exp'],
-        'n_reg': ['full'],
+        'reg_parametrization': ['exp'],
         'random_state': [2442],
-        'oracle': ['multilogreg'],
     }
 
     def get_data(self):
+        assert self.reg_parametrization in ['exp'], (
+            f"unknown reg parameter '{self.reg_parametrization}'. "
+            "Should be 'lin' or 'exp'."
+        )
+
         rng = np.random.RandomState(self.random_state)
         X, y = fetch_covtype(return_X_y=True, download_if_missing=True)
         y -= 1
@@ -87,7 +90,7 @@ class Dataset(BaseDataset):
             )
             res = loss(inner_var, outer_var, x, y)
 
-            if self.reg == 'exp':
+            if self.reg_parametrization == 'exp':
                 inner_var = inner_var.reshape(self.n_features, self.n_classes)
                 alpha = jnp.exp(outer_var)
                 res += 0.5 * alpha @ (inner_var * inner_var).sum(axis=0)
@@ -134,7 +137,5 @@ class Dataset(BaseDataset):
             pb_outer=(f_outer, self.n_samples_outer, self.dim_outer,
                       f_outer_fb),
             metrics=metrics,
-            oracle='multilogreg',
-            n_reg=None,
         )
         return data

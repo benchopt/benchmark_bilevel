@@ -22,6 +22,7 @@ def loss(inner_var, outer_var, X, y):
 
 
 class Dataset(BaseDataset):
+    """Hyperparameter optimization with IJCNN1 dataset."""
 
     name = "ijcnn1"
 
@@ -29,12 +30,15 @@ class Dataset(BaseDataset):
     requirements = ['pip:libsvmdata', 'scikit-learn']
 
     parameters = {
-        'reg': ['exp'],
-        'n_reg': ['full'],
-        'oracle': ['logreg'],
+        'reg_parametrization': ['exp'],
     }
 
     def get_data(self):
+        assert self.reg_parametrization in ['lin', 'exp'], (
+            f"unknown reg parameter '{self.reg_parametrization}'. "
+            "Should be 'lin' or 'exp'."
+        )
+
         X_train, y_train = fetch_libsvm('ijcnn1')
         X_val, y_val = fetch_libsvm('ijcnn1_test')
 
@@ -56,9 +60,9 @@ class Dataset(BaseDataset):
             )
             res = loss(inner_var, outer_var, x, y)
 
-            if self.reg == 'exp':
+            if self.reg_parametrization == 'exp':
                 res += jnp.dot(jnp.exp(outer_var) * inner_var, inner_var)/2
-            elif self.reg == 'lin':
+            elif self.reg_parametrization == 'lin':
                 res += jnp.dot(outer_var * inner_var, inner_var)/2
             return res
 
@@ -103,14 +107,20 @@ class Dataset(BaseDataset):
                 norm_regul=float(jnp.linalg.norm(np.exp(outer_var))**2),
             )
 
+        def init_var(key):
+            keys = jax.random.split(key, 2)
+            inner_var0 = jax.random.normal(keys[0], (self.dim_inner,))
+            outer_var0 = jax.random.uniform(keys[1], (self.dim_outer,))
+            if self.reg_parametrization == 'exp':
+                outer_var0 = jnp.log(outer_var0)
+            return inner_var0, outer_var0
+
         data = dict(
             pb_inner=(f_inner, self.n_samples_inner, self.dim_inner,
                       f_inner_fb),
             pb_outer=(f_outer, self.n_samples_outer, self.dim_outer,
                       f_outer_fb),
             metrics=metrics,
-            n_reg=None,
-            oracle='logreg',
-            reg=self.reg
+            init_var=init_var,
         )
         return data

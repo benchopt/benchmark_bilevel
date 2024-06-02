@@ -27,8 +27,7 @@ class Objective(BaseObjective):
             outer_var=jnp.zeros(outer_shape)
         )
 
-    def set_data(self, pb_inner, pb_outer, metrics, n_reg, reg=None,
-                 oracle=None):
+    def set_data(self, pb_inner, pb_outer, metrics, init_var=None):
 
         (self.f_inner, self.n_samples_inner, self.dim_inner,
          self.f_inner_fb) = pb_inner
@@ -37,18 +36,12 @@ class Objective(BaseObjective):
         self.metrics = metrics
 
         key = jax.random.PRNGKey(self.random_state)
-        if oracle == "logreg":
-            keys = jax.random.split(key, 2)
-            self.inner_var0 = jax.random.normal(keys[0], (self.dim_inner, ))
-            self.outer_var0 = jax.random.uniform(keys[1], (self.dim_outer, ))
-            if reg == 'exp':
-                self.outer_var0 = jnp.log(self.outer_var0)
-            if n_reg == 1:
-                self.outer_var0 = self.outer_var0[:1]
+        if init_var is not None:
+            # Define random inits per datasets
+            self.inner_var0, self.outer_var0 = init_var(key)
         else:
             self.inner_var0 = jnp.zeros(self.dim_inner)
             self.outer_var0 = -2 * jnp.ones(self.dim_outer)
-        # XXX: Try random inits
 
     def evaluate_result(self, inner_var, outer_var):
         if jnp.isnan(outer_var).any():

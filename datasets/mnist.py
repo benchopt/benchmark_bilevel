@@ -72,6 +72,7 @@ def weighted_loss(inner_var, outer_var, X, y):
 
 
 class Dataset(BaseDataset):
+    """Datacleaning with MNIST"""
 
     name = "mnist"
 
@@ -81,7 +82,6 @@ class Dataset(BaseDataset):
     parameters = {
         'ratio': [0.5, 0.7, 0.9],
         'random_state': [32],
-        'oracle': ['datacleaning'],
         'reg': [2e-1]
     }
 
@@ -194,7 +194,5 @@ class Dataset(BaseDataset):
             pb_outer=(f_outer, self.n_samples_outer, self.dim_outer,
                       f_outer_fb),
             metrics=metrics,
-            oracle='datacleaning',
-            n_reg=None
         )
         return data
