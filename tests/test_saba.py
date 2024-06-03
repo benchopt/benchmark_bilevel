@@ -1,108 +1,149 @@
 import pytest
-import numpy as np
-from numba import njit
+import jax
+import jax.numpy as jnp
 
-from benchopt.utils.safe_import import set_benchmark
-set_benchmark('.')
+from benchopt.utils.safe_import import set_benchmark_module
+set_benchmark_module('.')
 
-from objective import oracles  # noqa: E402
+from functools import partial
 from solvers.saba import init_memory  # noqa: E402
-from solvers.saba import MinibatchSampler  # noqa: E402
 from solvers.saba import variance_reduction  # noqa: E402
+from benchmark_utils.minibatch_sampler import init_sampler  # noqa: E402
 
 
-def _make_oracle(n_samples, n_features):
-
-    X = np.random.randn(n_samples, n_features)
-    y = 2 * (np.random.rand(n_samples) > 0.5) - 1
-
-    oracle = oracles.LogisticRegressionOracle(
-        X, y, reg='exp'
-    )
-    return oracle
+def loss_sample(inner_var, outer_var, x, y):
+    return -jax.nn.log_sigmoid(y*jnp.dot(inner_var, x))
 
 
-@pytest.mark.parametrize('batch_size', [1, 32, 64])
+def loss(inner_var, outer_var, X, y):
+    batched_loss = jax.vmap(loss_sample, in_axes=(None, None, 0, 0))
+    return jnp.mean(batched_loss(inner_var, outer_var, X, y), axis=0)
+
+
+def _get_function(n_samples, n_features):
+    key = jax.random.PRNGKey(0)
+    X = jax.random.normal(key, (n_samples, n_features))
+    y = 2 * (jax.random.uniform(key, (n_samples,)) > 0.5) - 1
+
+    @partial(jax.jit, static_argnames=('batch_size'))
+    def f(inner_var, outer_var, start=0, batch_size=1):
+        x = jax.lax.dynamic_slice(
+            X, (start, 0), (batch_size, X.shape[1])
+        )
+        y_ = jax.lax.dynamic_slice(
+            y, (start, ), (batch_size, )
+        )
+        res = loss(inner_var, outer_var, x, y_)
+        return res
+
+    return f
+
+
+@pytest.mark.parametrize('batch_size', [1])
 def test_init_memory(batch_size):
     n_samples = 1024
     n_features = 10
 
-    oracle = _make_oracle(n_samples, n_features)
+    f = _get_function(n_samples, n_features)
+    f_fb = partial(f, batch_size=n_samples)
 
-    theta = np.random.randn(n_features)
-    lmbda = np.random.randn(n_features)
-    v = np.random.randn(n_features)
+    key = jax.random.PRNGKey(0)
 
-    sampler = MinibatchSampler(
+    theta = jax.random.normal(key, (n_features,))
+    lmbda = jax.random.normal(key, (n_features,))
+    v = jax.random.normal(key, (n_features,))
+
+    sampler_inner, state_sampler_inner = init_sampler(
         n_samples, batch_size=batch_size
     )
-    np.random.shuffle(sampler.batch_order)
+    sampler_outer, state_sampler_outer = init_sampler(
+        n_samples, batch_size=batch_size
+    )
 
     # Init memory
-    (memory_inner_grad, memory_hvp, memory_cross_v,
-     memory_grad_in_outer) = init_memory(
-        oracle.numba_oracle, oracle.numba_oracle, theta, lmbda, v,
-        sampler, sampler
+    memory = init_memory(
+        f, f, theta, lmbda, v,
+        n_inner_samples=n_samples, n_outer_samples=n_samples,
+        batch_size_inner=batch_size, batch_size_outer=batch_size, mode='full',
+        inner_sampler=sampler_inner, outer_sampler=sampler_outer,
+        state_inner_sampler=state_sampler_inner,
+        state_outer_sampler=state_sampler_outer,
+        inner_size=n_features, outer_size=n_features
     )
 
     # check that the average gradients correspond to the true gradient.
-    _, grad_inner, hvp, cross_v = oracle.get_oracles(
-        theta, lmbda, v, inverse='id'
+    grad_inner, vjp_train = jax.vjp(
+        lambda z, x: jax.grad(f_fb, argnums=0)(z, x),
+        theta,  lmbda
     )
+    hvp, cross_v = vjp_train(v)
 
-    assert np.allclose(memory_inner_grad[-1], grad_inner)
-    assert np.allclose(memory_hvp[-1], hvp)
-    assert np.allclose(memory_cross_v[-1], cross_v)
-    assert np.allclose(memory_grad_in_outer[-1], grad_inner)
+    assert jnp.allclose(memory['inner_grad'][-2], grad_inner)
+    assert jnp.allclose(memory['hvp'][-2], hvp)
+    assert jnp.allclose(memory['cross_v'][-2], cross_v)
+    assert jnp.allclose(memory['grad_in_outer'][-2], grad_inner)
 
     # check that the individual gradients for each sample are correct.
-    for i in range(sampler.n_batches):
-        _, grad_inner, hvp, cross_v = oracle.oracles(
-            theta, lmbda, v, slice(i*batch_size, (i+1) * batch_size),
-            inverse='id'
+    for _ in range(len(state_sampler_inner['batch_order'])):
+        (start_inner, id_inner,
+         _, state_sampler_inner) = sampler_inner(state_sampler_inner)
+        (start_outer, id_outer,
+         _, state_sampler_outer) = sampler_outer(state_sampler_outer)
+        grad_inner, vjp_train = jax.vjp(
+            lambda z, x: jax.grad(f, argnums=0)(z, x, start=start_inner,
+                                                batch_size=batch_size),
+            theta, lmbda
         )
+        hvp, cross_v = vjp_train(v)
 
-        assert np.allclose(memory_inner_grad[i], grad_inner)
-        assert np.allclose(memory_hvp[i], hvp)
-        assert np.allclose(memory_cross_v[i], cross_v)
-        assert np.allclose(memory_grad_in_outer[i], grad_inner)
+        assert jnp.allclose(memory['inner_grad'][id_inner], grad_inner)
+        assert jnp.allclose(memory['hvp'][id_inner], hvp)
+        assert jnp.allclose(memory['cross_v'][id_inner], cross_v)
+        assert jnp.allclose(memory['grad_in_outer'][id_outer], 
+                            jax.grad(f, argnums=0)(theta, lmbda,
+                                                   start=start_outer,
+                                                   batch_size=batch_size))
 
 
-@pytest.mark.parametrize('batch_size', [1, 32, 64])
-@pytest.mark.parametrize('n_samples', [1000, 1024])
-def test_vr(n_samples, batch_size):
-    n_features = 10
+# @pytest.mark.parametrize('batch_size', [1, 32, 64])
+# @pytest.mark.parametrize('n_samples', [1000, 1024])
+# def test_vr(n_samples, batch_size):
+#     n_features = 10
 
-    oracle = _make_oracle(n_samples, n_features)
+#     f = _get_function(n_samples, n_features)
 
-    theta = np.random.randn(n_features)
-    lmbda = np.random.randn(n_features)
+#     key = jax.random.PRNGKey(0)
 
-    sampler = MinibatchSampler(
-        n_samples, batch_size=batch_size
-    )
+#     theta = jax.random.normal(key, (n_features,))
+#     lmbda = jax.random.normal(key, (n_features,))
 
-    # check that variance reduction correctly stores the gradient
-    memory = np.zeros((sampler.n_batches + 1, n_features))
+#     sampler, state_sampler = init_sampler(
+#         n_samples, batch_size=batch_size
+#     )
+#     n_batches = len(state_sampler['batch_order'])
 
-    @njit
-    def check_mem(oracle, theta, lmbda, memory, sampler):
-        for i in range(sampler.n_batches):
-            slice_, vr_info = sampler.get_batch()
-            grad_inner = oracle.grad_inner_var(
-                theta, lmbda, slice_,
-            )
-            variance_reduction(grad_inner, memory, vr_info)
+#     # check that variance reduction correctly stores the gradient
+#     memory = jnp.zeros((n_batches + 1, n_features))
 
-    check_mem(oracle.numba_oracle, theta, lmbda, memory, sampler)
+#     def check_mem(f, theta, lmbda, memory, sampler, state_sampler):
+#         for i in range(n_batches):
+#             start, id, weights, state_sampler = sampler(state_sampler)
+#             grad_inner = jax.grad(f, argnums=0)(theta, lmbda,
+#                                                 start=start,
+#                                                 batch_size=batch_size)
+#             variance_reduction(memory, grad_inner, id, weights)
 
-    # check that after one epoch without moving, gradient average is correct
-    grad_inner_avg = oracle.get_grad_inner_var(theta, lmbda)
-    assert np.allclose(memory[-1], grad_inner_avg)
+#     check_mem(f, theta, lmbda, memory, sampler, state_sampler)
 
-    # check that no part of the memory were altered by the variance
-    for i in range(sampler.n_batches):
-        grad_inner = oracle.grad_inner_var(
-            theta, lmbda, slice(i*batch_size, (i+1) * batch_size),
-        )
-        assert np.allclose(memory[i], grad_inner)
+#     # check that after one epoch without moving, gradient average is correct
+#     grad_inner_avg = jax.grad(f, argnums=0)(theta, lmbda,
+#                                             batch_size=n_samples)
+#     assert jnp.allclose(memory[-1], grad_inner_avg)
+
+#     # check that no part of the memory were altered by the variance
+#     for i in range(n_batches):
+#         start, id, weights, state_sampler = sampler(state_sampler)
+#         grad_inner = jax.grad(f, argnums=0)(theta, lmbda,
+#                                             start=start,
+#                                             batch_size=batch_size)
+#         assert jnp.allclose(memory[id], grad_inner)

@@ -64,17 +64,6 @@ class Solver(StochasticJaxSolver):
         grad_inner = jax.grad(self.f_inner, argnums=0)
         grad_outer = jax.grad(self.f_outer, argnums=(0, 1))
 
-        def variance_reduction(memory, grad, idx, weigth):
-            diff = grad - memory[idx]
-            direction = diff + memory[-2]
-            memory = (
-                memory
-                .at[-1].set(direction)
-                .at[-2].add(weigth * diff)
-                .at[idx].set(grad)
-            )
-            return memory
-
         def saba_one_iter(carry, _):
             memory, carry = carry
             (inner_lr, outer_lr), carry['state_lr'] = update_lr(
@@ -156,8 +145,8 @@ class Solver(StochasticJaxSolver):
 
 
 def init_memory(
-    inner_oracle,
-    outer_oracle,
+    f_inner,
+    f_outer,
     inner_var,
     outer_var,
     v,
@@ -165,6 +154,10 @@ def init_memory(
     n_outer_samples=1,
     batch_size_inner=1,
     batch_size_outer=1,
+    inner_sampler=None,
+    outer_sampler=None,
+    state_inner_sampler=None,
+    state_outer_sampler=None,
     inner_size=1,
     outer_size=1,
     mode="zero",
@@ -179,8 +172,8 @@ def init_memory(
         'grad_out_outer': jnp.zeros((n_outer + 2, outer_size)),
     }
     if mode == "full":
-        grad_inner = jax.jit(jax.grad(inner_oracle, argnums=0))
-        grad_outer = jax.jit(jax.grad(outer_oracle, argnums=(0, 1)))
+        grad_inner = jax.jit(jax.grad(f_inner, argnums=0))
+        grad_outer = jax.jit(jax.grad(f_outer, argnums=(0, 1)))
         memory = _init_memory_fb(
             memory,
             grad_inner,
@@ -188,12 +181,14 @@ def init_memory(
             inner_var,
             outer_var,
             v,
+            inner_sampler,
+            outer_sampler,
+            state_inner_sampler,
+            state_outer_sampler,
             n_inner_samples=n_inner_samples,
             n_outer_samples=n_outer_samples,
             batch_size_inner=batch_size_inner,
             batch_size_outer=batch_size_outer,
-            inner_size=inner_size,
-            outer_size=outer_size,
         )
 
     return memory
@@ -218,7 +213,9 @@ def _init_memory_fb(
     n_outer = (n_outer_samples + batch_size_outer - 1) // batch_size_outer
     n_inner = (n_inner_samples + batch_size_inner - 1) // batch_size_inner
     for _ in range(n_inner):
-        start_inner, state_inner_sampler = inner_sampler(state_inner_sampler)
+        start_inner, *_, state_inner_sampler = inner_sampler(
+            state_inner_sampler
+        )
         id_inner = state_inner_sampler['batch_order'][
             state_inner_sampler['i_batch']
         ]
@@ -228,7 +225,6 @@ def _init_memory_fb(
             outer_var
         )
         hvp, cross_v = vjp_train(v)
-
         memory['inner_grad'] = (
             memory['inner_grad'].at[id_inner].set(grad_inner_var)
             .at[-2].add(weight * grad_inner_var)
@@ -243,7 +239,9 @@ def _init_memory_fb(
         )
 
     for id_outer in range(n_outer):
-        start_outer, state_outer_sampler = outer_sampler(state_outer_sampler)
+        start_outer, *_, state_outer_sampler = outer_sampler(
+            state_outer_sampler
+        )
         id_outer = state_outer_sampler['batch_order'][
             state_outer_sampler['i_batch']
         ]
@@ -260,4 +258,16 @@ def _init_memory_fb(
             .at[-2].add(weight * grad_out)
         )
 
+    return memory
+
+
+def variance_reduction(memory, grad, idx, weigth):
+    diff = grad - memory[idx]
+    direction = diff + memory[-2]
+    memory = (
+        memory
+        .at[-1].set(direction)
+        .at[-2].add(weigth * diff)
+        .at[idx].set(grad)
+    )
     return memory
