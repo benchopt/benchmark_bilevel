@@ -47,6 +47,8 @@ class Solver(StochasticJaxSolver):
             self.inner_var, self.outer_var, v,
             n_inner_samples=self.n_inner_samples,
             n_outer_samples=self.n_outer_samples,
+            state_inner_sampler=self.state_inner_sampler,
+            state_outer_sampler=self.state_outer_sampler,
             batch_size_inner=self.batch_size_inner,
             batch_size_outer=self.batch_size_outer,
             inner_size=self.inner_var.shape[0],
@@ -154,22 +156,20 @@ def init_memory(
     n_outer_samples=1,
     batch_size_inner=1,
     batch_size_outer=1,
-    inner_sampler=None,
-    outer_sampler=None,
     state_inner_sampler=None,
     state_outer_sampler=None,
     inner_size=1,
     outer_size=1,
     mode="zero",
 ):
-    n_outer = (n_outer_samples + batch_size_outer - 1) // batch_size_outer
-    n_inner = (n_inner_samples + batch_size_inner - 1) // batch_size_inner
+    n_batchs_outer = len(state_outer_sampler['batch_order'])
+    n_batchs_inner = len(state_inner_sampler['batch_order'])
     memory = {
-        'inner_grad': jnp.zeros((n_inner + 2, inner_size)),
-        'hvp': jnp.zeros((n_inner + 2, inner_size)),
-        'cross_v': jnp.zeros((n_inner + 2, outer_size)),
-        'grad_in_outer': jnp.zeros((n_outer + 2, inner_size)),
-        'grad_out_outer': jnp.zeros((n_outer + 2, outer_size)),
+        'inner_grad': jnp.zeros((n_batchs_inner + 2, inner_size)),
+        'hvp': jnp.zeros((n_batchs_inner + 2, inner_size)),
+        'cross_v': jnp.zeros((n_batchs_inner + 2, outer_size)),
+        'grad_in_outer': jnp.zeros((n_batchs_outer + 2, inner_size)),
+        'grad_out_outer': jnp.zeros((n_batchs_outer + 2, outer_size)),
     }
     if mode == "full":
         grad_inner = jax.jit(jax.grad(f_inner, argnums=0))
@@ -181,10 +181,8 @@ def init_memory(
             inner_var,
             outer_var,
             v,
-            inner_sampler,
-            outer_sampler,
-            state_inner_sampler,
-            state_outer_sampler,
+            n_batchs_inner=n_batchs_inner,
+            n_batchs_outer=n_batchs_outer,
             n_inner_samples=n_inner_samples,
             n_outer_samples=n_outer_samples,
             batch_size_inner=batch_size_inner,
@@ -201,27 +199,18 @@ def _init_memory_fb(
         inner_var,
         outer_var,
         v,
-        inner_sampler,
-        outer_sampler,
-        state_inner_sampler,
-        state_outer_sampler,
+        n_batchs_inner=1,
+        n_batchs_outer=1,
         n_inner_samples=1,
         n_outer_samples=1,
         batch_size_inner=1,
         batch_size_outer=1,
 ):
-    n_outer = (n_outer_samples + batch_size_outer - 1) // batch_size_outer
-    n_inner = (n_inner_samples + batch_size_inner - 1) // batch_size_inner
-    for _ in range(n_inner):
-        start_inner, *_, state_inner_sampler = inner_sampler(
-            state_inner_sampler
-        )
-        id_inner = state_inner_sampler['batch_order'][
-            state_inner_sampler['i_batch']
-        ]
+    for id_inner in range(n_batchs_inner):
         weight = batch_size_inner / n_inner_samples
         grad_inner_var, vjp_train = jax.vjp(
-            lambda z, x: grad_inner(z, x, start_inner), inner_var,
+            lambda z, x: grad_inner(z, x, id_inner*batch_size_inner),
+            inner_var,
             outer_var
         )
         hvp, cross_v = vjp_train(v)
@@ -238,16 +227,11 @@ def _init_memory_fb(
             .at[-2].add(weight * cross_v)
         )
 
-    for id_outer in range(n_outer):
-        start_outer, *_, state_outer_sampler = outer_sampler(
-            state_outer_sampler
-        )
-        id_outer = state_outer_sampler['batch_order'][
-            state_outer_sampler['i_batch']
-        ]
+    for id_outer in range(n_batchs_outer):
         weight = batch_size_outer / n_outer_samples
 
-        grad_in, grad_out = grad_outer(inner_var, outer_var, start_outer)
+        grad_in, grad_out = grad_outer(inner_var, outer_var,
+                                       id_outer*batch_size_outer)
 
         memory['grad_in_outer'] = (
             memory['grad_in_outer'].at[id_outer].set(grad_in)

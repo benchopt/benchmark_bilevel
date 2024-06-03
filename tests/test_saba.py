@@ -5,7 +5,7 @@ import jax.numpy as jnp
 from benchopt.utils.safe_import import set_benchmark_module
 set_benchmark_module('.')
 
-from functools import partial
+from functools import partial  # noqa: E402
 from solvers.saba import init_memory  # noqa: E402
 from solvers.saba import variance_reduction  # noqa: E402
 from benchmark_utils.minibatch_sampler import init_sampler  # noqa: E402
@@ -39,12 +39,12 @@ def _get_function(n_samples, n_features):
     return f
 
 
-@pytest.mark.parametrize('batch_size', [1])
+@pytest.mark.parametrize('batch_size', [1, 32, 64])
 def test_init_memory(batch_size):
     n_samples = 1024
     n_features = 10
 
-    f = _get_function(n_samples, n_features)
+    f = partial(_get_function(n_samples, n_features), batch_size=batch_size)
     f_fb = partial(f, batch_size=n_samples)
 
     key = jax.random.PRNGKey(0)
@@ -65,7 +65,6 @@ def test_init_memory(batch_size):
         f, f, theta, lmbda, v,
         n_inner_samples=n_samples, n_outer_samples=n_samples,
         batch_size_inner=batch_size, batch_size_outer=batch_size, mode='full',
-        inner_sampler=sampler_inner, outer_sampler=sampler_outer,
         state_inner_sampler=state_sampler_inner,
         state_outer_sampler=state_sampler_outer,
         inner_size=n_features, outer_size=n_features
@@ -99,51 +98,52 @@ def test_init_memory(batch_size):
         assert jnp.allclose(memory['inner_grad'][id_inner], grad_inner)
         assert jnp.allclose(memory['hvp'][id_inner], hvp)
         assert jnp.allclose(memory['cross_v'][id_inner], cross_v)
-        assert jnp.allclose(memory['grad_in_outer'][id_outer], 
+        assert jnp.allclose(memory['grad_in_outer'][id_outer],
                             jax.grad(f, argnums=0)(theta, lmbda,
                                                    start=start_outer,
                                                    batch_size=batch_size))
 
 
-# @pytest.mark.parametrize('batch_size', [1, 32, 64])
-# @pytest.mark.parametrize('n_samples', [1000, 1024])
-# def test_vr(n_samples, batch_size):
-#     n_features = 10
+@pytest.mark.parametrize('batch_size', [1, 32, 64])
+@pytest.mark.parametrize('n_samples', [1024])
+def test_vr(n_samples, batch_size):
+    n_features = 10
 
-#     f = _get_function(n_samples, n_features)
+    f = partial(_get_function(n_samples, n_features), batch_size=batch_size)
+    f_fb = partial(f, batch_size=n_samples)
 
-#     key = jax.random.PRNGKey(0)
+    key = jax.random.PRNGKey(0)
 
-#     theta = jax.random.normal(key, (n_features,))
-#     lmbda = jax.random.normal(key, (n_features,))
+    theta = jax.random.normal(key, (n_features,))
+    lmbda = jax.random.normal(key, (n_features,))
 
-#     sampler, state_sampler = init_sampler(
-#         n_samples, batch_size=batch_size
-#     )
-#     n_batches = len(state_sampler['batch_order'])
+    sampler, state_sampler = init_sampler(
+        n_samples, batch_size=batch_size
+    )
+    n_batches = len(state_sampler['batch_order'])
 
-#     # check that variance reduction correctly stores the gradient
-#     memory = jnp.zeros((n_batches + 1, n_features))
+    # check that variance reduction correctly stores the gradient
+    memory = jnp.zeros((n_batches + 2, n_features))
 
-#     def check_mem(f, theta, lmbda, memory, sampler, state_sampler):
-#         for i in range(n_batches):
-#             start, id, weights, state_sampler = sampler(state_sampler)
-#             grad_inner = jax.grad(f, argnums=0)(theta, lmbda,
-#                                                 start=start,
-#                                                 batch_size=batch_size)
-#             variance_reduction(memory, grad_inner, id, weights)
+    def check_mem(f, theta, lmbda, memory, sampler, state_sampler):
+        for _ in range(n_batches):
+            start, id, weights, state_sampler = sampler(state_sampler)
+            grad_inner = jax.grad(f, argnums=0)(theta, lmbda,
+                                                start=start,
+                                                batch_size=batch_size)
+            memory = variance_reduction(memory, grad_inner, id, weights)
+        return memory
 
-#     check_mem(f, theta, lmbda, memory, sampler, state_sampler)
+    memory = check_mem(f, theta, lmbda, memory, sampler, state_sampler)
 
-#     # check that after one epoch without moving, gradient average is correct
-#     grad_inner_avg = jax.grad(f, argnums=0)(theta, lmbda,
-#                                             batch_size=n_samples)
-#     assert jnp.allclose(memory[-1], grad_inner_avg)
+    # check that after one epoch without moving, gradient average is correct
+    grad_inner_avg = jax.grad(f_fb, argnums=0)(theta, lmbda)
+    assert jnp.allclose(memory[-2], grad_inner_avg)
 
-#     # check that no part of the memory were altered by the variance
-#     for i in range(n_batches):
-#         start, id, weights, state_sampler = sampler(state_sampler)
-#         grad_inner = jax.grad(f, argnums=0)(theta, lmbda,
-#                                             start=start,
-#                                             batch_size=batch_size)
-#         assert jnp.allclose(memory[id], grad_inner)
+    # check that no part of the memory were altered by the variance
+    for i in range(n_batches):
+        start, id, weights, state_sampler = sampler(state_sampler)
+        grad_inner = jax.grad(f, argnums=0)(theta, lmbda,
+                                            start=start,
+                                            batch_size=batch_size)
+        assert jnp.allclose(memory[id], grad_inner)
