@@ -34,7 +34,7 @@ class Objective(BaseObjective):
                 jnp.zeros,
                 outer_shape,
                 is_leaf=lambda x: isinstance(x, tuple),
-            ),
+            ),  # build a new tree full of zeros with the outer_shape structure
         )
 
     def set_data(self, pb_inner, pb_outer, metrics, init_var=None):
@@ -62,12 +62,12 @@ class Objective(BaseObjective):
                 jnp.zeros,
                 self.dim_inner,
                 is_leaf=lambda x: isinstance(x, tuple),
-            )
+            )  # build a new tree full of zeros with the dim_inner structure
             self.outer_var0 = jax.tree_util.tree_map(
                 lambda x: -2 * jnp.ones(x),
                 self.dim_outer,
                 is_leaf=lambda x: isinstance(x, tuple),
-            )
+            )  # build a new tree full of zeros with the dim_outer structure
 
     def evaluate_result(self, inner_var, outer_var):
         if jax.tree_util.tree_reduce(
