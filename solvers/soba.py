@@ -30,7 +30,7 @@ class Solver(StochasticJaxSolver):
         # Init variables
         self.inner_var = self.inner_var0.copy()
         self.outer_var = self.outer_var0.copy()
-        v = jnp.zeros_like(self.inner_var)
+        v = jax.tree_util.tree_map(jnp.zeros_like, self.inner_var)
 
         # Init lr scheduler
         step_sizes = jnp.array(
@@ -76,10 +76,22 @@ class Solver(StochasticJaxSolver):
             )
 
             # Step.2 - update inner variable with SGD.
-            carry['inner_var'] -= inner_step_size * grad_inner_var
-            carry['v'] -= inner_step_size * (hvp + grad_in_outer)
-            carry['outer_var'] -= outer_step_size * (cross_v + grad_out_outer)
-
+            def update_sgd_fn(var, grad, step_size):
+                return jax.tree_util.tree_map(lambda x, y: x - step_size * y, var, grad)
+    
+            carry['inner_var'] = update_sgd_fn(
+                carry['inner_var'], grad_inner_var, inner_step_size
+            )
+            carry['v'] = update_sgd_fn(
+                carry['v'], 
+                jax.tree_util.tree_map(jnp.add, hvp, grad_in_outer), 
+                inner_step_size
+            )
+            carry['outer_var'] = update_sgd_fn(
+                carry['outer_var'], 
+                jax.tree_util.tree_map(jnp.add, cross_v, grad_out_outer), 
+                outer_step_size
+            )
             return carry, _
 
         return soba_one_iter
