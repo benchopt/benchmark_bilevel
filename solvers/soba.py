@@ -77,19 +77,20 @@ class Solver(StochasticJaxSolver):
 
             # Step.2 - update inner variable with SGD.
             def update_sgd_fn(var, grad, step_size):
-                return jax.tree_util.tree_map(lambda x, y: x - step_size * y, var, grad)
-    
+                return jax.tree_util.tree_map(lambda x, y: x - step_size * y,
+                                              var, grad)
+
             carry['inner_var'] = update_sgd_fn(
                 carry['inner_var'], grad_inner_var, inner_step_size
             )
             carry['v'] = update_sgd_fn(
-                carry['v'], 
-                jax.tree_util.tree_map(jnp.add, hvp, grad_in_outer), 
+                carry['v'],
+                jax.tree_util.tree_map(jnp.add, hvp, grad_in_outer),
                 inner_step_size
             )
             carry['outer_var'] = update_sgd_fn(
-                carry['outer_var'], 
-                jax.tree_util.tree_map(jnp.add, cross_v, grad_out_outer), 
+                carry['outer_var'],
+                jax.tree_util.tree_map(jnp.add, cross_v, grad_out_outer),
                 outer_step_size
             )
             return carry, _

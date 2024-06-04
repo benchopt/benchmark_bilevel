@@ -9,7 +9,7 @@ with safe_import_context() as import_ctx:
     import numpy as np
     from urllib import request
     from sklearn.model_selection import train_test_split
-    from sklearn.preprocessing import StandardScaler, OneHotEncoder
+    from sklearn.preprocessing import StandardScaler
 
     import jax
     import jax.numpy as jnp
@@ -126,11 +126,12 @@ class Dataset(BaseDataset):
         self.dim_inner = jax.tree_map(lambda x: x.shape, inner_params)
         self.dim_outer = (n_samples_inner, 28, 28, 1)
         outer_labels = jax.random.randint(jax_rng, (n_samples_inner,), 0, 10)
+
         def loss(params, x, y):
             logits = cnn.apply({'params': params}, x)
             one_hot = jax.nn.one_hot(y, 10)
-            return jnp.mean(optax.softmax_cross_entropy(logits=logits, labels=one_hot))
-
+            return jnp.mean(optax.softmax_cross_entropy(logits=logits,
+                                                        labels=one_hot))
 
         @partial(jax.jit, static_argnames=('batch_size'))
         def f_inner(inner_var, outer_var, start=0, batch_size=1):
@@ -142,7 +143,6 @@ class Dataset(BaseDataset):
                 outer_var, (start, 0, 0, 0), (batch_size, 28, 28, 1)
             )
             return loss(inner_var, outer_var_batch, outer_labels_batch)
-
 
         @partial(jax.jit, static_argnames=('batch_size'))
         def f_outer(inner_var, outer_var, start=0, batch_size=1):
@@ -164,7 +164,8 @@ class Dataset(BaseDataset):
         def accuracy(inner_var, X, y):
             if y.ndim == 2:
                 y = y.argmax(axis=1)
-            logits = cnn.apply({'params': inner_var}, X.reshape((-1, 28, 28, 1)))
+            logits = cnn.apply({'params': inner_var},
+                               X.reshape((-1, 28, 28, 1)))
             return jnp.mean(jnp.argmax(logits, axis=1) != y)
 
         def metrics(inner_var, outer_var):
