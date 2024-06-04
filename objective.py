@@ -2,15 +2,15 @@ from benchopt import BaseObjective
 from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
-    import numpy as np
-    from sklearn.utils import check_random_state
+    import jax
+    import jax.numpy as jnp
 
 
 class Objective(BaseObjective):
     name = "Bilevel Optimization"
     url = "https://github.com/benchopt/benchmark_bilevel"
 
-    requirements = ["scikit-learn", "numba", "jax"]
+    requirements = ["scikit-learn", "jax", "jaxlib"]
     min_benchopt_version = "1.5"
 
     parameters = {
@@ -21,46 +21,41 @@ class Objective(BaseObjective):
         self.random_state = random_state
 
     def get_one_result(self):
-        inner_shape, outer_shape = self.get_inner_oracle().variables_shape
-        return dict(inner_var=np.zeros(*inner_shape),
-                    outer_var=np.zeros(*outer_shape),
-                    memory=0.)
+        inner_shape, outer_shape = self.dim_inner, self.dim_outer
+        return dict(
+            inner_var=jnp.zeros(inner_shape),
+            outer_var=jnp.zeros(outer_shape)
+        )
 
-    def set_data(self, get_inner_oracle, get_outer_oracle, oracle, metrics,
-                 n_reg):
+    def set_data(self, pb_inner, pb_outer, metrics, init_var=None):
 
-        self.get_inner_oracle = get_inner_oracle
-        self.get_outer_oracle = get_outer_oracle
+        (self.f_inner, self.n_samples_inner, self.dim_inner,
+         self.f_inner_fb) = pb_inner
+        (self.f_outer, self.n_samples_outer, self.dim_outer,
+         self.f_outer_fb) = pb_outer
         self.metrics = metrics
 
-        rng = check_random_state(self.random_state)
-        inner_shape, outer_shape = self.get_inner_oracle().variables_shape
-        if oracle == "logreg":
-            self.inner_var0 = rng.randn(*inner_shape)
-            self.outer_var0 = rng.rand(*outer_shape)
-            if self.get_inner_oracle().reg == 'exp':
-                self.outer_var0 = np.log(self.outer_var0)
-            if n_reg == 1:
-                self.outer_var0 = self.outer_var0[:1]
+        key = jax.random.PRNGKey(self.random_state)
+        if init_var is not None:
+            # Define random inits per datasets
+            self.inner_var0, self.outer_var0 = init_var(key)
         else:
-            self.inner_var0 = np.zeros(*inner_shape)
-            self.outer_var0 = -2 * np.ones(*outer_shape)
-            # XXX: Try random inits
+            self.inner_var0 = jnp.zeros(self.dim_inner)
+            self.outer_var0 = -2 * jnp.ones(self.dim_outer)
 
-    def evaluate_result(self, inner_var, outer_var, memory):
-        if np.isnan(outer_var).any():
+    def evaluate_result(self, inner_var, outer_var):
+        if jnp.isnan(outer_var).any():
             raise ValueError
 
         metrics = self.metrics(inner_var, outer_var)
-        metrics.update({'memory': memory})
         return metrics
 
     def get_objective(self):
         return dict(
-            f_train=self.get_inner_oracle,
-            f_val=self.get_outer_oracle,
-            n_inner_samples=self.get_inner_oracle().n_samples,
-            n_outer_samples=self.get_outer_oracle().n_samples,
+            f_inner=self.f_inner,
+            f_outer=self.f_outer,
+            n_inner_samples=self.n_samples_inner,
+            n_outer_samples=self.n_samples_outer,
             inner_var0=self.inner_var0,
-            outer_var0=self.outer_var0,
+            outer_var0=self.outer_var0
         )

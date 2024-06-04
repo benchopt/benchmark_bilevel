@@ -3,12 +3,26 @@ from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
     import numpy as np
-    from benchmark_utils import oracles
     from libsvmdata import fetch_libsvm
-    from benchmark_utils.oracle_utils import convert_array_framework
+
+    import jax
+    import jax.numpy as jnp
+    from functools import partial
+
+    from jaxopt import LBFGS
+
+
+def loss_sample(inner_var, outer_var, x, y):
+    return -jax.nn.log_sigmoid(y*jnp.dot(inner_var, x))
+
+
+def loss(inner_var, outer_var, X, y):
+    batched_loss = jax.vmap(loss_sample, in_axes=(None, None, 0, 0))
+    return jnp.mean(batched_loss(inner_var, outer_var, X, y), axis=0)
 
 
 class Dataset(BaseDataset):
+    """Hyperparameter optimization with IJCNN1 dataset."""
 
     name = "ijcnn1"
 
@@ -16,57 +30,97 @@ class Dataset(BaseDataset):
     requirements = ['pip:libsvmdata', 'scikit-learn']
 
     parameters = {
-        'reg': ['exp'],
-        'n_reg': ['full'],
-        'oracle': ['logreg'],
+        'reg_parametrization': ['exp'],
     }
 
     def get_data(self):
+        assert self.reg_parametrization in ['lin', 'exp'], (
+            f"unknown reg parameter '{self.reg_parametrization}'. "
+            "Should be 'lin' or 'exp'."
+        )
+
         X_train, y_train = fetch_libsvm('ijcnn1')
         X_val, y_val = fetch_libsvm('ijcnn1_test')
 
-        def get_inner_oracle(framework="none", get_full_batch=False):
-            X = convert_array_framework(X_train, framework)
-            y = convert_array_framework(y_train, framework)
-            oracle = oracles.LogisticRegressionOracle(X, y, reg=self.reg)
-            return oracle.get_framework(framework=framework,
-                                        get_full_batch=get_full_batch)
+        X_train, y_train = jnp.array(X_train), jnp.array(y_train)
+        X_val, y_val = jnp.array(X_val), jnp.array(y_val)
 
-        def get_outer_oracle(framework="none", get_full_batch=False):
-            X = convert_array_framework(X_val, framework)
-            y = convert_array_framework(y_val, framework)
-            oracle = oracles.LogisticRegressionOracle(X, y)
-            return oracle.get_framework(framework=framework,
-                                        get_full_batch=get_full_batch)
+        self.n_samples_inner = X_train.shape[0]
+        self.dim_inner = X_train.shape[1]
+        self.n_samples_outer = X_val.shape[0]
+        self.dim_outer = X_val.shape[1]
+
+        @partial(jax.jit, static_argnames=('batch_size'))
+        def f_inner(inner_var, outer_var, start=0, batch_size=1):
+            x = jax.lax.dynamic_slice(
+                X_train, (start, 0), (batch_size, X_train.shape[1])
+            )
+            y = jax.lax.dynamic_slice(
+                y_train, (start, ), (batch_size, )
+            )
+            res = loss(inner_var, outer_var, x, y)
+
+            if self.reg_parametrization == 'exp':
+                res += jnp.dot(jnp.exp(outer_var) * inner_var, inner_var)/2
+            elif self.reg_parametrization == 'lin':
+                res += jnp.dot(outer_var * inner_var, inner_var)/2
+            return res
+
+        @partial(jax.jit, static_argnames=('batch_size'))
+        def f_outer(inner_var, outer_var, start=0, batch_size=1):
+            x = jax.lax.dynamic_slice(
+                X_val, (start, 0), (batch_size, X_val.shape[1])
+            )
+            y = jax.lax.dynamic_slice(
+                y_val, (start, ), (batch_size, )
+            )
+            res = loss(inner_var, outer_var, x, y)
+            return res
+
+        f_inner_fb = partial(
+            f_inner, batch_size=X_train.shape[0], start=0
+        )
+        f_outer_fb = partial(
+            f_outer, batch_size=X_val.shape[0], start=0
+        )
+
+        solver_inner = LBFGS(fun=f_inner_fb)
+
+        def value_function(outer_var):
+            inner_var_star = solver_inner.run(
+                jnp.zeros(X_train.shape[1]), outer_var
+            ).params
+
+            return f_outer_fb(inner_var_star, outer_var), inner_var_star
+
+        value_and_grad = jax.jit(
+            jax.value_and_grad(value_function, has_aux=True)
+        )
 
         def metrics(inner_var, outer_var):
-            f_train = get_inner_oracle(framework="none")
-            f_val = get_outer_oracle(framework="none")
-            inner_star = f_train.inner_var_star(outer_var)
-            value_function = f_val.get_value(inner_star, outer_var)
-            grad_f_val_inner, grad_f_val_outer = f_val.get_grad(
-                inner_star, outer_var
-            )
-            grad_value = grad_f_val_outer
-            v = f_train.get_inverse_hvp(
-                inner_star, outer_var,
-                grad_f_val_inner
-            )
-            grad_value -= f_train.get_cross(inner_star, outer_var, v)
-
+            (value_fun, inner_star), grad_value = value_and_grad(outer_var)
             return dict(
-                value_func=value_function,
-                value=np.linalg.norm(grad_value)**2,
-                inner_distance=np.linalg.norm(inner_star-inner_var)**2,
-                norm_outer_var=np.linalg.norm(outer_var)**2,
-                norm_regul=np.linalg.norm(np.exp(outer_var))**2,
+                value_func=float(value_fun),
+                value=float(jnp.linalg.norm(grad_value)**2),
+                inner_distance=float(jnp.linalg.norm(inner_star-inner_var)**2),
+                norm_outer_var=float(jnp.linalg.norm(outer_var)**2),
+                norm_regul=float(jnp.linalg.norm(np.exp(outer_var))**2),
             )
+
+        def init_var(key):
+            keys = jax.random.split(key, 2)
+            inner_var0 = jax.random.normal(keys[0], (self.dim_inner,))
+            outer_var0 = jax.random.uniform(keys[1], (self.dim_outer,))
+            if self.reg_parametrization == 'exp':
+                outer_var0 = jnp.log(outer_var0)
+            return inner_var0, outer_var0
 
         data = dict(
-            get_inner_oracle=get_inner_oracle,
-            get_outer_oracle=get_outer_oracle,
-            oracle='logreg',
+            pb_inner=(f_inner, self.n_samples_inner, self.dim_inner,
+                      f_inner_fb),
+            pb_outer=(f_outer, self.n_samples_outer, self.dim_outer,
+                      f_outer_fb),
             metrics=metrics,
-            n_reg=self.n_reg,
+            init_var=init_var,
         )
         return data
