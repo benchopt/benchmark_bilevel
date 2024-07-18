@@ -3,6 +3,7 @@ from benchmark_utils.stochastic_jax_solver import StochasticJaxSolver
 from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
+    from benchmark_utils.tree_utils import update_sgd_fn
     from benchmark_utils.learning_rate_scheduler import update_lr
     from benchmark_utils.learning_rate_scheduler import init_lr_scheduler
 
@@ -76,10 +77,6 @@ class Solver(StochasticJaxSolver):
             )
 
             # Step.2 - update inner variable with SGD.
-            def update_sgd_fn(var, grad, step_size):
-                return jax.tree_util.tree_map(lambda x, y: x - step_size * y,
-                                              var, grad)
-
             carry['inner_var'] = update_sgd_fn(
                 carry['inner_var'], grad_inner_var, inner_step_size
             )
