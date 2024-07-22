@@ -1,6 +1,6 @@
 import jax
-from benchmark_utils.tree_utils import tree_scalar_mult
-from benchmark_utils.tree_utils import update_sgd_fn, tree_add
+from benchmark_utils.tree_utils import update_sgd_fn
+from benchmark_utils.tree_utils import tree_scalar_mult, tree_add
 
 
 def hia_jax(
@@ -56,10 +56,11 @@ def hia_jax(
     def iter(_, args):
         state_sampler, v = args
         start_idx, *_, state_sampler = sampler(state_sampler)
-        v -= step_size * hvp(v, start_idx)
+        v = update_sgd_fn(v, hvp(v, start_idx), step_size)
         return state_sampler, v
     state_sampler, v = jax.lax.fori_loop(0, p[0], iter, (state_sampler, v))
-    return n_steps * step_size * v, jax.random.split(key, 1)[0], state_sampler
+    v = tree_scalar_mult(n_steps * step_size, v)
+    return v, jax.random.split(key, 1)[0], state_sampler
 
 
 def shia_jax(
@@ -77,13 +78,13 @@ def shia_jax(
 
     Parameters
     ----------
-    inner_var : array
+    inner_var : pytree
         Inner variable.
 
-    outer_var : array
+    outer_var : pytree
         Outer variable.
 
-    v : array
+    v : pytree
         Right hand side of the linear system.
 
     state_sampler : dict
