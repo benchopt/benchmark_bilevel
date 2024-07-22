@@ -5,6 +5,7 @@ from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
     from benchmark_utils import constants
+    from benchmark_utils.tree_utils import update_sgd_fn
     from benchmark_utils.learning_rate_scheduler import update_lr
     from benchmark_utils.learning_rate_scheduler import init_lr_scheduler
 
@@ -96,7 +97,8 @@ class Solver(BaseSolver):
             (_, self.inner_var), implicit_grad = self.value_grad(
                 self.inner_var, self.outer_var
             )
-            self.outer_var -= outer_lr * implicit_grad
+            self.outer_var = update_sgd_fn(self.outer_var, implicit_grad,
+                                           outer_lr)
 
     def get_result(self):
         return dict(inner_var=self.inner_var, outer_var=self.outer_var)
