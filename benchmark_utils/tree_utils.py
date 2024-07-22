@@ -49,3 +49,19 @@ def tree_scalar_mult(scalar, tree):
         Second pytree to multiply.
     """
     return jax.tree_util.tree_map(lambda x: scalar*x, tree)
+
+
+def tree_inner_product(a, b):
+    """
+    Helper function that computes the inner product of two pytrees.
+
+    Parameters
+    ----------
+    a : pytree
+        First pytree.
+
+    b : pytree
+        Second pytree.
+    """
+    return jax.tree_util.tree_reduce(jnp.add, jax.tree_util.tree_map(
+        lambda x, y: jnp.sum(x * y), a, b))
