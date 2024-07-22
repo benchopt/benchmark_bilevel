@@ -1,4 +1,6 @@
 import jax
+from benchmark_utils.tree_utils import tree_scalar_mult
+from benchmark_utils.tree_utils import update_sgd_fn, tree_add
 
 
 def hia_jax(
@@ -220,7 +222,10 @@ def sgd_v_jax(inner_var, outer_var, v, grad_out, state_sampler,
     def iter(_, args):
         state_sampler, v = args
         start_idx, *_, state_sampler = sampler(state_sampler)
-        v -= step_size * (hvp(v, start_idx) - grad_out)
+        v = update_sgd_fn(v,
+                          tree_add(hvp(v, start_idx),
+                                   tree_scalar_mult(-1, grad_out)),
+                          step_size)
         return state_sampler, v
     state_sampler, v = jax.lax.fori_loop(0, n_steps, iter, (state_sampler, v))
     return v, state_sampler

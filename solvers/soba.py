@@ -3,8 +3,8 @@ from benchmark_utils.stochastic_jax_solver import StochasticJaxSolver
 from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
-    from benchmark_utils.tree_utils import update_sgd_fn
     from benchmark_utils.learning_rate_scheduler import update_lr
+    from benchmark_utils.tree_utils import update_sgd_fn, tree_add
     from benchmark_utils.learning_rate_scheduler import init_lr_scheduler
 
     import jax
@@ -82,12 +82,12 @@ class Solver(StochasticJaxSolver):
             )
             carry['v'] = update_sgd_fn(
                 carry['v'],
-                jax.tree_util.tree_map(jnp.add, hvp, grad_in_outer),
+                tree_add(hvp, grad_in_outer),
                 inner_step_size
             )
             carry['outer_var'] = update_sgd_fn(
                 carry['outer_var'],
-                jax.tree_util.tree_map(jnp.add, cross_v, grad_out_outer),
+                tree_add(cross_v, grad_out_outer),
                 outer_step_size
             )
             return carry, _
