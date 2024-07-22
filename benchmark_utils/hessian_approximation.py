@@ -116,8 +116,8 @@ def shia_jax(
     def iter(_, args):
         state_sampler, v, s = args
         start_idx, *_, state_sampler = sampler(state_sampler)
-        v -= step_size * hvp(v, start_idx)
-        s += v
+        v = update_sgd_fn(v, hvp(v, start_idx), step_size)
+        s = update_sgd_fn(s, v, -1)  # s += v
         return state_sampler, v, s
     state_sampler, _, s = jax.lax.fori_loop(0, n_steps, iter,
                                             (state_sampler, v, s))
@@ -165,11 +165,11 @@ def shia_fb_jax(inner_var, outer_var, v, step_size, n_steps=1,
 
     def iter(_, args):
         v, s = args
-        v -= step_size * hvp(v)
-        s += v
+        v = update_sgd_fn(v, hvp(v), step_size)
+        s = update_sgd_fn(s, v, -1)  # s += v
         return v, s
     _, s = jax.lax.fori_loop(0, n_steps, iter, (v, s))
-    return step_size * s
+    return tree_scalar_mult(step_size, s)
 
 
 def sgd_v_jax(inner_var, outer_var, v, grad_out, state_sampler,
@@ -296,16 +296,19 @@ def joint_shia_jax(
     def iter(_, args):
         state_sampler, v, s, v_old, s_old = args
         start_idx, *_, state_sampler = sampler(state_sampler)
-        v -= step_size * hvp(v, start_idx)
-        s += v
-        v_old -= step_size * hvp_old(v_old, start_idx)
-        s_old += v_old
+        v = update_sgd_fn(v, hvp(v, start_idx), step_size)
+        s = update_sgd_fn(s, v, -1)  # s += v
+        v_old = update_sgd_fn(v_old, hvp_old(v_old, start_idx), step_size)
+        s_old = update_sgd_fn(s_old, v_old, -1)  # s_old += v_old
         return state_sampler, v, s, v_old, s_old
+
     state_sampler, _, s, _, s_old = jax.lax.fori_loop(
         0, n_steps, iter, (state_sampler, v, s, v_old, s_old)
     )
-
-    return step_size * s, step_size * s_old, state_sampler
+    return (
+        tree_scalar_mult(step_size, s), tree_scalar_mult(step_size, s_old),
+        state_sampler
+    )
 
 
 def joint_hia_jax(
@@ -381,12 +384,16 @@ def joint_hia_jax(
     def iter(_, args):
         state_sampler, v, v_old = args
         start_idx, *_, state_sampler = sampler(state_sampler)
-        v -= step_size * hvp(v, start_idx)
-        v_old -= step_size * hvp_old(v_old, start_idx)
+        v = update_sgd_fn(hvp(v, start_idx), step_size)
+        v_old = update_sgd_fn(hvp_old(v_old, step_size), start_idx)
         return state_sampler, v, v_old
+
     state_sampler, v, v_old = jax.lax.fori_loop(
         0, p[0], iter, (state_sampler, v, v_old)
     )
 
-    return n_steps * step_size * v, n_steps * step_size * v_old, \
+    return (
+        tree_scalar_mult(n_steps * step_size, v),
+        tree_scalar_mult(n_steps * step_size, v_old),
         jax.random.split(key, 1)[0], state_sampler
+    )

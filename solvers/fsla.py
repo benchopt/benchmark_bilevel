@@ -6,8 +6,8 @@ with safe_import_context() as import_ctx:
     from benchmark_utils.learning_rate_scheduler import update_lr
     from benchmark_utils.learning_rate_scheduler import init_lr_scheduler
 
-    from benchmark_utils.tree_utils import tree_scalar_mult
     from benchmark_utils.tree_utils import update_sgd_fn, tree_add
+    from benchmark_utils.tree_utils import tree_scalar_mult, update_memory
     from benchmark_utils.tree_utils import init_memory_of_trees, select_memory
 
     import jax
@@ -126,12 +126,13 @@ class Solver(StochasticJaxSolver):
                                           1)
 
             # Step.4 - update direction with momentum
-            carry['memory_outer'] = carry['memory_outer'].at[1].set(
+            carry['memory_outer'] = update_memory(
+                carry['memory_outer'], 1,
                 tree_add(
                     impl_grad,
                     tree_scalar_mult(
                         (1-eta),
-                        tree_add(carry['memory_outer'][1],
+                        tree_add(select_memory(carry['memory_outer'], 1),
                                  tree_scalar_mult(-1, impl_grad_old))
                     )
                 )

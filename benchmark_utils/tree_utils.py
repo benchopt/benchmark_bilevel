@@ -96,3 +96,21 @@ def select_memory(memory, idx):
         Index of the memory to select.
     """
     return jax.tree_util.tree_map(lambda x: x[idx], memory)
+
+
+def update_memory(memory, idx, value):
+    """
+    Helper function that updates a memory from a memory pytree.
+
+    Parameters
+    ----------
+    memory : pytree
+        Memory pytree.
+
+    idx : int
+        Index of the memory to update.
+
+    value : pytree
+        Value to update the memory with.
+    """
+    return jax.tree_util.tree_map(lambda x: x.at[idx].set(value), memory)
