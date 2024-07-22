@@ -8,6 +8,7 @@ with safe_import_context() as import_ctx:
 
     from benchmark_utils.tree_utils import tree_scalar_mult
     from benchmark_utils.tree_utils import update_sgd_fn, tree_add
+    from benchmark_utils.tree_utils import init_memory_of_trees, select_memory
 
     import jax
     import jax.numpy as jnp
@@ -32,7 +33,7 @@ class Solver(StochasticJaxSolver):
         # Init variables
         self.inner_var = self.inner_var0.copy()
         self.outer_var = self.outer_var0.copy()
-        v = jnp.zeros_like(self.inner_var)
+        v = jax.tree_util.tree_map(jnp.zeros_like, self.inner_var)
 
         # Init lr scheduler
         step_sizes = jnp.array(
@@ -44,7 +45,7 @@ class Solver(StochasticJaxSolver):
 
         return dict(
             inner_var=self.inner_var, outer_var=self.outer_var, v=v,
-            memory_outer=jnp.zeros((2, *self.outer_var.shape)),
+            memory_outer=init_memory_of_trees(2, self.outer_var),
             state_lr=state_lr,
             state_inner_sampler=self.state_inner_sampler,
             state_outer_sampler=self.state_outer_sampler,
@@ -142,7 +143,7 @@ class Solver(StochasticJaxSolver):
             )
             carry['outer_var'] = update_sgd_fn(
                 carry['outer_var'],
-                carry['memory_outer'][1],
+                select_memory(carry['memory_outer'], 1),
                 outer_lr
             )
             return carry, _

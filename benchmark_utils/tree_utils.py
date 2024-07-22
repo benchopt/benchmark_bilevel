@@ -65,3 +65,34 @@ def tree_inner_product(a, b):
     """
     return jax.tree_util.tree_reduce(jnp.add, jax.tree_util.tree_map(
         lambda x, y: jnp.sum(x * y), a, b))
+
+
+def init_memory_of_trees(n_memories, tree):
+    """
+    Helper function that initializes the memory of a pytree.
+
+    Parameters
+    ----------
+    n_memories : int
+        Number of memories to initialize.
+
+    tree : pytree
+        Pytree to initialize.
+    """
+    return jax.tree_util.tree_map(lambda x: jnp.zeros((n_memories, *x.shape)),
+                                  tree)
+
+
+def select_memory(memory, idx):
+    """
+    Helper function that selects a memory from a memory pytree.
+
+    Parameters
+    ----------
+    memory : pytree
+        Memory pytree.
+
+    idx : int
+        Index of the memory to select.
+    """
+    return jax.tree_util.tree_map(lambda x: x[idx], memory)
