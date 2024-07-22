@@ -102,7 +102,6 @@ class Solver(StochasticJaxSolver):
                                       tree_scalar_mult(-1, implicit_grad))
 
             # Update the outer variable
-            carry['outer_var'] -= outer_lr * grad_outer_var
             carry['outer_var'] = update_sgd_fn(
                 carry['outer_var'], grad_outer_var, outer_lr
             )
