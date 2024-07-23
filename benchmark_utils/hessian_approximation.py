@@ -384,8 +384,8 @@ def joint_hia_jax(
     def iter(_, args):
         state_sampler, v, v_old = args
         start_idx, *_, state_sampler = sampler(state_sampler)
-        v = update_sgd_fn(hvp(v, start_idx), step_size)
-        v_old = update_sgd_fn(hvp_old(v_old, step_size), start_idx)
+        v = update_sgd_fn(v, hvp(v, start_idx), step_size)
+        v_old = update_sgd_fn(v_old, hvp_old(v_old, step_size), start_idx)
         return state_sampler, v, v_old
 
     state_sampler, v, v_old = jax.lax.fori_loop(
