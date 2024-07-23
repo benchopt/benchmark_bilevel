@@ -110,7 +110,7 @@ class Solver(BaseSolver):
             deltas = vmapped_inner(inner_var_old, outer_var_aux,
                                    inner_step_size)
             deltas = update_sgd_fn(deltas, self.inner_var, 1)
-            deltas = jax.tree_map(lambda x: x / self.mu, deltas)
+            deltas = jax.tree_util.tree_map(lambda x: x / self.mu, deltas)
             grad_outer_in, grad_outer_out = grad_outer(self.inner_var,
                                                        self.outer_var)
             mat_vec_prod = jax.tree_util.tree_reduce(

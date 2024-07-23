@@ -85,7 +85,7 @@ class Solver(StochasticJaxSolver):
             grad_inner_var_old, vjp_fun_old = jax.vjp(
                 lambda x: grad_inner_fun(carry['memory_inner'][0], x,
                                          start_inner),
-                carry['memory_outer'][0]
+                select_memory(carry['memory_outer'], 0)
             )
 
             carry['memory_inner'] = update_memory(

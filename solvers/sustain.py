@@ -92,10 +92,17 @@ class Solver(StochasticJaxSolver):
                 select_memory(carry['memory_outer'], 0)
             )
 
-            carry['memory_inner'] = carry['memory_inner'].at[1].set(
-                grad_inner_var
-                + (1-eta) * (select_memory(carry['memory_inner'], 1)
-                             - grad_inner_var_old)
+            carry['memory_inner'] = update_memory(
+                carry['memory_inner'], 1,
+                tree_add(
+                    grad_inner_var,
+                    tree_scalar_mult(
+                        1-eta,
+                        tree_diff(select_memory(carry['memory_inner'], 1),
+                                  grad_inner_var_old)
+                    )
+                )
+
             )
 
             # Step.2 - Compute implicit grad approximation with HIA
@@ -121,8 +128,9 @@ class Solver(StochasticJaxSolver):
                     grad_inner=grad_inner_fun
                 )
             )
-            impl_grad -= vjp_fun(ihvp)[0]
-            impl_grad_old -= vjp_fun_old(ihvp_old)[0]
+            impl_grad = update_sgd_fn(impl_grad, vjp_fun(ihvp)[0], 1)
+            impl_grad_old = update_sgd_fn(impl_grad_old,
+                                          vjp_fun_old(ihvp_old)[0], 1)
 
             # Step.3 - Update direction for x with momentum
             carry['memory_outer'] = update_memory(

@@ -121,7 +121,7 @@ def shia_jax(
         return state_sampler, v, s
     state_sampler, _, s = jax.lax.fori_loop(0, n_steps, iter,
                                             (state_sampler, v, s))
-    return step_size * s, state_sampler
+    return tree_scalar_mult(step_size, s), state_sampler
 
 
 def shia_fb_jax(inner_var, outer_var, v, step_size, n_steps=1,
@@ -385,7 +385,7 @@ def joint_hia_jax(
         state_sampler, v, v_old = args
         start_idx, *_, state_sampler = sampler(state_sampler)
         v = update_sgd_fn(v, hvp(v, start_idx), step_size)
-        v_old = update_sgd_fn(v_old, hvp_old(v_old, start_idx), start_idx)
+        v_old = update_sgd_fn(v_old, hvp_old(v_old, start_idx), step_size)
         return state_sampler, v, v_old
 
     state_sampler, v, v_old = jax.lax.fori_loop(
