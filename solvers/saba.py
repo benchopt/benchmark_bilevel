@@ -3,10 +3,12 @@ from benchmark_utils.stochastic_jax_solver import StochasticJaxSolver
 from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
-    from benchmark_utils.tree_utils import select_memory
+    from benchmark_utils.tree_utils import tree_scalar_mult
+    from benchmark_utils.tree_utils import init_memory_of_trees
     from benchmark_utils.learning_rate_scheduler import update_lr
-    from benchmark_utils.tree_utils import update_sgd_fn, tree_add
+    from benchmark_utils.tree_utils import select_memory, update_memory
     from benchmark_utils.learning_rate_scheduler import init_lr_scheduler
+    from benchmark_utils.tree_utils import update_sgd_fn, tree_add, tree_diff
 
     import jax
     import jax.numpy as jnp
@@ -53,8 +55,6 @@ class Solver(StochasticJaxSolver):
             state_outer_sampler=self.state_outer_sampler,
             batch_size_inner=self.batch_size_inner,
             batch_size_outer=self.batch_size_outer,
-            inner_size=self.inner_var.shape[0],
-            outer_size=self.outer_var.shape[0],
         )
         return memory, dict(
             inner_var=self.inner_var, outer_var=self.outer_var, v=v,
@@ -105,7 +105,7 @@ class Solver(StochasticJaxSolver):
             }
             memory = jax.tree_util.tree_map(
                 lambda mem, up: variance_reduction(mem, *up),
-                memory, updates
+                memory, updates, is_leaf=lambda x: isinstance(x, tuple)
             )
 
             # Step.3 - update inner variable with SGD.
@@ -167,18 +167,16 @@ def init_memory(
     batch_size_outer=1,
     state_inner_sampler=None,
     state_outer_sampler=None,
-    inner_size=1,
-    outer_size=1,
     mode="zero",
 ):
     n_batchs_outer = len(state_outer_sampler['batch_order'])
     n_batchs_inner = len(state_inner_sampler['batch_order'])
     memory = {
-        'inner_grad': jnp.zeros((n_batchs_inner + 2, inner_size)),
-        'hvp': jnp.zeros((n_batchs_inner + 2, inner_size)),
-        'cross_v': jnp.zeros((n_batchs_inner + 2, outer_size)),
-        'grad_in_outer': jnp.zeros((n_batchs_outer + 2, inner_size)),
-        'grad_out_outer': jnp.zeros((n_batchs_outer + 2, outer_size)),
+        'inner_grad': init_memory_of_trees(n_batchs_inner + 2, inner_var),
+        'hvp': init_memory_of_trees(n_batchs_inner + 2, inner_var),
+        'cross_v': init_memory_of_trees(n_batchs_inner + 2, outer_var),
+        'grad_in_outer': init_memory_of_trees(n_batchs_outer + 2, inner_var),
+        'grad_out_outer': init_memory_of_trees(n_batchs_outer + 2, outer_var),
     }
     if mode == "full":
         grad_inner = jax.jit(jax.grad(f_inner, argnums=0))
@@ -223,17 +221,24 @@ def _init_memory_fb(
             outer_var
         )
         hvp, cross_v = vjp_train(v)
-        memory['inner_grad'] = (
-            memory['inner_grad'].at[id_inner].set(grad_inner_var)
-            .at[-2].add(weight * grad_inner_var)
+        memory['inner_grad'] = update_memory(
+            memory['inner_grad'], id_inner, grad_inner_var)
+        memory['inner_grad'] = update_memory(
+            memory['inner_grad'], -2,
+            tree_add(select_memory(memory['inner_grad'], -2),
+                     tree_scalar_mult(weight, grad_inner_var))
         )
-        memory['hvp'] = (
-            memory['hvp'].at[id_inner].set(hvp)
-            .at[-2].add(weight * hvp)
+        memory['hvp'] = update_memory(memory['hvp'], id_inner, hvp)
+        memory['hvp'] = update_memory(
+            memory['hvp'], -2,
+            tree_add(select_memory(memory['hvp'], -2),
+                     tree_scalar_mult(weight, hvp))
         )
-        memory['cross_v'] = (
-            memory['cross_v'].at[id_inner].set(cross_v)
-            .at[-2].add(weight * cross_v)
+        memory['cross_v'] = update_memory(memory['cross_v'], id_inner, cross_v)
+        memory['cross_v'] = update_memory(
+            memory['cross_v'], -2,
+            tree_add(select_memory(memory['cross_v'], -2),
+                     tree_scalar_mult(weight, cross_v))
         )
 
     for id_outer in range(n_batchs_outer):
@@ -242,25 +247,30 @@ def _init_memory_fb(
         grad_in, grad_out = grad_outer(inner_var, outer_var,
                                        id_outer*batch_size_outer)
 
-        memory['grad_in_outer'] = (
-            memory['grad_in_outer'].at[id_outer].set(grad_in)
-            .at[-2].add(weight * grad_in)
+        memory['grad_in_outer'] = update_memory(memory['grad_in_outer'],
+                                                id_outer, grad_in)
+        memory['grad_in_outer'] = update_memory(
+            memory['grad_in_outer'], -2,
+            tree_add(
+                select_memory(memory['grad_in_outer'], -2),
+                tree_scalar_mult(weight, grad_in))
         )
-        memory['grad_out_outer'] = (
-            memory['grad_out_outer'].at[id_outer].set(grad_out)
-            .at[-2].add(weight * grad_out)
+        memory['grad_out_outer'] = update_memory(memory['grad_out_outer'],
+                                                 id_outer, grad_out)
+        memory['grad_out_outer'] = update_memory(
+            memory['grad_out_outer'], -2,
+            tree_add(
+                select_memory(memory['grad_out_outer'], -2),
+                tree_scalar_mult(weight, grad_out))
         )
 
     return memory
 
 
 def variance_reduction(memory, grad, idx, weigth):
-    diff = grad - memory[idx]
-    direction = diff + memory[-2]
-    memory = (
-        memory
-        .at[-1].set(direction)
-        .at[-2].add(weigth * diff)
-        .at[idx].set(grad)
-    )
+    diff = tree_diff(grad, memory[idx])
+    direction = tree_add(diff, select_memory(memory, -2))
+    memory = update_memory(memory, -1, direction)
+    memory = update_memory(memory, -2, tree_scalar_mult(weigth, diff))
+    memory = update_memory(memory, idx, grad)
     return memory
