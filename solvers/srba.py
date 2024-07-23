@@ -5,8 +5,8 @@ from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
     from benchmark_utils.tree_utils import update_sgd_fn
+    from benchmark_utils.tree_utils import tree_add, tree_diff
     from benchmark_utils.learning_rate_scheduler import update_lr
-    from benchmark_utils.tree_utils import tree_add, tree_scalar_mult
     from benchmark_utils.learning_rate_scheduler import init_lr_scheduler
 
     import jax
@@ -117,30 +117,28 @@ class Solver(StochasticJaxSolver):
 
             d_inner = update_sgd_fn(
                 d_inner,
-                tree_add(grad_inner_var,
-                         tree_scalar_mult(-1, grad_inner_var_old)),
+                tree_diff(grad_inner_var, grad_inner_var_old),
                 -1
             )  # d_inner = d_inner + (grad_inner_var - grad_inner_var_old)
             d_v = update_sgd_fn(
                 d_v,
-                tree_add(hvp, tree_scalar_mult(-1, hvp_old)),
+                tree_diff(hvp, hvp_old),
                 -1
             )  # d_v = d_v + (hvp - hvp_old)
             d_v = update_sgd_fn(
                 d_v,
-                tree_add(grad_outer_in,
-                         tree_scalar_mult(-1, grad_outer_in_old)),
+                tree_diff(grad_outer_in,
+                          grad_outer_in_old),
                 -1
             )  # d_v = d_v + (grad_outer_in - grad_outer_in_old)
             d_outer = update_sgd_fn(
                 d_outer,
-                tree_add(cross_v, tree_scalar_mult(-1, cross_v_old)),
+                tree_diff(cross_v, cross_v_old),
                 -1
             )  # d_outer = d_outer + (cross_v - cross_v_old)
             d_outer = update_sgd_fn(
                 d_outer,
-                tree_add(grad_outer_out,
-                         tree_scalar_mult(-1, grad_outer_out_old)),
+                tree_diff(grad_outer_out, grad_outer_out_old),
                 -1
             )  # d_outer = d_outer + (grad_outer_out - grad_outer_out_old)
 

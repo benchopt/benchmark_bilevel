@@ -36,6 +36,21 @@ def tree_add(a, b):
     return jax.tree_util.tree_map(jnp.add, a, b)
 
 
+def tree_diff(a, b):
+    """
+    Helper function that subtracts two pytrees.
+
+    Parameters
+    ----------
+    a : pytree
+        First pytree to subtract.
+
+    b : pytree
+        Second pytree to subtract.
+    """
+    return jax.tree_util.tree_map(jnp.subtract, a, b)
+
+
 def tree_scalar_mult(scalar, tree):
     """
     Helper function that multiplies two pytrees.

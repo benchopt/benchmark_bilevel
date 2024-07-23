@@ -6,7 +6,7 @@ with safe_import_context() as import_ctx:
     from benchmark_utils.learning_rate_scheduler import update_lr
     from benchmark_utils.learning_rate_scheduler import init_lr_scheduler
 
-    from benchmark_utils.tree_utils import update_sgd_fn, tree_add
+    from benchmark_utils.tree_utils import update_sgd_fn, tree_add, tree_diff
     from benchmark_utils.tree_utils import tree_scalar_mult, update_memory
     from benchmark_utils.tree_utils import init_memory_of_trees, select_memory
 
@@ -91,8 +91,8 @@ class Solver(StochasticJaxSolver):
             v_old = carry['v'].copy()
             carry['v'] = update_sgd_fn(
                 carry['v'],
-                tree_add(hvp_fun(carry['v'])[0],
-                         tree_scalar_mult(-1, grad_outer_in)),
+                tree_diff(hvp_fun(carry['v'])[0],
+                          grad_outer_in),
                 inner_lr
             )
 
@@ -132,8 +132,8 @@ class Solver(StochasticJaxSolver):
                     impl_grad,
                     tree_scalar_mult(
                         (1-eta),
-                        tree_add(select_memory(carry['memory_outer'], 1),
-                                 tree_scalar_mult(-1, impl_grad_old))
+                        tree_diff(select_memory(carry['memory_outer'], 1),
+                                  impl_grad_old)
                     )
                 )
             )

@@ -7,10 +7,9 @@ with safe_import_context() as import_ctx:
     import jax.numpy as jnp
     from functools import partial
 
-    from benchmark_utils.tree_utils import update_sgd_fn
-    from benchmark_utils.tree_utils import tree_scalar_mult, tree_add
     from benchmark_utils.learning_rate_scheduler import update_lr
     from benchmark_utils.hessian_approximation import shia_fb_jax
+    from benchmark_utils.tree_utils import update_sgd_fn, tree_diff
     from benchmark_utils.hessian_approximation import joint_shia_jax
     from benchmark_utils.learning_rate_scheduler import init_lr_scheduler
 
@@ -107,9 +106,9 @@ class Solver(StochasticJaxSolver):
             )
             v = shia_fb(inner_var, outer_var, grad_outer_in, hia_lr)
             d_inner = grad_inner
-            d_outer = tree_add(
+            d_outer = tree_diff(
                 grad_outer_out,
-                tree_scalar_mult(-1, cross_v(v)[0])
+                cross_v(v)[0]
             )
             return d_inner, d_outer
 
@@ -246,10 +245,7 @@ def inner_loop_vrbo(inner_var, outer_var, inner_var_old, d_inner, d_outer,
             args['outer_var']
         )
         args['d_inner'] = update_sgd_fn(
-            args['d_inner'],
-            tree_add(grad_inner,
-                     tree_scalar_mult(-1, grad_inner_old)),
-            -1
+            args['d_inner'], tree_diff(grad_inner, grad_inner_old), -1
         )  # d_inner = d_inner + grad_inner - grad_inner_old
 
         # Update outer direction
@@ -275,9 +271,7 @@ def inner_loop_vrbo(inner_var, outer_var, inner_var_old, d_inner, d_outer,
         impl_grad_old = update_sgd_fn(impl_grad_old, cross_v_old(ihvp_old)[0],
                                       1)
         args['d_outer'] = update_sgd_fn(
-            args['d_outer'],
-            tree_add(impl_grad, tree_scalar_mult(-1, impl_grad_old)),
-            -1
+            args['d_outer'], tree_diff(impl_grad, impl_grad_old), -1
         )
 
         # Update inner variable and memory

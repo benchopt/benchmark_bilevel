@@ -8,10 +8,8 @@ with safe_import_context() as import_ctx:
     from functools import partial
 
     from benchmark_utils.learning_rate_scheduler import update_lr
+    from benchmark_utils.tree_utils import update_sgd_fn, tree_diff
     from benchmark_utils.learning_rate_scheduler import init_lr_scheduler
-
-    from benchmark_utils.tree_utils import tree_scalar_mult
-    from benchmark_utils.tree_utils import update_sgd_fn, tree_add
 
 
 class Solver(StochasticJaxSolver):
@@ -110,9 +108,7 @@ class Solver(StochasticJaxSolver):
             )
             d_outer_var = update_sgd_fn(
                 d_outer_var,
-                tree_add(
-                    grad_inner_star, tree_scalar_mult(-1, grad_inner_outer)
-                ),
+                tree_diff(grad_inner_star, grad_inner_outer),
                 carry['lmbda']
             )
 

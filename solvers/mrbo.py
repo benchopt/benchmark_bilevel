@@ -8,12 +8,12 @@ with safe_import_context() as import_ctx:
     import jax.numpy as jnp
     from functools import partial
 
-    from benchmark_utils.tree_utils import update_memory, tree_scalar_mult
-    from benchmark_utils.tree_utils import init_memory_of_trees, select_memory
-    from benchmark_utils.tree_utils import update_sgd_fn, tree_add
     from benchmark_utils.learning_rate_scheduler import update_lr
     from benchmark_utils.hessian_approximation import joint_shia_jax
     from benchmark_utils.learning_rate_scheduler import init_lr_scheduler
+    from benchmark_utils.tree_utils import update_memory, tree_scalar_mult
+    from benchmark_utils.tree_utils import update_sgd_fn, tree_add, tree_diff
+    from benchmark_utils.tree_utils import init_memory_of_trees, select_memory
 
 
 class Solver(StochasticJaxSolver):
@@ -94,9 +94,8 @@ class Solver(StochasticJaxSolver):
                     grad_inner_var,
                     tree_scalar_mult(
                         1-eta,
-                        tree_add(select_memory(carry['memory_inner'], 1),
-                                 tree_scalar_mult(-1, grad_inner_var_old)
-                                 )
+                        tree_diff(select_memory(carry['memory_inner'], 1),
+                                  grad_inner_var_old)
                     )
                 )
 
@@ -130,9 +129,9 @@ class Solver(StochasticJaxSolver):
                 carry['memory_outer'], 1,
                 tree_add(
                     impl_grad,
-                    tree_scalar_mult(1-eta, tree_add(
+                    tree_scalar_mult(1-eta, tree_diff(
                         select_memory(carry['memory_outer'], 1),
-                        tree_scalar_mult(-1, impl_grad_old)
+                        impl_grad_old
                     ))
                 )
             )

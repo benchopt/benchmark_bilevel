@@ -7,10 +7,9 @@ with safe_import_context() as import_ctx:
     import jax.numpy as jnp
     from functools import partial
 
-    from benchmark_utils.tree_utils import update_sgd_fn
     from benchmark_utils.hessian_approximation import hia_jax
     from benchmark_utils.learning_rate_scheduler import update_lr
-    from benchmark_utils.tree_utils import tree_add, tree_scalar_mult
+    from benchmark_utils.tree_utils import update_sgd_fn, tree_diff
     from benchmark_utils.learning_rate_scheduler import init_lr_scheduler
 
 
@@ -99,8 +98,7 @@ class Solver(StochasticJaxSolver):
                 carry['outer_var']
             )
             implicit_grad = vjp_fun(v)[0]
-            grad_outer_var = tree_add(grad_out,
-                                      tree_scalar_mult(-1, implicit_grad))
+            grad_outer_var = tree_diff(grad_out, implicit_grad)
 
             # Step.4 - update the outer variables
             carry['outer_var'] = update_sgd_fn(

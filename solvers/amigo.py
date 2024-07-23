@@ -4,10 +4,9 @@ from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
     from benchmark_utils.sgd_inner import sgd_inner_jax
-    from benchmark_utils.tree_utils import tree_scalar_mult
     from benchmark_utils.hessian_approximation import sgd_v_jax
     from benchmark_utils.learning_rate_scheduler import update_lr
-    from benchmark_utils.tree_utils import update_sgd_fn, tree_add
+    from benchmark_utils.tree_utils import update_sgd_fn, tree_diff
     from benchmark_utils.learning_rate_scheduler import init_lr_scheduler
 
     import jax
@@ -98,8 +97,8 @@ class Solver(StochasticJaxSolver):
                 carry['outer_var']
             )
             implicit_grad = vjp_fun(carry['v'])[0]
-            grad_outer_var = tree_add(grad_out,
-                                      tree_scalar_mult(-1, implicit_grad))
+            grad_outer_var = tree_diff(grad_out,
+                                       implicit_grad)
 
             # Update the outer variable
             carry['outer_var'] = update_sgd_fn(
