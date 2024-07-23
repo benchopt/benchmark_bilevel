@@ -3,7 +3,9 @@ from benchmark_utils.stochastic_jax_solver import StochasticJaxSolver
 from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
+    from benchmark_utils.tree_utils import select_memory
     from benchmark_utils.learning_rate_scheduler import update_lr
+    from benchmark_utils.tree_utils import update_sgd_fn, tree_add
     from benchmark_utils.learning_rate_scheduler import init_lr_scheduler
 
     import jax
@@ -31,7 +33,7 @@ class Solver(StochasticJaxSolver):
         # Init variables
         self.inner_var = self.inner_var0.copy()
         self.outer_var = self.outer_var0.copy()
-        v = jnp.zeros_like(self.inner_var)
+        v = jax.tree_util.tree_map(jnp.zeros_like, self.inner_var)
 
         # Init lr scheduler
         step_sizes = jnp.array(
@@ -107,14 +109,21 @@ class Solver(StochasticJaxSolver):
             )
 
             # Step.3 - update inner variable with SGD.
-            carry['inner_var'] -= inner_lr * memory['inner_grad'][-1]
-            carry['v'] -= inner_lr * (
-                memory['hvp'][-1]
-                + memory['grad_in_outer'][-1]
+            carry['inner_var'] = update_sgd_fn(
+                carry['inner_var'], select_memory(memory['inner_grad'], -1),
+                inner_lr
             )
-            carry['outer_var'] -= outer_lr * (
-                memory['cross_v'][-1]
-                + memory['grad_out_outer'][-1]
+            carry['v'] = update_sgd_fn(
+                carry['v'],
+                tree_add(select_memory(memory['hvp'], -1),
+                         select_memory(memory['grad_in_outer'], -1)),
+                inner_lr
+            )
+            carry['outer_var'] = update_sgd_fn(
+                carry['outer_var'],
+                tree_add(select_memory(memory['cross_v'], -1),
+                         select_memory(memory['grad_out_outer'], -1)),
+                outer_lr
             )
 
             return (memory, carry), _

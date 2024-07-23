@@ -4,7 +4,9 @@ from benchmark_utils.stochastic_jax_solver import StochasticJaxSolver
 from benchopt import safe_import_context
 
 with safe_import_context() as import_ctx:
+    from benchmark_utils.tree_utils import update_sgd_fn
     from benchmark_utils.learning_rate_scheduler import update_lr
+    from benchmark_utils.tree_utils import tree_add, tree_scalar_mult
     from benchmark_utils.learning_rate_scheduler import init_lr_scheduler
 
     import jax
@@ -32,7 +34,7 @@ class Solver(StochasticJaxSolver):
         # Init variables
         self.inner_var = self.inner_var0.copy()
         self.outer_var = self.outer_var0.copy()
-        v = jnp.zeros_like(self.inner_var)
+        v = jax.tree_util.tree_map(jnp.zeros_like, self.inner_var)
         # Init lr scheduler
         step_sizes = jnp.array(
             [self.step_size, self.step_size / self.outer_ratio]
@@ -50,9 +52,9 @@ class Solver(StochasticJaxSolver):
             inner_var_old=self.inner_var.copy(),
             outer_var_old=self.outer_var.copy(),
             v_old=v.copy(),
-            d_inner=jnp.zeros_like(self.inner_var),
-            d_v=jnp.zeros_like(self.inner_var),
-            d_outer=jnp.zeros_like(self.outer_var),
+            d_inner=jax.tree_util.tree_map(jnp.zeros_like, self.inner_var),
+            d_v=jax.tree_util.tree_map(jnp.zeros_like, self.inner_var),
+            d_outer=jax.tree_util.tree_map(jnp.zeros_like, self.outer_var),
             state_lr=state_lr,
             state_inner_sampler=self.state_inner_sampler,
             state_outer_sampler=self.state_outer_sampler,
@@ -83,8 +85,8 @@ class Solver(StochasticJaxSolver):
             )
             hvp, cross_v = vjp_train(v)
             grad_outer_in, grad_outer_out = grad_outer_fb(inner_var, outer_var)
-            d_v = hvp + grad_outer_in
-            d_outer = cross_v + grad_outer_out
+            d_v = tree_add(hvp, grad_outer_in)
+            d_outer = tree_add(cross_v, grad_outer_out)
             return (d_inner, d_v, d_outer, state_inner_sampler,
                     state_outer_sampler)
 
@@ -113,10 +115,34 @@ class Solver(StochasticJaxSolver):
                                                                outer_var_old,
                                                                start_outer)
 
-            d_inner += grad_inner_var - grad_inner_var_old
-            d_v += (hvp - hvp_old) + (grad_outer_in - grad_outer_in_old)
-            d_outer += (cross_v - cross_v_old)
-            d_outer += (grad_outer_out - grad_outer_out_old)
+            d_inner = update_sgd_fn(
+                d_inner,
+                tree_add(grad_inner_var,
+                         tree_scalar_mult(-1, grad_inner_var_old)),
+                -1
+            )  # d_inner = d_inner + (grad_inner_var - grad_inner_var_old)
+            d_v = update_sgd_fn(
+                d_v,
+                tree_add(hvp, tree_scalar_mult(-1, hvp_old)),
+                -1
+            )  # d_v = d_v + (hvp - hvp_old)
+            d_v = update_sgd_fn(
+                d_v,
+                tree_add(grad_outer_in,
+                         tree_scalar_mult(-1, grad_outer_in_old)),
+                -1
+            )  # d_v = d_v + (grad_outer_in - grad_outer_in_old)
+            d_outer = update_sgd_fn(
+                d_outer,
+                tree_add(cross_v, tree_scalar_mult(-1, cross_v_old)),
+                -1
+            )  # d_outer = d_outer + (cross_v - cross_v_old)
+            d_outer = update_sgd_fn(
+                d_outer,
+                tree_add(grad_outer_out,
+                         tree_scalar_mult(-1, grad_outer_out_old)),
+                -1
+            )  # d_outer = d_outer + (grad_outer_out - grad_outer_out_old)
 
             return (d_inner, d_v, d_outer, state_inner_sampler,
                     state_outer_sampler)

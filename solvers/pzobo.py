@@ -13,6 +13,9 @@ with safe_import_context() as import_ctx:
     from benchmark_utils.learning_rate_scheduler import update_lr
     from benchmark_utils.learning_rate_scheduler import init_lr_scheduler
 
+    from benchmark_utils.tree_utils import update_sgd_fn, tree_add
+    from benchmark_utils.tree_utils import tree_scalar_mult
+
 
 class Solver(BaseSolver):
     """Partial Zeroth-Order-like Bilevel Optimizer (PZOBO).
@@ -94,20 +97,36 @@ class Solver(BaseSolver):
                                          inner_step_size)
 
             # Generate Gaussian vectors
-            U = jax.random.normal(key, (self.n_gaussian_vectors,
-                                        self.outer_var.shape[0]))
+            U = jax.tree_map(
+                lambda x: jax.random.normal(key,
+                                            (self.n_gaussian_vectors,
+                                             *x.shape)),
+                self.outer_var
+            )
 
             # Perturbate the outer variable in random directions
-            outer_var_aux = self.outer_var + self.mu * U
+            outer_var_aux = tree_add(self.outer_var,
+                                     tree_scalar_mult(self.mu, U))
             deltas = vmapped_inner(inner_var_old, outer_var_aux,
                                    inner_step_size)
-            deltas -= self.inner_var
-            deltas /= self.mu
+            deltas = update_sgd_fn(deltas, self.inner_var, 1)
+            deltas = jax.tree_map(lambda x: x / self.mu, deltas)
             grad_outer_in, grad_outer_out = grad_outer(self.inner_var,
                                                        self.outer_var)
-            es_estimator = U.T.dot(deltas @ grad_outer_in)
-            es_estimator /= self.n_gaussian_vectors
-            self.outer_var -= outer_step_size * (es_estimator + grad_outer_out)
+            mat_vec_prod = jax.tree_util.tree_reduce(
+                lambda a, b: a+b,
+                jax.tree_map(lambda a, b: a@b, deltas, grad_outer_in), 0
+            )  # = sum_i <delta_i , grad_outer_in>
+            es_estimator = jax.tree_util.tree_map(
+                lambda x: x.T.dot(mat_vec_prod), U
+            )  # = sum_i <delta_i , grad_outer_in> u_i
+            es_estimator = jax.tree_util.tree_map(
+                lambda x: x / self.n_gaussian_vectors, es_estimator)
+            self.outer_var = update_sgd_fn(
+                self.outer_var,
+                tree_add(es_estimator, grad_outer_out),
+                outer_step_size
+            )
 
     def get_result(self):
         return dict(inner_var=self.inner_var, outer_var=self.outer_var)

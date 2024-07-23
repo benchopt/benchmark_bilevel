@@ -152,7 +152,8 @@ class Solver(StochasticJaxSolver):
             carry['outer_var'] = update_sgd_fn(
                 carry['outer_var'],
                 select_memory(carry['memory_outer'], 1),
-                outer_lr)
+                outer_lr
+            )
 
             return carry, _
         return mrbo_one_iter

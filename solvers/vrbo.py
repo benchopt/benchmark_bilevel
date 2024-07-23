@@ -7,6 +7,8 @@ with safe_import_context() as import_ctx:
     import jax.numpy as jnp
     from functools import partial
 
+    from benchmark_utils.tree_utils import update_sgd_fn
+    from benchmark_utils.tree_utils import tree_scalar_mult, tree_add
     from benchmark_utils.learning_rate_scheduler import update_lr
     from benchmark_utils.hessian_approximation import shia_fb_jax
     from benchmark_utils.hessian_approximation import joint_shia_jax
@@ -54,8 +56,8 @@ class Solver(StochasticJaxSolver):
         return dict(
             inner_var=self.inner_var, outer_var=self.outer_var,
             inner_var_old=self.inner_var.copy(),
-            d_inner=jnp.zeros_like(self.inner_var),
-            d_outer=jnp.zeros_like(self.outer_var),
+            d_inner=jax.tree_util.tree_map(jnp.zeros_like, self.inner_var),
+            d_outer=jax.tree_util.tree_map(jnp.zeros_like, self.outer_var),
             state_lr=state_lr,
             state_inner_sampler=self.state_inner_sampler,
             state_outer_sampler=self.state_outer_sampler,
@@ -105,7 +107,10 @@ class Solver(StochasticJaxSolver):
             )
             v = shia_fb(inner_var, outer_var, grad_outer_in, hia_lr)
             d_inner = grad_inner
-            d_outer = grad_outer_out - cross_v(v)[0]
+            d_outer = tree_add(
+                grad_outer_out,
+                tree_scalar_mult(-1, cross_v(v)[0])
+            )
             return d_inner, d_outer
 
         def identity_directions(inner_var, outer_var, hia_lr, d_inner,
@@ -124,7 +129,8 @@ class Solver(StochasticJaxSolver):
                 carry['d_inner'],  carry['d_outer']
             )
             # Step.2 - Update outer variable
-            carry['outer_var'] -= outer_lr * carry['d_outer']
+            carry['outer_var'] = update_sgd_fn(carry['outer_var'],
+                                               carry['d_outer'], outer_lr)
 
             carry['inner_var'], carry['inner_var_old'], carry['d_inner'], \
                 carry['d_outer'], carry['state_inner_sampler'], \
@@ -176,15 +182,15 @@ def inner_loop_vrbo(inner_var, outer_var, inner_var_old, d_inner, d_outer,
 
     Parameters
     ----------
-    inner_var : array
+    inner_var : pytree
         Initial value of the inner variable.
-    outer_var : array
+    outer_var : pytree
         Value of the outer variable.
-    inner_var_old : array
+    inner_var_old : pytree
         Value of the inner variable at the previous iteration.
-    d_inner : array
+    d_inner : pytree
         Direction for the inner variable.
-    d_outer : array
+    d_outer : pytree
         Direction for the outer variable.
     state_inner_sampler : dict
         State of the sampler for the inner function.
@@ -239,7 +245,12 @@ def inner_loop_vrbo(inner_var, outer_var, inner_var_old, d_inner, d_outer,
             lambda x: grad_inner_fun(args['inner_var_old'], x, start_inner),
             args['outer_var']
         )
-        args['d_inner'] += grad_inner - grad_inner_old
+        args['d_inner'] = update_sgd_fn(
+            args['d_inner'],
+            tree_add(grad_inner,
+                     tree_scalar_mult(-1, grad_inner_old)),
+            -1
+        )  # d_inner = d_inner + grad_inner - grad_inner_old
 
         # Update outer direction
         start_outer, *_, args['state_outer_sampler'] = outer_sampler(
@@ -258,14 +269,22 @@ def inner_loop_vrbo(inner_var, outer_var, inner_var_old, d_inner, d_outer,
             n_steps=n_shia_steps, grad_inner=grad_inner_fun
         )
 
-        impl_grad -= cross_v(ihvp)[0]
-        impl_grad_old -= cross_v_old(ihvp_old)[0]
-
-        args['d_outer'] += impl_grad - impl_grad_old
+        # impl_grad = impl_grad - cross_v(ihvp)[0]
+        impl_grad = update_sgd_fn(impl_grad, cross_v(ihvp)[0], 1)
+        # impl_grad_old = impl_grad_old - cross_v_old(ihvp_old)[0]
+        impl_grad_old = update_sgd_fn(impl_grad_old, cross_v_old(ihvp_old)[0],
+                                      1)
+        args['d_outer'] = update_sgd_fn(
+            args['d_outer'],
+            tree_add(impl_grad, tree_scalar_mult(-1, impl_grad_old)),
+            -1
+        )
 
         # Update inner variable and memory
         args['inner_var_old'] = args['inner_var'].copy()
-        args['inner_var'] -= step_size * args['d_inner']
+        args['inner_var'] = update_sgd_fn(args['inner_var'],
+                                          args['d_inner'],
+                                          step_size)
 
         return args
     res = jax.lax.fori_loop(0, n_steps, iter, dict(
