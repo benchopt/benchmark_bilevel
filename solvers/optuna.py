@@ -22,7 +22,7 @@ class Solver(BaseSolver):
     )
 
     install_cmd = 'conda'
-    requirements = ['pip:optuna', 'pip:jaxopt']
+    requirements = ['pip::optuna', 'pip::jaxopt']
     parameters = {
         'random_state': [1],
     }
