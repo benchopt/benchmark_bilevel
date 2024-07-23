@@ -114,7 +114,7 @@ class Solver(StochasticJaxSolver):
             ihvp, ihvp_old, carry['key'], carry['state_inner_sampler'] = (
                 joint_hia(
                     carry['inner_var'], carry['outer_var'], grad_outer,
-                    select_memory(carry['memory_inner'][0]),
+                    select_memory(carry['memory_inner'], 0),
                     select_memory(carry['memory_outer'], 0),
                     grad_outer_old, carry['state_inner_sampler'], hia_lr,
                     sampler=inner_sampler, key=carry['key'],
