@@ -271,6 +271,9 @@ def variance_reduction(memory, grad, idx, weigth):
     diff = tree_diff(grad, memory[idx])
     direction = tree_add(diff, select_memory(memory, -2))
     memory = update_memory(memory, -1, direction)
-    memory = update_memory(memory, -2, tree_scalar_mult(weigth, diff))
+    memory = update_memory(
+        memory, -2,
+        tree_add(select_memory(memory, -2), tree_scalar_mult(weigth, diff))
+    )
     memory = update_memory(memory, idx, grad)
     return memory
