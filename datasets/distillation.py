@@ -57,7 +57,7 @@ class Dataset(BaseDataset):
     name = "distillation"
 
     install_cmd = "conda"
-    requirements = ["scikit-learn"]
+    requirements = ["scikit-learn, pip:flax"]
 
     parameters = {
         'n_distilled_images': [10],
