@@ -79,6 +79,9 @@ class Objective(BaseObjective):
         metrics = self.metrics(inner_var, outer_var)
         return metrics
 
+    def save_final_results(self, inner_var, outer_var):
+        return dict(inner_var=inner_var, outer_var=outer_var)
+
     def get_objective(self):
         return dict(
             f_inner=self.f_inner,
