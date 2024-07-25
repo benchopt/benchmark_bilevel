@@ -8,7 +8,6 @@ with safe_import_context() as import_ctx:
     import gzip
     import numpy as np
     from urllib import request
-    from sklearn.model_selection import train_test_split
     from sklearn.preprocessing import StandardScaler
 
     import jax
@@ -16,6 +15,8 @@ with safe_import_context() as import_ctx:
     from flax import linen as nn
     import optax
     from functools import partial
+
+    from benchmark_utils.tree_utils import tree_inner_product
 
 
 BASE_URL = "https://ossci-datasets.s3.amazonaws.com/mnist"
@@ -59,13 +60,13 @@ class Dataset(BaseDataset):
     requirements = ["scikit-learn"]
 
     parameters = {
-        'n_samples_inner': [100],
+        'n_distilled_images': [10],
         'random_state': [32],
+        'reg': [1e-1]
     }
 
     def get_data(self):
-        n_samples_inner = self.n_samples_inner
-        rng = np.random.RandomState(self.random_state)
+        n_samples_inner = self.n_distilled_images
         if not Path("mnist.pkl").exists():
             download_mnist()
 
@@ -78,31 +79,24 @@ class Dataset(BaseDataset):
             mnist["test_images"],
             mnist["test_labels"],
         )
-        n_train = 20000
-        n_val = 5000
-        X_train, X_val, y_train, y_val = train_test_split(X_train, y_train,
-                                                          test_size=n_val,
-                                                          train_size=n_train,
-                                                          random_state=rng)
-        scaler = StandardScaler()
-        X_train = scaler.fit_transform(X_train)
-        X_test = scaler.transform(X_test)
-        X_val = scaler.transform(X_val)
-
-        X_train = jnp.array(X_train)
-        y_train = jnp.array(y_train)
-        X_val = jnp.array(X_val)
-        y_val = jnp.array(y_val)
-        X_test = jnp.array(X_test)
-        y_test = jnp.array(y_test)
-
         self.n_features = X_train.shape[1]
         self.n_classes = 10
 
-        self.n_samples_inner = X_train.shape[0]
-        self.n_samples_outer = X_val.shape[0]
+        if n_samples_inner < self.n_classes:
+            raise ValueError("n_distilled_images must be >= n_classes")
 
-        self.dim_outer = self.n_samples_inner
+        scaler = StandardScaler()
+        X_train = scaler.fit_transform(X_train)
+        X_test = scaler.transform(X_test)
+
+        X_train = jnp.array(X_train)
+        y_train = jnp.array(y_train)
+        X_test = jnp.array(X_test)
+        y_test = jnp.array(y_test)
+
+        self.n_samples_outer = X_train.shape[0]
+
+        self.dim_outer = n_samples_inner
 
         class CNN(nn.Module):
             """A simple CNN model."""
@@ -121,11 +115,20 @@ class Dataset(BaseDataset):
                 return x
 
         cnn = CNN()
-        jax_rng = jax.random.PRNGKey(0)
+        jax_rng = jax.random.PRNGKey(self.random_state)
         inner_params = cnn.init(jax_rng, jnp.ones([1, 28, 28, 1]))['params']
         self.dim_inner = jax.tree_map(lambda x: x.shape, inner_params)
         self.dim_outer = (n_samples_inner, 28, 28, 1)
-        outer_labels = jax.random.randint(jax_rng, (n_samples_inner,), 0, 10)
+        if self.n_distilled_images == self.n_classes:
+            outer_labels = jnp.arange(self.n_classes)
+        else:
+            outer_labels = jax.random.randint(jax_rng, (n_samples_inner,),
+                                              0, 10)
+            # ensure that all classes are present
+            while len(jnp.unique(outer_labels)) < self.n_classes:
+                jax_rng = jax.random.split(jax_rng)[0]
+                outer_labels = jax.random.randint(jax_rng, (n_samples_inner,),
+                                                  0, 10)
 
         def loss(params, x, y):
             logits = cnn.apply({'params': params}, x)
@@ -136,27 +139,32 @@ class Dataset(BaseDataset):
         @partial(jax.jit, static_argnames=('batch_size'))
         def f_inner(inner_var, outer_var, start=0, batch_size=1):
 
-            outer_labels_batch = jax.lax.dynamic_slice(
-                outer_labels, (start,), (batch_size,)
-            )
-            outer_var_batch = jax.lax.dynamic_slice(
-                outer_var, (start, 0, 0, 0), (batch_size, 28, 28, 1)
-            )
-            return loss(inner_var, outer_var_batch, outer_labels_batch)
+            # outer_labels_batch = jax.lax.dynamic_slice(
+            #     outer_labels, (start,), (batch_size,)
+            # )
+            # outer_var_batch = jax.lax.dynamic_slice(
+            #     outer_var, (start, 0, 0, 0), (batch_size, 28, 28, 1)
+            # )
+
+            # I think since the distilled dataset is supposed to be very small
+            # (typically one sample per class), we can just use the whole
+            # distilled dataset
+            reg = self.reg * tree_inner_product(inner_var, inner_var)
+            return loss(inner_var, outer_var, outer_labels) + reg
 
         @partial(jax.jit, static_argnames=('batch_size'))
         def f_outer(inner_var, outer_var, start=0, batch_size=1):
             x = jax.lax.dynamic_slice(
-                X_val, (start, 0), (batch_size, X_val.shape[1])
+                X_train, (start, 0), (batch_size, X_train.shape[1])
             ).reshape((batch_size, 28, 28, 1))
             y = jax.lax.dynamic_slice(
-                y_val, (start,), (batch_size,)
+                y_train, (start,), (batch_size,)
             )
             res = loss(inner_var, x, y)
             return res
 
         f_inner_fb = partial(f_inner, start=0,
-                             batch_size=self.n_samples_inner)
+                             batch_size=self.n_distilled_images)
         f_outer_fb = partial(f_outer, start=0,
                              batch_size=self.n_samples_outer)
 
@@ -166,20 +174,21 @@ class Dataset(BaseDataset):
                 y = y.argmax(axis=1)
             logits = cnn.apply({'params': inner_var},
                                X.reshape((-1, 28, 28, 1)))
-            return jnp.mean(jnp.argmax(logits, axis=1) != y)
+            return jnp.mean(jnp.argmax(logits, axis=1) == y)
 
         def metrics(inner_var, outer_var):
             acc = accuracy(inner_var, X_test, y_test)
-            val_acc = accuracy(inner_var, X_val, y_val)
             train_acc = accuracy(inner_var, X_train, y_train)
+            distilled_acc = accuracy(inner_var, outer_var, outer_labels)
             return dict(
                 train_accuracy=float(train_acc),
-                value=float(val_acc),
-                test_accuracy=float(acc)
+                test_accuracy=float(acc),
+                distilled_accuracy=float(distilled_acc),
+                # sanity check, should be 1.0
             )
 
         data = dict(
-            pb_inner=(f_inner, self.n_samples_inner, self.dim_inner,
+            pb_inner=(f_inner, self.n_distilled_images, self.dim_inner,
                       f_inner_fb),
             pb_outer=(f_outer, self.n_samples_outer, self.dim_outer,
                       f_outer_fb),
