@@ -182,10 +182,20 @@ class Dataset(BaseDataset):
             distilled_acc = accuracy(inner_var, outer_var, outer_labels)
             return dict(
                 train_accuracy=float(train_acc),
-                test_accuracy=float(acc),
+                value=float(acc),
                 distilled_accuracy=float(distilled_acc),
                 # sanity check, should be 1.0
             )
+
+        def init_var(key):
+            inner_var = cnn.init(
+                key, jnp.ones([1, 28, 28, 1]))['params']
+            key = jax.random.split(key)[0]
+            outer_var = jax.random.normal(
+                key,
+                (n_samples_inner, 28, 28, 1)
+            )
+            return inner_var, outer_var
 
         data = dict(
             pb_inner=(f_inner, self.n_distilled_images, self.dim_inner,
@@ -193,5 +203,6 @@ class Dataset(BaseDataset):
             pb_outer=(f_outer, self.n_samples_outer, self.dim_outer,
                       f_outer_fb),
             metrics=metrics,
+            init_var=init_var
         )
         return data
