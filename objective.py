@@ -12,7 +12,7 @@ class Objective(BaseObjective):
     url = "https://github.com/benchopt/benchmark_bilevel"
 
     requirements = ["scikit-learn", "jax", "jaxlib"]
-    min_benchopt_version = "1.5"
+    min_benchopt_version = "1.6.1"
 
     parameters = {"random_state": [2442]}
 
