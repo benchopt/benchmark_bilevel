@@ -23,7 +23,7 @@ class Solver(BaseSolver):
     Implicit Differentiation". NeurIPS 2022"""
     name = 'jaxopt_GD'
 
-    requirements = ["pip:jaxopt"]
+    requirements = ["pip::jaxopt"]
 
     stopping_criterion = SufficientProgressCriterion(
         patience=constants.PATIENCE, strategy='callback'

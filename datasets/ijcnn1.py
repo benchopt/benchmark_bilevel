@@ -27,7 +27,7 @@ class Dataset(BaseDataset):
     name = "ijcnn1"
 
     install_cmd = 'conda'
-    requirements = ['pip:libsvmdata', 'scikit-learn']
+    requirements = ['pip::libsvmdata', 'scikit-learn']
 
     parameters = {
         'reg_parametrization': ['exp'],
