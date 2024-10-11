@@ -2,22 +2,8 @@ import jax
 from functools import partial
 
 
-def gd_inner(inner_oracle, inner_var, outer_var, step_size,
-             n_steps=1):
-    """
-    Implement gradient descent on the inner oracle.
-    """
-    for i in range(n_steps):
-        grad_inner = inner_oracle.grad_inner_var(
-            inner_var, outer_var, slice(None)
-        )
-        inner_var -= step_size * grad_inner
-
-    return inner_var
-
-
-@partial(jax.jit, static_argnums=(0, ), static_argnames=('n_steps'))
-def gd_inner_jax(grad_inner, inner_var, outer_var, step_size,
+@partial(jax.jit, static_argnames=('grad_inner', 'n_steps'))
+def gd_inner_jax(inner_var, outer_var, step_size, grad_inner=None,
                  n_steps=1):
     """
     Jax implementation of gradient descent.

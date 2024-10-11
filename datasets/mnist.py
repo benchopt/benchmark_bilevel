@@ -8,14 +8,16 @@ with safe_import_context() as import_ctx:
     import gzip
     import numpy as np
     from urllib import request
-    from sklearn.preprocessing import StandardScaler
     from sklearn.model_selection import train_test_split
+    from sklearn.preprocessing import StandardScaler, OneHotEncoder
 
-    from benchmark_utils import oracles
-    from benchmark_utils.oracle_utils import convert_array_framework
+    import jax
+    import jax.numpy as jnp
+
+    from functools import partial
 
 
-BASE_URL = "http://yann.lecun.com/exdb/mnist/"
+BASE_URL = "https://ossci-datasets.s3.amazonaws.com/mnist"
 DATA_DIR = Path(__file__).parent / "data"
 
 
@@ -47,7 +49,30 @@ def download_mnist():
     print("Save complete.")
 
 
+def loss_sample(inner_var_flat, outer_var, x, y):
+    n_classes = y.shape[0]
+    n_features = x.shape[0]
+    inner_var = inner_var_flat.reshape(n_features, n_classes)
+    prod = jnp.dot(x, inner_var)
+    lse = jax.nn.logsumexp(prod)
+    loss = -jnp.where(y == 1, prod, 0).sum() + lse
+    return loss
+
+
+def loss(inner_var, outer_var, X, y):
+    batched_loss = jax.vmap(loss_sample, in_axes=(None, None, 0, 0))
+    return jnp.mean(batched_loss(inner_var, outer_var, X, y), axis=0)
+
+
+def weighted_loss(inner_var, outer_var, X, y):
+    weights = jax.nn.sigmoid(outer_var)
+    batched_loss = jax.vmap(loss_sample, in_axes=(None, None, 0, 0))
+    return jnp.mean(weights * batched_loss(inner_var, outer_var, X, y),
+                    axis=0)
+
+
 class Dataset(BaseDataset):
+    """Datacleaning with MNIST"""
 
     name = "mnist"
 
@@ -57,7 +82,7 @@ class Dataset(BaseDataset):
     parameters = {
         'ratio': [0.5, 0.7, 0.9],
         'random_state': [32],
-        'oracle': ['datacleaning'],
+        'reg': [2e-1]
     }
 
     def get_data(self):
@@ -89,42 +114,85 @@ class Dataset(BaseDataset):
         X_test = scaler.transform(X_test)
         X_val = scaler.transform(X_val)
 
-        def get_inner_oracle(framework="none", get_full_batch=False):
-            X = convert_array_framework(X_train, framework)
-            y = convert_array_framework(y_train, framework)
-            oracle = oracles.DataCleaningOracle(X, y)
-            return oracle.get_framework(framework=framework,
-                                        get_full_batch=get_full_batch)
+        X_train = jnp.array(X_train)
+        y_train = jnp.array(y_train)
+        X_val = jnp.array(X_val)
+        y_val = jnp.array(y_val)
+        X_test = jnp.array(X_test)
+        y_test = jnp.array(y_test)
 
-        def get_outer_oracle(framework="none", get_full_batch=False):
-            X = convert_array_framework(X_val, framework)
-            y = convert_array_framework(y_val, framework)
-            oracle = oracles.MultiLogRegOracle(X, y, reg='none')
-            return oracle.get_framework(framework=framework,
-                                        get_full_batch=get_full_batch)
+        if y_train.ndim == 1:
+            y_train = OneHotEncoder().fit_transform(y_train[:, None]).toarray()
+        if y_val.ndim == 1:
+            y_val = OneHotEncoder().fit_transform(y_val[:, None]).toarray()
+        if y_test.ndim == 1:
+            y_test = OneHotEncoder().fit_transform(y_test[:, None]).toarray()
+
+        self.n_features = X_train.shape[1]
+        self.n_classes = y_train.shape[1]
+
+        self.n_samples_inner = X_train.shape[0]
+        self.n_samples_outer = X_val.shape[0]
+
+        self.dim_inner = self.n_features * self.n_classes
+        self.dim_outer = self.n_samples_inner
+
+        @partial(jax.jit, static_argnames=('batch_size'))
+        def f_inner(inner_var, outer_var, start=0, batch_size=1):
+            x = jax.lax.dynamic_slice(
+                X_train, (start, 0), (batch_size, X_train.shape[1])
+            )
+            y = jax.lax.dynamic_slice(
+                y_train, (start, 0), (batch_size, self.n_classes)
+            )
+            outer_var_batch = jax.lax.dynamic_slice(
+                outer_var, (start, ), (batch_size, )
+            )
+            res = weighted_loss(inner_var, outer_var_batch, x, y)
+
+            res += self.reg * np.sum(inner_var**2)
+            return res
+
+        @partial(jax.jit, static_argnames=('batch_size'))
+        def f_outer(inner_var, outer_var, start=0, batch_size=1):
+            x = jax.lax.dynamic_slice(
+                X_val, (start, 0), (batch_size, X_val.shape[1])
+            )
+            y = jax.lax.dynamic_slice(
+                y_val, (start, 0), (batch_size, self.n_classes)
+            )
+            res = loss(inner_var, outer_var, x, y)
+            return res
+
+        f_inner_fb = partial(f_inner, start=0,
+                             batch_size=self.n_samples_inner)
+        f_outer_fb = partial(f_outer, start=0,
+                             batch_size=self.n_samples_outer)
+
+        @jax.jit
+        def accuracy(inner_var, X, y):
+            if y.ndim == 2:
+                y = y.argmax(axis=1)
+            inner_var = inner_var.reshape(self.n_features,
+                                          self.n_classes)
+            prod = X @ inner_var
+            return jnp.mean(jnp.argmax(prod, axis=1) != y)
 
         def metrics(inner_var, outer_var):
-            f_val = get_outer_oracle(framework="none")
-            acc = f_val.accuracy(
-                inner_var, outer_var, X_test, y_test
-            )
-            val_acc = f_val.accuracy(
-                inner_var, outer_var, X_val, y_val
-            )
-            train_acc = f_val.accuracy(
-                inner_var, outer_var, X_train, y_train
-            )
+            acc = accuracy(inner_var, X_test, y_test)
+            val_acc = accuracy(inner_var, X_val, y_val)
+            train_acc = accuracy(inner_var, X_train, y_train)
             return dict(
-                train_accuracy=train_acc,
-                value=val_acc,
-                test_accuracy=acc
+                train_accuracy=float(train_acc),
+                value=float(val_acc),
+                test_accuracy=float(acc)
             )
 
         data = dict(
-            get_inner_oracle=get_inner_oracle,
-            get_outer_oracle=get_outer_oracle,
-            oracle='datacleaning',
+            pb_inner=(f_inner, self.n_samples_inner, self.dim_inner,
+                      f_inner_fb),
+            pb_outer=(f_outer, self.n_samples_outer, self.dim_outer,
+                      f_outer_fb),
             metrics=metrics,
-            n_reg=None
         )
         return data
