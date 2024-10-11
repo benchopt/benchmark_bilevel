@@ -20,7 +20,7 @@ This benchmark currently implements three bilevel optimization problems: quadrat
 1 - Quadratic bilevel problem
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-In this problem, the inner and the outer functions are quadritics functions defined of $\mathbb{R}^{d\times p}
+In this problem, the inner and the outer functions are quadritics functions defined of $\mathbb{R}^{d\times p}$
 
 $$g(x, z) = \\frac{1}{n}\\sum_{i=1}^n \\frac{1}{2} z^\\top H_i^z z + \\frac{1}{2} x^\\top H_i^x x + x^\\top C_i z + c_i^\\top z + d_i^\\top x$$
 
