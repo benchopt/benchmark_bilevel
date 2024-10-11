@@ -28,7 +28,7 @@ and
 
 $$f(x, z) = \\frac{1}{m} \\sum_{j=1}^m \\frac{1}{2} z^\\top \\tilde H_j^z z + \\frac{1}{2} x^\\top \\tilde H_j^x x + x^\\top \\tilde C_j z + \\tilde c_j^\\top z + \\tilde d_j^\\top x$$
 
-where $H_i^z, \\tilde H_j^z$ are symmetric positive definite matrices of size $p\\times p$, H_j^x, \\tilde H_j^x$ are symmetric positive definite matrices of size $d\\times d$, $C_i, \\tilde C_j$ are matrices of size $d\\times p$, $c_i, \\tilde c_j$ are vectors of size $d$ and $d_i, \\tilde d_j$ are vectors of size $p$.
+where $H_i^z, \\tilde H_j^z$ are symmetric positive definite matrices of size $p\\times p$, $H_j^x, \\tilde H_j^x$ are symmetric positive definite matrices of size $d\\times d$, $C_i, \\tilde C_j$ are matrices of size $d\\times p$, $c_i, \\tilde c_j$ are vectors of size $d$ and $d_i, \\tilde d_j$ are vectors of size $p$.
 
 
 2 - Regularization selection
