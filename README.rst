@@ -30,9 +30,9 @@ $$f(x, z) = \\frac{1}{m} \\sum_{j=1}^m \\frac{1}{2} z^\\top \\tilde H_j^z z + \\
 
 where $H_i^z, \\tilde H_j^z$ are symmetric positive definite matrices of size $p\\times p$, $H_j^x, \\tilde H_j^x$ are symmetric positive definite matrices of size $d\\times d$, $C_i, \\tilde C_j$ are matrices of size $d\\times p$, $c_i$, $\\tilde c_j$ are vectors of size $d$, and $d_i, \\tilde d_j$ are vectors of size $p$.
 
-The matrices $H_i^z, H_i^x, \\tilde H_j^z, \\tilde H_j^x$ are generated randomly such that the eigenvalues of $\\frac1n\\sum_i H_i^z$ are between `mu_inner`, and `L_inner_inner`, the eigenvalues of $\\frac1n\\sum_i H_i^x$ are between `mu_inner`, and `L_inner_outer`, the eigenvalues of $\\frac1m\\sum_j \\tilde H_j^z$ are between `mu_inner`, and `L_outer_inner`, and the eigenvalues of $\\frac1m\\sum_j \\tilde H_j^x$ are between `mu_inner`, and `L_outer_outer`.
+The matrices $H_i^z, H_i^x, \\tilde H_j^z, \\tilde H_j^x$ are generated randomly such that the eigenvalues of $\\frac1n\\sum_i H_i^z$ are between ``mu_inner``, and ``L_inner_inner``, the eigenvalues of $\\frac1n\\sum_i H_i^x$ are between ``mu_inner``, and ``L_inner_outer``, the eigenvalues of $\\frac1m\\sum_j \\tilde H_j^z$ are between ``mu_inner``, and ``L_outer_inner``, and the eigenvalues of $\\frac1m\\sum_j \\tilde H_j^x$ are between ``mu_inner``, and ``L_outer_outer``.
 
-The matrices $C_i, \\tilde C_j$ are generated randomly such that the spectral norm of $\\frac1n\\sum_i C_i$ is lower than `L_cross_inner`, and the spectral norm of $\\frac1m\\sum_j \\tilde C_j$ is lower than `L_cross_outer`.
+The matrices $C_i, \\tilde C_j$ are generated randomly such that the spectral norm of $\\frac1n\\sum_i C_i$ is lower than ``L_cross_inner``, and the spectral norm of $\\frac1m\\sum_j \\tilde C_j$ is lower than ``L_cross_outer``.
 
 Note that in this setting, the solution of the inner problem is a linear system. Moreover, the full batch inner and outer functions can be cheaply computed by storing the average of the Hessian matrices. Thus, the value function can be cheaply evaluated in closed form in medium dimension.
 
@@ -111,7 +111,7 @@ This benchmark can be run using the following commands:
    $ git clone https://github.com/benchopt/benchmark_bilevel
    $ benchopt run benchmark_bilevel
 
-Apart from the problem, options can be passed to `benchopt run`, to restrict the benchmarks to some solvers or datasets, e.g.:
+Apart from the problem, options can be passed to ``benchopt run``, to restrict the benchmarks to some solvers or datasets, e.g.:
 
 .. code-block::
 
@@ -123,9 +123,9 @@ You can also use config files to setup the benchmark run:
 
    $ benchopt run benchmark_bilevel --config config/X.yml
 
-where `X.yml` is a config file. See https://benchopt.github.io/index.html#run-a-benchmark for an example of a config file. This will possibly launch a huge grid search. When available, you can rather use the file `X_best_params.yml` in order to launch an experiment with a single set of parameters for each solver.
+where ``X.yml`` is a config file. See https://benchopt.github.io/index.html#run-a-benchmark for an example of a config file. This will possibly launch a huge grid search. When available, you can rather use the file ``X_best_params.yml`` in order to launch an experiment with a single set of parameters for each solver.
 
-Use `benchopt run -h` for more details about these options, or visit https://benchopt.github.io/api.html.
+Use ``benchopt run -h`` for more details about these options, or visit https://benchopt.github.io/api.html.
 
 
 Cite
