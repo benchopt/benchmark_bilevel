@@ -4,13 +4,13 @@ Bilevel Optimization Benchmark
 
 *Results can be consulted on https://benchopt.github.io/results/benchmark_bilevel.html*
 
-BenchOpt is a package to simplify and make more transparent and
+BenchOpt is a package to simplify, and make more transparent, and
 reproducible the comparisons of optimization algorithms.
 This benchmark is dedicated to solvers for bilevel optimization:
 
 $$\\min_{x} f(x, z^*(x)) \\quad \\text{with} \\quad z^*(x) = \\arg\\min_z g(x, z), $$
 
-where $g$ and $f$ are two functions of two variables.
+where $g$, and $f$ are two functions of two variables.
 
 Different problems
 ------------------
@@ -20,7 +20,7 @@ This benchmark currently implements three bilevel optimization problems: quadrat
 1 - Simulated bilevel problem
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-In this problem, the inner and the outer functions are quadritics functions defined of $\\mathbb{R}^{d\\times p}$
+In this problem, the inner, and the outer functions are quadritics functions defined of $\\mathbb{R}^{d\\times p}$
 
 $$g(x, z) = \\frac{1}{n}\\sum_{i=1}^n \\frac{1}{2} z^\\top H_i^z z + \\frac{1}{2} x^\\top H_i^x x + x^\\top C_i z + c_i^\\top z + d_i^\\top x$$
 
@@ -28,11 +28,13 @@ and
 
 $$f(x, z) = \\frac{1}{m} \\sum_{j=1}^m \\frac{1}{2} z^\\top \\tilde H_j^z z + \\frac{1}{2} x^\\top \\tilde H_j^x x + x^\\top \\tilde C_j z + \\tilde c_j^\\top z + \\tilde d_j^\\top x$$
 
-where $H_i^z, \\tilde H_j^z$ are symmetric positive definite matrices of size $p\\times p$, $H_j^x, \\tilde H_j^x$ are symmetric positive definite matrices of size $d\\times d$, $C_i, \\tilde C_j$ are matrices of size $d\\times p$, $c_i$, $\\tilde c_j$ are vectors of size $d$ and $d_i, \\tilde d_j$ are vectors of size $p$.
+where $H_i^z, \\tilde H_j^z$ are symmetric positive definite matrices of size $p\\times p$, $H_j^x, \\tilde H_j^x$ are symmetric positive definite matrices of size $d\\times d$, $C_i, \\tilde C_j$ are matrices of size $d\\times p$, $c_i$, $\\tilde c_j$ are vectors of size $d$, and $d_i, \\tilde d_j$ are vectors of size $p$.
 
-The matrices $H_i^z, H_i^x, \\tilde H_j^z, \\tilde H_j^x$ are generated randomly such that the eigenvalues of $\\frac1n\\sum_i H_i^z$ are between `mu_inner` and `L_inner_inner`, the eigenvalues of $\\frac1n\\sum_i H_i^x$ are between `mu_inner` and `L_inner_outer`, the eigenvalues of $\\frac1m\\sum_j \\tilde H_j^z$ are between `mu_inner` and `L_outer_inner`, and the eigenvalues of $\\frac1m\\sum_j \\tilde H_j^x$ are between `mu_inner` and `L_outer_outer`.
+The matrices $H_i^z, H_i^x, \\tilde H_j^z, \\tilde H_j^x$ are generated randomly such that the eigenvalues of $\\frac1n\\sum_i H_i^z$ are between `mu_inner`, and `L_inner_inner`, the eigenvalues of $\\frac1n\\sum_i H_i^x$ are between `mu_inner`, and `L_inner_outer`, the eigenvalues of $\\frac1m\\sum_j \\tilde H_j^z$ are between `mu_inner`, and `L_outer_inner`, and the eigenvalues of $\\frac1m\\sum_j \\tilde H_j^x$ are between `mu_inner`, and `L_outer_outer`.
 
 The matrices $C_i, \\tilde C_j$ are generated randomly such that the spectral norm of $\\frac1n\\sum_i C_i$ is lower than `L_cross_inner`, and the spectral norm of $\\frac1m\\sum_j \\tilde C_j$ is lower than `L_cross_outer`.
+
+Note that in this setting, the solution of the inner problem is a linear system. Moreover, the full batch inner and outer functions can be cheaply computed by storing the average of the Hessian matrices. Thus, the value function can be cheaply evaluated in closed form in medium dimension.
 
 
 2 - Regularization selection
@@ -59,7 +61,7 @@ Covtype
 
 *Homepage : https://archive.ics.uci.edu/dataset/31/covertype*
 
-This is a logistic regression problem, where the data is of the form $d_i = (a_i, y_i)$ with  $a_i\\in\\mathbb{R}^p$ are the features and $y_i=\\pm1$ is the binary target.
+This is a logistic regression problem, where the data is of the form $d_i = (a_i, y_i)$ with  $a_i\\in\\mathbb{R}^p$ are the features, and $y_i=\\pm1$ is the binary target.
 For this problem, the loss is $\\ell(d_i, z) = \\log(1+\\exp(-y_i a_i^T z))$, and the regularization is simply given by
 $$\\mathcal{R}(x, z) = \\frac12\\sum_{j=1}^p\\exp(x_j)z_j^2,$$
 each coefficient in $z$ is independently regularized with the strength $\\exp(x_j)$.
@@ -69,7 +71,7 @@ Ijcnn1
 
 *Homepage : https://www.openml.org/search?type=data&sort=runs&id=1575&status=active*
 
-This is a multicalss logistic regression problem, where the data is of the form $d_i = (a_i, y_i)$ with  $a_i\\in\\mathbb{R}^p$ are the features and $y_i\\in \\{1,\\dots, k\\}$ is the integer target, with k the number of classes.
+This is a multicalss logistic regression problem, where the data is of the form $d_i = (a_i, y_i)$ with  $a_i\\in\\mathbb{R}^p$ are the features, and $y_i\\in \\{1,\\dots, k\\}$ is the integer target, with k the number of classes.
 For this problem, the loss is $\\ell(d_i, z) = \\text{CrossEntropy}(za_i, y_i)$ where $z$ is now a k x p matrix. The regularization is given by 
 $$\\mathcal{R}(x, z) = \\frac12\\sum_{j=1}^k\\exp(x_j)\\|z_j\\|^2,$$
 each line in $z$ is independently regularized with the strength $\\exp(x_j)$.
@@ -80,7 +82,7 @@ each line in $z$ is independently regularized with the strength $\\exp(x_j)$.
 
 This problem was first introduced by [Fra2017]_ .
 In this problem, the data is the MNIST dataset.
-The training set has been corrupted: with a probability $p$, the label of the image $y\\in\\{1,\\dots,10\\}$ is replaced by another random label between 1 and 10.
+The training set has been corrupted: with a probability $p$, the label of the image $y\\in\\{1,\\dots,10\\}$ is replaced by another random label between 1, and 10.
 We do not know beforehand which data has been corrupted.
 We have a clean testing set, which has not been corrupted.
 The goal is to fit a model on the corrupted training data that has good performances on the test set.
