@@ -98,10 +98,20 @@ class StochasticJaxSolver(BaseSolver, ABC):
 
         inner_var0, outer_var0: array-like, shape (dim_inner,) (dim_outer,)
 
-        f_inner_fb, f_outer_fb: callable
-            Full batch version of f_inner and f_outer. Should take as input:
-                * inner_var: array-like, shape (dim_inner,)
-                * outer_var: array-like, shape (dim_outer,)
+        Attributes
+        ----------
+        f_inner, f_outer: callable
+            Inner and outer objective function for the bilevel optimization
+            problem.
+
+        n_inner_samples, n_outer_samples: int
+            Number of samples to draw for the inner and outer objective
+            functions.
+
+        inner_var0, outer_var0: array-like, shape (dim_inner,) (dim_outer,)
+
+        batch_size_inner, batch_size_outer: int
+            
         """
 
         self.f_inner = f_inner

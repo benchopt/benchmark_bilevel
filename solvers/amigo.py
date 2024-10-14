@@ -20,6 +20,27 @@ class Solver(StochasticJaxSolver):
     Bilevel Optimization". ICLR 2022"""
     name = 'AmIGO'
 
+    """How to add a new stochastic solver to the benchmark?
+
+    Stochastic solvers are Solver classes that inherit from the
+    `StochasticJaxSolver` class. They should implement the `init` and the
+    `get_step_methods` and the class variable `parameters`.
+
+    * The variable `parameters` is a dictionary that contains the solver's 
+    parameters. In the case of AmIGO, it contains
+        - step_size: the step_size of the inner and linear system solvers
+        - outer_ratio: the ratio between the step sizes of the inner and the
+        outer updates
+        - n_inner_steps: the number of steps of the inner and the linear system
+        solvers
+        - batch_size: the size of the minibatch (assumed to be the same for the 
+        inner and outer functions)
+        - **StochasticJaxSolver.parameters: the parameters shared by all the
+        stochastic solvers based on the StochasticJaxSolver class
+
+    * 
+    """
+
     # any parameter defined here is accessible as a class attribute
     parameters = {
         'step_size': [.1],

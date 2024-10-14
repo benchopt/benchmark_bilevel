@@ -127,6 +127,14 @@ where ``X.yml`` is a config file. See https://benchopt.github.io/index.html#run-
 
 Use ``benchopt run -h`` for more details about these options, or visit https://benchopt.github.io/api.html.
 
+How to contribute to the benchmark?
+-----------------------------------
+
+If you think that a solver is missing, or if you want to add a new problem, feel free to open a pull request or an issue!
+
+1 - How to add a new solvers?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+* Stochastic solver: see the detailed explanations in the [AmIGO solver](solvers/amigo.py).
 
 Cite
 ----
