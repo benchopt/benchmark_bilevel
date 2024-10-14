@@ -26,19 +26,31 @@ class Solver(StochasticJaxSolver):
     `StochasticJaxSolver` class. They should implement the `init` and the
     `get_step_methods` and the class variable `parameters`.
 
-    * The variable `parameters` is a dictionary that contains the solver's 
+    * The variable `parameters` is a dictionary that contains the solver's
     parameters. In the case of AmIGO, it contains
         - step_size: the step_size of the inner and linear system solvers
         - outer_ratio: the ratio between the step sizes of the inner and the
         outer updates
         - n_inner_steps: the number of steps of the inner and the linear system
         solvers
-        - batch_size: the size of the minibatch (assumed to be the same for the 
+        - batch_size: the size of the minibatch (assumed to be the same for the
         inner and outer functions)
         - **StochasticJaxSolver.parameters: the parameters shared by all the
         stochastic solvers based on the StochasticJaxSolver class
 
-    * 
+    * The `init` methods initializes variables that are udapted during the
+    optimization process. In the case of AmIGO, it initializes the inner and
+    outer variables, the linear system variable v and the learning rate
+    scheduler. It returns a dictionary containing these variables and the
+    initial state of the samplers. Those ones are already provided by the
+    attributes `state_inner_sampler` and `state_outer_sampler`.
+
+    * The `get_step` method returns a function that performs one iteration of
+    the optimization algorithm. This function should be jittable by JAX. In
+    this function are also initialized the eventual subroutines such as the
+    inner SGD and the linear system solver in the case of AmIGO. Note that the
+    variable updated during the process are stored in the `carry` dictionary,
+    whose initial state is the output of the `init` method.
     """
 
     # any parameter defined here is accessible as a class attribute
