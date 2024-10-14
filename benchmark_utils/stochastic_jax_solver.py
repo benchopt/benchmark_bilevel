@@ -111,7 +111,15 @@ class StochasticJaxSolver(BaseSolver, ABC):
         inner_var0, outer_var0: array-like, shape (dim_inner,) (dim_outer,)
 
         batch_size_inner, batch_size_outer: int
-            
+            Size of the minibatch to use for the inner and outer objective
+            functions.
+
+        state_inner_sampler, state_outer_sampler: dict
+            State of the minibatch samplers for the inner and outer objectives.
+
+        one_epoch: callable
+            Jitted function that runs the solver for one epoch. One epoch is
+            defined as `eval_freq` iterations of the solver.
         """
 
         self.f_inner = f_inner
