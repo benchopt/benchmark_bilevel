@@ -135,6 +135,7 @@ If you think that a solver is missing, or if you want to add a new problem, feel
 1 - How to add a new solvers?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 * Stochastic solver: see the detailed explanations in the [AmIGO solver](solvers/amigo.py).
+* Other solver: see the detailed explanation in the [Benchopt documentation](https://benchopt.github.io/tutorials/add_solver.html).
 
 Cite
 ----
