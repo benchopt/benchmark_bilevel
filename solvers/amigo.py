@@ -59,7 +59,7 @@ class Solver(StochasticJaxSolver):
         'outer_ratio': [1.],
         'n_inner_steps': [10],
         'batch_size': [64],
-        **StochasticJaxSolver.parameters 
+        **StochasticJaxSolver.parameters
         # Contains the `eval_freq` and `random_state`parameters
     }
 
