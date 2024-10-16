@@ -56,16 +56,16 @@ class CNN(nn.Module):
     """A simple CNN model."""
     @nn.compact
     def __call__(self, x):
-        # x = nn.Conv(features=32, kernel_size=(3, 3))(x)
-        # x = nn.relu(x)
-        # x = nn.avg_pool(x, window_shape=(2, 2), strides=(2, 2))
-        # x = nn.Conv(features=64, kernel_size=(3, 3))(x)
-        # x = nn.relu(x)
-        # x = nn.avg_pool(x, window_shape=(2, 2), strides=(2, 2))
-        # x = x.reshape((x.shape[0], -1))  # flatten
-        # x = nn.Dense(features=256)(x)
-        # x = nn.relu(x)
-        x = nn.Dense(features=10)(x.reshape((x.shape[0], -1)))
+        x = nn.Conv(features=32, kernel_size=(3, 3))(x)
+        x = nn.relu(x)
+        x = nn.avg_pool(x, window_shape=(2, 2), strides=(2, 2))
+        x = nn.Conv(features=64, kernel_size=(3, 3))(x)
+        x = nn.relu(x)
+        x = nn.avg_pool(x, window_shape=(2, 2), strides=(2, 2))
+        x = x.reshape((x.shape[0], -1))  # flatten
+        x = nn.Dense(features=256)(x)
+        x = nn.relu(x)
+        x = nn.Dense(features=10)(x)
         return x
 
 
@@ -181,6 +181,7 @@ class Dataset(BaseDataset):
             distilled_acc = accuracy(inner_var, outer_var, jnp.eye(10))
             train_loss = f_inner(inner_var, outer_var,
                                  batch_size=self.n_samples_inner)
+
             return dict(
                 train_accuracy=float(train_acc),
                 value=float(val_acc),
@@ -190,13 +191,9 @@ class Dataset(BaseDataset):
             )
 
         def init_var(key):
-            inner_var = jax.tree_util.tree_map(
-                lambda x: jnp.zeros_like(x),
-                inner_params,
-            )
+            inner_var = cnn.init(key, jnp.ones([1, 28, 28, 1]))['params']
             outer_var = jax.random.normal(key, (10, 28 * 28)) / (28 * 28)
             outer_var = outer_var.reshape((10, 28, 28, 1))
-
             return inner_var, outer_var
 
         data = dict(
