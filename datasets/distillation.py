@@ -185,8 +185,7 @@ class Dataset(BaseDataset):
             distillation_loss = f_inner(inner_var, outer_var,
                                         batch_size=self.n_samples_inner)
             train_loss = f_outer(inner_var, outer_var,
-                                 batch_size=self.n_samples_inner)         
-
+                                 batch_size=self.n_samples_inner)
             return dict(
                 train_accuracy=float(train_acc),
                 value=float(val_acc),
