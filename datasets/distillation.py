@@ -56,15 +56,15 @@ class CNN(nn.Module):
     """A simple CNN model."""
     @nn.compact
     def __call__(self, x):
-        x = nn.Conv(features=32, kernel_size=(3, 3))(x)
-        x = nn.relu(x)
-        x = nn.avg_pool(x, window_shape=(2, 2), strides=(2, 2))
-        x = nn.Conv(features=64, kernel_size=(3, 3))(x)
-        x = nn.relu(x)
-        x = nn.avg_pool(x, window_shape=(2, 2), strides=(2, 2))
-        x = x.reshape((x.shape[0], -1))  # flatten
-        x = nn.Dense(features=256)(x)
-        x = nn.relu(x)
+        # x = nn.Conv(features=32, kernel_size=(3, 3))(x)
+        # x = nn.relu(x)
+        # x = nn.avg_pool(x, window_shape=(2, 2), strides=(2, 2))
+        # x = nn.Conv(features=64, kernel_size=(3, 3))(x)
+        # x = nn.relu(x)
+        # x = nn.avg_pool(x, window_shape=(2, 2), strides=(2, 2))
+        # x = x.reshape((x.shape[0], -1))  # flatten
+        # x = nn.Dense(features=256)(x)
+        # x = nn.relu(x)
         x = nn.Dense(features=10)(x)
         return x
 
@@ -146,6 +146,9 @@ class Dataset(BaseDataset):
             # (typically one sample per class), we can just use the whole
             # distilled dataset
             res = loss(inner_var, outer_var, jnp.eye(10))
+            # outer_var is the distilled dataset, we have one sample
+            # per class. Thus the one_hot encoding of labels if the distilled
+            # dataset is jnp.eye(10)
 
             res += self.reg * tree_inner_product(inner_var, inner_var)
             return res
@@ -179,15 +182,18 @@ class Dataset(BaseDataset):
             val_acc = accuracy(inner_var, X_val, y_val)
             train_acc = accuracy(inner_var, X_train, y_train)
             distilled_acc = accuracy(inner_var, outer_var, jnp.eye(10))
-            train_loss = f_inner(inner_var, outer_var,
-                                 batch_size=self.n_samples_inner)
+            distillation_loss = f_inner(inner_var, outer_var,
+                                        batch_size=self.n_samples_inner)
+            train_loss = f_outer(inner_var, outer_var,
+                                 batch_size=self.n_samples_inner)         
 
             return dict(
                 train_accuracy=float(train_acc),
                 value=float(val_acc),
                 test_accuracy=float(acc),
                 distilled_accuracy=float(distilled_acc),
-                train_loss=float(train_loss)
+                train_loss=float(train_loss),
+                distillation_loss=float(distillation_loss)
             )
 
         def init_var(key):
