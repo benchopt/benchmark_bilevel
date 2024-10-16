@@ -4,7 +4,7 @@ Bilevel Optimization Benchmark
 
 *Results can be consulted on https://benchopt.github.io/results/benchmark_bilevel.html*
 
-BenchOpt is a package to simplify, and make more transparent, and
+BenchOpt is a package to simplify, make more transparent, and
 reproducible the comparisons of optimization algorithms.
 This benchmark is dedicated to solvers for bilevel optimization:
 
@@ -17,10 +17,10 @@ Different problems
 
 This benchmark currently implements three bilevel optimization problems: quadratic problem, regularization selection, and hyper data cleaning.
 
-1 - Simulated bilevel problem
+1 - Simulated quadratic bilevel problem
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-In this problem, the inner, and the outer functions are quadritics functions defined of $\\mathbb{R}^{d\\times p}$
+In this problem, the inner and the outer functions are quadritics functions defined of $\\mathbb{R}^{d\\times p}$
 
 $$g(x, z) = \\frac{1}{n}\\sum_{i=1}^n \\frac{1}{2} z^\\top H_i^z z + \\frac{1}{2} x^\\top H_i^x x + x^\\top C_i z + c_i^\\top z + d_i^\\top x$$
 
@@ -34,7 +34,8 @@ The matrices $H_i^z, H_i^x, \\tilde H_j^z, \\tilde H_j^x$ are generated randomly
 
 The matrices $C_i, \\tilde C_j$ are generated randomly such that the spectral norm of $\\frac1n\\sum_i C_i$ is lower than ``L_cross_inner``, and the spectral norm of $\\frac1m\\sum_j \\tilde C_j$ is lower than ``L_cross_outer``.
 
-Note that in this setting, the solution of the inner problem is a linear system. Moreover, the full batch inner and outer functions can be cheaply computed by storing the average of the Hessian matrices. Thus, the value function can be cheaply evaluated in closed form in medium dimension.
+Note that in this setting, the solution of the inner problem is a linear system.
+As, the full batch inner and outer functions can be computed efficiently directly with the average Hessian matrices, the value function can be evaluated in closed form. 
 
 
 2 - Regularization selection
@@ -130,7 +131,7 @@ Use ``benchopt run -h`` for more details about these options, or visit https://b
 How to contribute to the benchmark?
 -----------------------------------
 
-If you think that a solver is missing, or if you want to add a new problem, feel free to open a pull request or an issue!
+If you want to add a solver or a new problem, you are welcome to open an issue or submit a pull request!  
 
 1 - How to add a new solvers?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
