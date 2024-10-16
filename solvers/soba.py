@@ -80,16 +80,16 @@ class Solver(StochasticJaxSolver):
             carry['inner_var'] = update_sgd_fn(
                 carry['inner_var'], grad_inner_var, inner_step_size
             )
-            # carry['v'] = update_sgd_fn(
-            #     carry['v'],
-            #     tree_add(hvp, grad_in_outer),
-            #     inner_step_size
-            # )
-            # carry['outer_var'] = update_sgd_fn(
-            #     carry['outer_var'],
-            #     tree_add(cross_v, grad_out_outer),
-            #     outer_step_size
-            # )
+            carry['v'] = update_sgd_fn(
+                carry['v'],
+                tree_add(hvp, grad_in_outer),
+                inner_step_size
+            )
+            carry['outer_var'] = update_sgd_fn(
+                carry['outer_var'],
+                tree_add(cross_v, grad_out_outer),
+                outer_step_size
+            )
             return carry, _
 
         return soba_one_iter
