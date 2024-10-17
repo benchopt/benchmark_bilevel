@@ -97,7 +97,7 @@ class Solver(BaseSolver):
                                          inner_step_size)
 
             # Generate Gaussian vectors
-            U = jax.tree_map(
+            U = jax.tree_util.tree_map(
                 lambda x: jax.random.normal(key,
                                             (self.n_gaussian_vectors,
                                              *x.shape)),
@@ -115,7 +115,8 @@ class Solver(BaseSolver):
                                                        self.outer_var)
             mat_vec_prod = jax.tree_util.tree_reduce(
                 lambda a, b: a+b,
-                jax.tree_map(lambda a, b: a@b, deltas, grad_outer_in), 0
+                jax.tree_util.tree_map(lambda a, b: a@b, deltas,
+                                       grad_outer_in), 0
             )  # = sum_i <delta_i , grad_outer_in>
             es_estimator = jax.tree_util.tree_map(
                 lambda x: x.T.dot(mat_vec_prod), U
