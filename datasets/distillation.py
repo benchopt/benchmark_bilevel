@@ -13,6 +13,7 @@ with safe_import_context() as import_ctx:
 
     import jax
     import optax
+    import jaxopt
     import jax.numpy as jnp
     from flax import linen as nn
 
@@ -176,6 +177,24 @@ class Dataset(BaseDataset):
                                X.reshape((-1, 28, 28, 1)))
             return jnp.mean(jnp.argmax(logits, axis=1) != y)
 
+        solver = jaxopt.LBFGS(
+                fun=f_inner, implicit_diff=True,
+            )
+
+        def value_fun(inner_var, outer_var):
+            """Solver used to solve the inner problem.
+
+            The output of this function is differentiable w.r.t. the
+            outer_variable. The Jacobian is computed using implicit
+            differentiation with a conjugate gradient solver.
+            """
+            inner_var = solver.run(inner_var, outer_var).params
+            return f_outer(inner_var, outer_var), inner_var
+
+        value_grad = jax.jit(jax.value_and_grad(
+            value_fun, argnums=1, has_aux=True
+        ))
+
         def metrics(inner_var, outer_var):
             acc = accuracy(inner_var, X_test, y_test)
             val_acc = accuracy(inner_var, X_val, y_val)
@@ -185,18 +204,22 @@ class Dataset(BaseDataset):
                                         batch_size=self.n_samples_inner)
             train_loss = f_outer(inner_var, outer_var,
                                  batch_size=self.n_samples_inner)
+            (value, _), grad = value_grad(inner_var, outer_var)
+
             return dict(
                 train_accuracy=float(train_acc),
                 value=float(val_acc),
                 test_accuracy=float(acc),
                 distilled_accuracy=float(distilled_acc),
                 train_loss=float(train_loss),
-                distillation_loss=float(distillation_loss)
+                distillation_loss=float(distillation_loss),
+                value_fun=float(value),
+                grad=tree_inner_product(grad, grad)
             )
 
         def init_var(key):
             inner_var = cnn.init(key, jnp.ones([1, 28, 28, 1]))['params']
-            outer_var = jax.random.normal(key, (10, 28 * 28)) / (28 * 28)
+            outer_var = 1000 * jax.random.normal(key, (10, 28 * 28))
             outer_var = outer_var.reshape((10, 28, 28, 1))
             return inner_var, outer_var
 
