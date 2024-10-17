@@ -141,7 +141,7 @@ Each solver derive from the [`benchopt.BaseSolver` class](https://benchopt.githu
 
 2 - How to add a new problem?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-In this benchmark, each problem is defined by a [Dataset class](https://benchopt.github.io/user_guide/generated/benchopt.BaseDataset.html) in the [datasets](datasets) folder. 
+In this benchmark, each problem is defined by a [Dataset class](https://benchopt.github.io/user_guide/generated/benchopt.BaseDataset.html) in the [datasets](datasets) folder. A [template](datasets/template_dataset.py) is provided.
 
 Cite
 ----

@@ -29,6 +29,12 @@ class Dataset(BaseDataset):
     """Hyperparameter optimization with IJCNN1 dataset."""
     # Name to select the dataset in the CLI and to display the results.
     name = "ijcnn1"
+    """How to add a new problem to the benchmark?
+
+    This template dataset is an adaptation of the dataset from the benchopt
+    template benchmark (https://github.com/benchopt/template_benchmark/) to
+    the bilevel setting.
+    """
 
     install_cmd = 'conda'
     # List of packages needed to run the dataset. See the corresponding

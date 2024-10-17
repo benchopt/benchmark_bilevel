@@ -25,7 +25,7 @@ class Solver(BaseSolver):
     # Name to select the solver in the CLI and to display the results.
     name = 'jaxopt_GD'
 
-    """How to add a new stochastic solver to the benchmark?
+    """How to add a new  solver to the benchmark?
 
     This template solver is an adaptation of the solver from the benchopt
     template benchmark (https://github.com/benchopt/template_benchmark/) to
