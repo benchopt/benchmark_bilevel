@@ -52,23 +52,6 @@ def download_mnist():
     print("Save complete.")
 
 
-class CNN(nn.Module):
-    """A simple CNN model."""
-    @nn.compact
-    def __call__(self, x):
-        # x = nn.Conv(features=32, kernel_size=(3, 3))(x)
-        # x = nn.relu(x)
-        # x = nn.avg_pool(x, window_shape=(2, 2), strides=(2, 2))
-        # x = nn.Conv(features=64, kernel_size=(3, 3))(x)
-        # x = nn.relu(x)
-        # x = nn.avg_pool(x, window_shape=(2, 2), strides=(2, 2))
-        x = x.reshape((x.shape[0], -1))  # flatten
-        # x = nn.Dense(features=256)(x)
-        # x = nn.relu(x)
-        x = nn.Dense(features=10)(x)
-        return x
-
-
 class Dataset(BaseDataset):
     """Datacleaning with MNIST"""
 
@@ -128,6 +111,22 @@ class Dataset(BaseDataset):
         self.n_samples_inner = X_train.shape[0]
         self.n_samples_outer = X_val.shape[0]
 
+        class CNN(nn.Module):
+            """A simple CNN model."""
+            @nn.compact
+            def __call__(self, x):
+                x = nn.Conv(features=32, kernel_size=(3, 3))(x)
+                x = nn.relu(x)
+                x = nn.avg_pool(x, window_shape=(2, 2), strides=(2, 2))
+                x = nn.Conv(features=64, kernel_size=(3, 3))(x)
+                x = nn.relu(x)
+                x = nn.avg_pool(x, window_shape=(2, 2), strides=(2, 2))
+                x = x.reshape((x.shape[0], -1))  # flatten
+                x = nn.Dense(features=256)(x)
+                x = nn.relu(x)
+                x = nn.Dense(features=10)(x)
+                return x
+
         cnn = CNN()
         key = jax.random.PRNGKey(self.random_state)
         inner_params = cnn.init(key, jnp.ones([1, 28, 28, 1]))['params']
@@ -147,8 +146,8 @@ class Dataset(BaseDataset):
             # distilled dataset
             res = loss(inner_var, outer_var, jnp.eye(10))
             # outer_var is the distilled dataset, we have one sample
-            # per class. Thus the one_hot encoding of labels if the distilled
-            # dataset is jnp.eye(10)
+            # per class. Thus the one_hot encoding  of the distilled dataset's
+            # labels is jnp.eye(10)
 
             res += self.reg * tree_inner_product(inner_var, inner_var)
             return res
