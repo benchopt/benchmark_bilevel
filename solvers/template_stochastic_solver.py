@@ -19,6 +19,7 @@ class Solver(StochasticJaxSolver):
     M. Dagréou, P. Ablin, S. Vaiter and T. Moreau, "A framework for bilevel
     optimization that enables stochastic and global variance reduction
     algorithms", NeurIPS 2022."""
+    # Name to select the solver in the CLI and to display the results.
     name = 'Template Stochastic Solver'
 
     """How to add a new stochastic solver to the benchmark?
@@ -57,7 +58,9 @@ class Solver(StochasticJaxSolver):
     whose initial state is the output of the `init` method.
     """
 
-    # any parameter defined here is accessible as a class attribute
+    # List of parameters for the solver. The benchmark will consider
+    # the cross product for each key in the dictionary.
+    # All parameters 'p' defined here are available as 'self.p'.
     parameters = {
         'step_size': [.1],
         'outer_ratio': [1.],

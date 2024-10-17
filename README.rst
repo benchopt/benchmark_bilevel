@@ -135,8 +135,13 @@ If you want to add a solver or a new problem, you are welcome to open an issue o
 
 1 - How to add a new solvers?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-* Stochastic solver: see the detailed explanations in the [AmIGO solver](solvers/amigo.py).
-* Other solver: see the detailed explanation in the [Benchopt documentation](https://benchopt.github.io/tutorials/add_solver.html).
+Each solver derive from the [`benchopt.BaseSolver` class](https://benchopt.github.io/user_guide/generated/benchopt.BaseSolver.html) in the [solvers](solvers) folder. The solvers are separated among the stochastic JAX solvers and the others:
+* Stochastic Jax solver: these solvers inherit from the [`StochasticJaxSolver` class](benchmark_utils/stochastic_jax_solver.py) see the detailed explanations in the [template stochastic solver](solvers/template_stochastic_solver.py).
+* Other solver: see the detailed explanation in the [Benchopt documentation](https://benchopt.github.io/tutorials/add_solver.html). An example is provided in the [template solver](solvers/template_solver.py).
+
+2 - How to add a new problem?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+In this benchmark, each problem is defined by a [Dataset class](https://benchopt.github.io/user_guide/generated/benchopt.BaseDataset.html) in the [datasets](datasets) folder. 
 
 Cite
 ----
