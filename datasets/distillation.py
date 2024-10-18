@@ -184,7 +184,7 @@ class Dataset(BaseDataset):
                 y = y.argmax(axis=1)
             logits = model.apply({'params': inner_var},
                                  X.reshape((-1, 28, 28, 1)))
-            return jnp.mean(jnp.argmax(logits, axis=1) != y)
+            return jnp.mean(jnp.argmax(logits, axis=1) == y)
 
         solver = jaxopt.LBFGS(
                 fun=f_inner, implicit_diff=True,
@@ -198,7 +198,7 @@ class Dataset(BaseDataset):
             differentiation with a conjugate gradient solver.
             """
             inner_var = solver.run(inner_var, outer_var).params
-            return f_outer(inner_var, outer_var), inner_var
+            return f_outer_fb(inner_var, outer_var), inner_var
 
         value_grad = jax.jit(jax.value_and_grad(
             value_fun, argnums=1, has_aux=True
@@ -214,6 +214,7 @@ class Dataset(BaseDataset):
             train_loss = f_outer(inner_var, outer_var,
                                  batch_size=self.n_samples_inner)
             (value, _), grad = value_grad(inner_var, outer_var)
+            grad_outer = jax.grad(f_outer_fb, argnums=0)(inner_var, outer_var)
 
             return dict(
                 train_accuracy=float(train_acc),
@@ -223,7 +224,9 @@ class Dataset(BaseDataset):
                 train_loss=float(train_loss),
                 distillation_loss=float(distillation_loss),
                 value_fun=float(value),
-                grad=tree_inner_product(grad, grad)
+                norm_grad_value=float(tree_inner_product(grad, grad)),
+                norm_grad_outer_fun=float(tree_inner_product(grad_outer,
+                                                             grad_outer)),
             )
 
         def init_var(key):
