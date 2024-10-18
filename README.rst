@@ -10,7 +10,7 @@ This benchmark is dedicated to solvers for bilevel optimization:
 
 $$\\min_{x} f(x, z^*(x)) \\quad \\text{with} \\quad z^*(x) = \\arg\\min_z g(x, z), $$
 
-where $g$, and $f$ are two functions of two variables.
+where $g$ and $f$ are two functions of two variables.
 
 Different problems
 ------------------
