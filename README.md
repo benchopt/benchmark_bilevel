@@ -23,17 +23,17 @@ This benchmark implements three bilevel optimization problems: quadratic problem
 
 In this problem, the inner and the outer functions are quadratic functions defined on $\mathbb{R}^{d\times p}$
 
-$$g(x, z) = \frac{1}{n}\sum_{i=1}^n \frac{1}{2} z^\top H_i^z z + \frac{1}{2} x^\top H_i^x x + x^\top C_i z + c_i^\top z + d_i^\top x$$
+$$g(x, z) = \frac{1}{n}\sum_{i=1}^n \frac{1}{2} z^\top A_i z + \frac{1}{2} x^\top B_i x + x^\top C_i z + a_i^\top z + b_i^\top x$$
 
 and
 
-$$f(x, z) = \frac{1}{m} \sum_{j=1}^m \frac{1}{2} z^\top \tilde H_j^z z + \frac{1}{2} x^\top \tilde H_j^x x + x^\top \tilde C_j z + \tilde c_j^\top z + \tilde d_j^\top x$$
+$$f(x, z) = \frac{1}{m} \sum_{j=1}^m \frac{1}{2} z^\top F_j z + \frac{1}{2} x^\top H_j x + x^\top K_j z + f_j^\top z + h_j^\top x$$
 
-where $H_i^z, \tilde H_j^z$ are symmetric positive definite matrices of size $p\times p$, $H_j^x, \tilde H_j^x$ are symmetric positive definite matrices of size $d\times d$, $C_i, \tilde C_j$ are matrices of size $d\times p$, $c_i$, $\tilde c_j$ are vectors of size $d$, and $d_i, \tilde d_j$ are vectors of size $p$.
+where $A_i, F_j$ are symmetric positive definite matrices of size $p\times p$, $B_i, F_j$ are symmetric positive definite matrices of size $d\times d$, $C_i, K_j$ are matrices of size $d\times p$, $a_i$, $f_j$ are vectors of size $d$, and $b_i, h_j$ are vectors of size $p$.
 
-The matrices $H_i^z, H_i^x, \tilde H_j^z, \tilde H_j^x$ are randomly generated such that the eigenvalues of $\frac1n\sum_i H_i^z$ are between ``mu_inner``, and ``L_inner_inner``, the eigenvalues of $\frac1n\sum_i H_i^x$ are between ``mu_inner``, and ``L_inner_outer``, the eigenvalues of $\frac1m\sum_j \tilde H_j^z$ are between ``mu_inner``, and ``L_outer_inner``, and the eigenvalues of $\frac1m\sum_j \tilde H_j^x$ are between ``mu_inner``, and ``L_outer_outer``.
+The matrices $A_i, B_i, F_j, H_j$ are randomly generated such that the eigenvalues of $\frac1n\sum_i A_i$ are between ``mu_inner``, and ``L_inner_inner``, the eigenvalues of $\frac1n\sum_i B_i$ are between ``mu_inner``, and ``L_inner_outer``, the eigenvalues of $\frac1m\sum_j F_j$ are between ``mu_inner``, and ``L_outer_inner``, and the eigenvalues of $\frac1m\sum_j H_j$ are between ``mu_inner``, and ``L_outer_outer``.
 
-The matrices $C_i, \tilde C_j$ are generated randomly such that the spectral norm of $\frac1n\sum_i C_i$ is lower than ``L_cross_inner``, and the spectral norm of $\frac1m\sum_j \tilde C_j$ is lower than ``L_cross_outer``.
+The matrices $C_i, K_j$ are generated randomly such that the spectral norm of $\frac1n\sum_i C_i$ is lower than ``L_cross_inner``, and the spectral norm of $\frac1m\sum_j K_j$ is lower than ``L_cross_outer``.
 
 Note that in this setting, the solution of the inner problem is a linear system.
 As the full batch inner and outer functions can be computed efficiently with the average Hessian matrices, the value function is evaluated in closed form. 
@@ -57,18 +57,14 @@ where the $d'_1, \dots, d'_m$ are new samples from the same dataset as above.
 
 There are currently two datasets for this regularization selection problem.
 
-#### Covtype
-
-*Homepage : https://archive.ics.uci.edu/dataset/31/covertype*
+#### Covtype - [*Homepage*](https://archive.ics.uci.edu/dataset/31/covertype*)
 
 This is a logistic regression problem, where the data have the form $d_i = (a_i, y_i)$ with $a_i\in\mathbb{R}^p$ the features and $y_i=\pm1$ the binary target.
 For this problem, the loss is $\ell(d_i, z) = \log(1+\exp(-y_i a_i^T z))$, and the regularization is simply given by
 $$\mathcal{R}(x, z) = \frac12\sum_{j=1}^p\exp(x_j)z_j^2,$$
 each coefficient in $z$ is independently regularized with the strength $\exp(x_j)$.
 
-#### Ijcnn1
-
-*Homepage : https://www.openml.org/search?type=data&sort=runs&id=1575&status=active*
+#### Ijcnn1 - [*Homepage*](https://www.openml.org/search?type=data&sort=runs&id=1575&status=active)
 
 This is a multiclass logistic regression problem, where the data is of the form $d_i = (a_i, y_i)$ with  $a_i\in\mathbb{R}^p$ are the features and $y_i\in \{1,\dots, k\}$ is the integer target, with k the number of classes.
 For this problem, the loss is $\ell(d_i, z) = \text{CrossEntropy}(za_i, y_i)$ where $z$ is now a k x p matrix. The regularization is given by 
@@ -112,7 +108,7 @@ This benchmark can be run using the following commands:
 Apart from the problem, options can be passed to ``benchopt run`` to restrict the benchmarks to some solvers or datasets, e.g.:
 
 ```bash
-	$ benchopt run benchmark_bilevel -s solver1 -d dataset2 --max-runs 10 --n-repetitions 10
+   $ benchopt run benchmark_bilevel -s solver1 -d dataset2 --max-runs 10 --n-repetitions 10
 ````
 
 You can also use config files to set the benchmark run:
