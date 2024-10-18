@@ -74,7 +74,7 @@ each line in $z$ is independently regularized with the strength $\exp(x_j)$.
 
 ### 3 - Data cleaning
 
-This problem was first introduced by [Franceschi et al., 2017](https://arxiv.org/abs/1703.01785).
+This problem was first introduced by [Franceschi et al. (2017)](https://arxiv.org/abs/1703.01785).
 In this problem, the data is the MNIST dataset.
 The training set has been corrupted: with a probability $p$, the label of the image $`y\in\{1,\dots,10\}`$ is replaced by another random label between 1 and 10.
 We do not know beforehand which data has been corrupted.
