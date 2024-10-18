@@ -9,7 +9,9 @@ BenchOpt is a package to simplify, make more transparent, and
 reproducible the comparisons of optimization algorithms.
 This benchmark is dedicated to solvers for bilevel optimization:
 
-$$\min_{x} f(x, z^*(x)) \quad \text{with} \quad z^*(x) = \arg\min_z g(x, z), $$
+$$
+\min_{x} f(x, z^*(x)) \quad \text{with} \quad z^*(x) = \arg\min_z g(x, z),
+$$
 
 where $g$ and $f$ are two functions of two variables.
 
@@ -80,7 +82,7 @@ each line in $z$ is independently regularized with the strength $\exp(x_j)$.
 
 This problem was first introduced by [Franceschi et al., 2017](https://arxiv.org/abs/1703.01785).
 In this problem, the data is the MNIST dataset.
-The training set has been corrupted: with a probability $p$, the label of the image $y\in\{1,\dots,10\}$ is replaced by another random label between 1 and 10.
+The training set has been corrupted: with a probability $p$, the label of the image $y\in {{1,\dots,10}}$ is replaced by another random label between 1 and 10.
 We do not know beforehand which data has been corrupted.
 We have a clean testing set, which has not been corrupted.
 The goal is to fit a model on the corrupted training data that has good performances on the test set.
