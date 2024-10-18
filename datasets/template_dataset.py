@@ -52,10 +52,6 @@ class Dataset(BaseDataset):
         # The return arguments of this function are passed as keyword arguments
         # to `Objective.set_data`. This defines the benchmark's
         # API to pass data.
-        assert self.reg_parametrization in ['lin', 'exp'], (
-            f"unknown reg parameter '{self.reg_parametrization}'. "
-            "Should be 'lin' or 'exp'."
-        )
 
         X_train, y_train = fetch_libsvm('ijcnn1')
         X_val, y_val = fetch_libsvm('ijcnn1_test')
