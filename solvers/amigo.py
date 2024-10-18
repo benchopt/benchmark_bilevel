@@ -27,6 +27,7 @@ class Solver(StochasticJaxSolver):
         'n_inner_steps': [10],
         'batch_size': [64],
         **StochasticJaxSolver.parameters
+        # Contains the `eval_freq` and `random_state`parameters
     }
 
     def init(self):
@@ -43,6 +44,11 @@ class Solver(StochasticJaxSolver):
         )
         exponents = jnp.zeros(3)
         state_lr = init_lr_scheduler(step_sizes, exponents)
+
+        # The return dictionary should contain all the variables that are
+        # updated during the optimization process. The state of the samplers
+        # are already provided by the attributes `state_inner_sampler` and
+        # `state_outer_sampler`.
         return dict(
             inner_var=self.inner_var, outer_var=self.outer_var, v=v,
             state_lr=state_lr,
@@ -63,6 +69,9 @@ class Solver(StochasticJaxSolver):
             sampler=inner_sampler, n_steps=self.n_inner_steps
         )
 
+        # This function should be jittable by JAX. It returns the output of
+        # one iteration of the optimization algorithm  (one iteration = one
+        # outer vairable update in this case).
         def amigo_one_iter(carry, _):
 
             (inner_lr, v_lr, outer_lr), carry['state_lr'] = update_lr(
