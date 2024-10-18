@@ -9,16 +9,14 @@ BenchOpt is a package to simplify, to make more transparent, and
 reproducible the comparison of optimization algorithms.
 This benchmark is dedicated to solvers for bilevel optimization:
 
-$$
-\min_{x} f(x, z^*(x)) \quad \text{with} \quad z^*(x) = \arg\min_z g(x, z),
-$$
+$$\min_{x} f(x, z^* (x)) \quad \text{with} \quad z^*(x) = \arg\min_z g(x, z),$$
 
 where $g$ and $f$ are two functions of two variables.
 
 Different problems
 ------------------
 
-This benchmark currently implements three bilevel optimization problems: quadratic problem, regularization selection, and data cleaning.
+This benchmark implements three bilevel optimization problems: quadratic problem, regularization selection, and data cleaning.
 
 ### 1 - Simulated quadratic bilevel problem
 
@@ -51,7 +49,7 @@ $$g(x, z) = \frac{1}{n} \sum_{i=1}^{n} \ell(d_i; z) + \mathcal{R}(x, z)$$
 where $d_1, \dots, d_n$ are training data samples, $z$ are the parameters of the machine learning model, and the loss function $\ell$ measures how well the model parameters $z$ predict the data $d_i$.
 There is also a regularization $\mathcal{R}$ that is parametrized by the regularization strengths $x$, which aims at promoting a certain structure on the parameters $z$.
 
-The outer function $f$ is defined as the unregularized loss on unseen data 
+The outer function $f$ is defined as the unregularized loss on unseen data
 
 $$f(x, z) = \frac{1}{m} \sum_{j=1}^{m} \ell(d'_j; z)$$
 
@@ -63,7 +61,7 @@ There are currently two datasets for this regularization selection problem.
 
 *Homepage : https://archive.ics.uci.edu/dataset/31/covertype*
 
-This is a logistic regression problem, where the data is of the form $d_i = (a_i, y_i)$ with  $a_i\in\mathbb{R}^p$ are the features and $y_i=\pm1$ is the binary target.
+This is a logistic regression problem, where the data have the form $d_i = (a_i, y_i)$ with $a_i\in\mathbb{R}^p$ the features and $y_i=\pm1$ the binary target.
 For this problem, the loss is $\ell(d_i, z) = \log(1+\exp(-y_i a_i^T z))$, and the regularization is simply given by
 $$\mathcal{R}(x, z) = \frac12\sum_{j=1}^p\exp(x_j)z_j^2,$$
 each coefficient in $z$ is independently regularized with the strength $\exp(x_j)$.
@@ -87,7 +85,7 @@ We do not know beforehand which data has been corrupted.
 We have a clean testing set, which has not been corrupted.
 The goal is to fit a model on the corrupted training data that has good performances on the test set.
 To do so, a set of weights -- one per train sample -- is learned as well as the model parameters.
-Ideally, we would want a weight of 0 for data that has been corrupted, and a weight of 1 for uncorrupted data.
+Ideally, we would want a weight of 0 for data that has been corrupted and a weight of 1 for uncorrupted data.
 The problem is cast as a bilevel problem with $g$ given by 
 
 $$g(x, z) =\frac1n \sum_{i=1}^n \sigma(x_i)\ell(d_i, z) + \frac C 2 \|z\|^2$$
@@ -123,7 +121,7 @@ You can also use config files to set the benchmark run:
    $ benchopt run benchmark_bilevel --config config/X.yml
 ```
 
-where ``X.yml`` is a config file. See https://benchopt.github.io/index.html#run-a-benchmark for an example of a config file. This will possibly launch a huge grid search. When available, you can rather use the file ``X_best_params.yml``to launch an experiment with a single set of parameters for each solver.
+where ``X.yml`` is a config file. See https://benchopt.github.io/index.html#run-a-benchmark for an example of a config file. This will launch a huge grid search. When available, you can rather use the file ``X_best_params.yml`` to launch an experiment with a single set of parameters for each solver.
 
 Use ``benchopt run -h`` for more details about these options, or visit https://benchopt.github.io/api.html.
 
