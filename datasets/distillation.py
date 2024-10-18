@@ -63,7 +63,8 @@ class Dataset(BaseDataset):
 
     parameters = {
         'random_state': [32],
-        'reg': [2e-1]
+        'reg': [2e-1],
+        'model': ['model', 'logreg']
     }
 
     def get_data(self):
@@ -128,15 +129,23 @@ class Dataset(BaseDataset):
                 x = nn.Dense(features=10)(x)
                 return x
 
-        cnn = CNN()
+        class LogReg(nn.Module):
+            """A simple logistic regression model."""
+            @nn.compact
+            def __call__(self, x):
+                x = x.reshape((x.shape[0], -1))
+                x = nn.Dense(features=10)(x)
+                return x
+
+        model = CNN() if self.model == 'cnn' else LogReg()
         key = jax.random.PRNGKey(self.random_state)
-        inner_params = cnn.init(key, jnp.ones([1, 28, 28, 1]))['params']
+        inner_params = model.init(key, jnp.ones([1, 28, 28, 1]))['params']
 
         self.dim_inner = jax.tree_map(lambda x: x.shape, inner_params)
         self.dim_outer = self.n_samples_inner
 
         def loss(params, x, y):
-            logits = cnn.apply({'params': params}, x)
+            logits = model.apply({'params': params}, x)
             return jnp.mean(optax.softmax_cross_entropy(logits=logits,
                                                         labels=y))
 
@@ -173,8 +182,8 @@ class Dataset(BaseDataset):
         def accuracy(inner_var, X, y):
             if y.ndim == 2:
                 y = y.argmax(axis=1)
-            logits = cnn.apply({'params': inner_var},
-                               X.reshape((-1, 28, 28, 1)))
+            logits = model.apply({'params': inner_var},
+                                 X.reshape((-1, 28, 28, 1)))
             return jnp.mean(jnp.argmax(logits, axis=1) != y)
 
         solver = jaxopt.LBFGS(
@@ -218,7 +227,7 @@ class Dataset(BaseDataset):
             )
 
         def init_var(key):
-            inner_var = cnn.init(key, jnp.ones([1, 28, 28, 1]))['params']
+            inner_var = model.init(key, jnp.ones([1, 28, 28, 1]))['params']
             outer_var = 1000 * jax.random.normal(key, (10, 28 * 28))
             outer_var = outer_var.reshape((10, 28, 28, 1))
             return inner_var, outer_var
