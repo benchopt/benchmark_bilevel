@@ -5,8 +5,8 @@ Bilevel Optimization Benchmark
 
 *Results can be consulted on https://benchopt.github.io/results/benchmark_bilevel.html*
 
-BenchOpt is a package to simplify, make more transparent, and
-reproducible the comparisons of optimization algorithms.
+BenchOpt is a package to simplify, to make more transparent, and
+reproducible the comparison of optimization algorithms.
 This benchmark is dedicated to solvers for bilevel optimization:
 
 $$
@@ -18,12 +18,12 @@ where $g$ and $f$ are two functions of two variables.
 Different problems
 ------------------
 
-This benchmark currently implements three bilevel optimization problems: quadratic problem, regularization selection, and hyper data cleaning.
+This benchmark currently implements three bilevel optimization problems: quadratic problem, regularization selection, and data cleaning.
 
 ### 1 - Simulated quadratic bilevel problem
 
 
-In this problem, the inner and the outer functions are quadritic functions defined on $\mathbb{R}^{d\times p}$
+In this problem, the inner and the outer functions are quadratic functions defined on $\mathbb{R}^{d\times p}$
 
 $$g(x, z) = \frac{1}{n}\sum_{i=1}^n \frac{1}{2} z^\top H_i^z z + \frac{1}{2} x^\top H_i^x x + x^\top C_i z + c_i^\top z + d_i^\top x$$
 
@@ -38,7 +38,7 @@ The matrices $H_i^z, H_i^x, \tilde H_j^z, \tilde H_j^x$ are randomly generated s
 The matrices $C_i, \tilde C_j$ are generated randomly such that the spectral norm of $\frac1n\sum_i C_i$ is lower than ``L_cross_inner``, and the spectral norm of $\frac1m\sum_j \tilde C_j$ is lower than ``L_cross_outer``.
 
 Note that in this setting, the solution of the inner problem is a linear system.
-As, the full batch inner and outer functions can be computed efficiently with the average Hessian matrices, the value function is evaluated in closed form. 
+As the full batch inner and outer functions can be computed efficiently with the average Hessian matrices, the value function is evaluated in closed form. 
 
 
 ### 2 - Regularization selection
@@ -72,13 +72,13 @@ each coefficient in $z$ is independently regularized with the strength $\exp(x_j
 
 *Homepage : https://www.openml.org/search?type=data&sort=runs&id=1575&status=active*
 
-This is a multicalss logistic regression problem, where the data is of the form $d_i = (a_i, y_i)$ with  $a_i\in\mathbb{R}^p$ are the features and $y_i\in \{1,\dots, k\}$ is the integer target, with k the number of classes.
+This is a multiclass logistic regression problem, where the data is of the form $d_i = (a_i, y_i)$ with  $a_i\in\mathbb{R}^p$ are the features and $y_i\in \{1,\dots, k\}$ is the integer target, with k the number of classes.
 For this problem, the loss is $\ell(d_i, z) = \text{CrossEntropy}(za_i, y_i)$ where $z$ is now a k x p matrix. The regularization is given by 
 $$\mathcal{R}(x, z) = \frac12\sum_{j=1}^k\exp(x_j)\|z_j\|^2,$$
 each line in $z$ is independently regularized with the strength $\exp(x_j)$.
 
 
-### 3 - Hyper data cleaning
+### 3 - Data cleaning
 
 This problem was first introduced by [Franceschi et al., 2017](https://arxiv.org/abs/1703.01785).
 In this problem, the data is the MNIST dataset.
@@ -111,19 +111,19 @@ This benchmark can be run using the following commands:
    $ benchopt run benchmark_bilevel
 ```
 
-Apart from the problem, options can be passed to ``benchopt run``, to restrict the benchmarks to some solvers or datasets, e.g.:
+Apart from the problem, options can be passed to ``benchopt run`` to restrict the benchmarks to some solvers or datasets, e.g.:
 
 ```bash
 	$ benchopt run benchmark_bilevel -s solver1 -d dataset2 --max-runs 10 --n-repetitions 10
 ````
 
-You can also use config files to setup the benchmark run:
+You can also use config files to set the benchmark run:
 
 ```bash
    $ benchopt run benchmark_bilevel --config config/X.yml
 ```
 
-where ``X.yml`` is a config file. See https://benchopt.github.io/index.html#run-a-benchmark for an example of a config file. This will possibly launch a huge grid search. When available, you can rather use the file ``X_best_params.yml`` in order to launch an experiment with a single set of parameters for each solver.
+where ``X.yml`` is a config file. See https://benchopt.github.io/index.html#run-a-benchmark for an example of a config file. This will possibly launch a huge grid search. When available, you can rather use the file ``X_best_params.yml``to launch an experiment with a single set of parameters for each solver.
 
 Use ``benchopt run -h`` for more details about these options, or visit https://benchopt.github.io/api.html.
 
@@ -131,9 +131,9 @@ Use ``benchopt run -h`` for more details about these options, or visit https://b
 
 If you want to add a solver or a new problem, you are welcome to open an issue or submit a pull request!  
 
-#### 1 - How to add a new solvers?
+#### 1 - How to add a new solver?
 
-Each solver derive from the [`benchopt.BaseSolver` class](https://benchopt.github.io/user_guide/generated/benchopt.BaseSolver.html) in the [solvers](solvers) folder. The solvers are separated among the stochastic JAX solvers and the others:
+Each solver derives from the [`benchopt.BaseSolver` class](https://benchopt.github.io/user_guide/generated/benchopt.BaseSolver.html) in the [solvers](solvers) folder. The solvers are separated among the stochastic JAX solvers and the others:
 * Stochastic Jax solver: these solvers inherit from the [`StochasticJaxSolver` class](benchmark_utils/stochastic_jax_solver.py) see the detailed explanations in the [template stochastic solver](solvers/template_stochastic_solver.py).
 * Other solver: see the detailed explanation in the [Benchopt documentation](https://benchopt.github.io/tutorials/add_solver.html). An example is provided in the [template solver](solvers/template_solver.py).
 
@@ -147,7 +147,7 @@ Cite
 If you use this benchmark in your research project, please cite the following paper:
 
 ```
-   @inproceedings{saba,
+   @inproceedings{dagreou2022,
       title = {A Framework for Bilevel Optimization That Enables Stochastic and Global Variance Reduction Algorithms},
       booktitle = {Advances in {{Neural Information Processing Systems}} ({{NeurIPS}})},
       author = {Dagr{\'e}ou, Mathieu and Ablin, Pierre and Vaiter, Samuel and Moreau, Thomas},
