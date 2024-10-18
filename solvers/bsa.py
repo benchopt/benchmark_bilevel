@@ -12,6 +12,8 @@ with safe_import_context() as import_ctx:
     from benchmark_utils.learning_rate_scheduler import update_lr
     from benchmark_utils.learning_rate_scheduler import init_lr_scheduler
 
+    from benchmark_utils.tree_utils import update_sgd_fn, tree_diff
+
 
 class Solver(StochasticJaxSolver):
     """Bilevel Stochastic Approximation (BSA).
@@ -89,9 +91,12 @@ class Solver(StochasticJaxSolver):
                 carry['outer_var']
             )
             implicit_grad = vjp_fun(implicit_grad)[0]
-            grad_outer_var = grad_out - implicit_grad
+            grad_outer_var = tree_diff(grad_out,
+                                       implicit_grad)
 
-            carry['outer_var'] -= outer_lr * grad_outer_var
+            carry['outer_var'] = update_sgd_fn(
+                carry['outer_var'], grad_outer_var, outer_lr
+            )
 
             carry['inner_var'], carry['state_inner_sampler'] = sgd_inner(
                 carry['inner_var'], carry['outer_var'],

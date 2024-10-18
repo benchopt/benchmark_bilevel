@@ -6,6 +6,7 @@ with safe_import_context() as import_ctx:
     from benchmark_utils.sgd_inner import sgd_inner_jax
     from benchmark_utils.hessian_approximation import sgd_v_jax
     from benchmark_utils.learning_rate_scheduler import update_lr
+    from benchmark_utils.tree_utils import update_sgd_fn, tree_diff
     from benchmark_utils.learning_rate_scheduler import init_lr_scheduler
 
     import jax
@@ -35,7 +36,7 @@ class Solver(StochasticJaxSolver):
         self.inner_var = self.inner_var0.copy()
         self.outer_var = self.outer_var0.copy()
 
-        v = jnp.zeros_like(self.inner_var)
+        v = jax.tree_util.tree_map(jnp.zeros_like, self.inner_var)
 
         step_sizes = jnp.array(
             [self.step_size, self.step_size,
@@ -96,10 +97,13 @@ class Solver(StochasticJaxSolver):
                 carry['outer_var']
             )
             implicit_grad = vjp_fun(carry['v'])[0]
-            grad_outer_var = grad_out - implicit_grad
+            grad_outer_var = tree_diff(grad_out,
+                                       implicit_grad)
 
             # Update the outer variable
-            carry['outer_var'] -= outer_lr * grad_outer_var
+            carry['outer_var'] = update_sgd_fn(
+                carry['outer_var'], grad_outer_var, outer_lr
+            )
 
             return carry, _
 

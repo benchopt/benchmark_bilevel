@@ -6,6 +6,10 @@ with safe_import_context() as import_ctx:
     from benchmark_utils.learning_rate_scheduler import update_lr
     from benchmark_utils.learning_rate_scheduler import init_lr_scheduler
 
+    from benchmark_utils.tree_utils import update_sgd_fn, tree_add, tree_diff
+    from benchmark_utils.tree_utils import tree_scalar_mult, update_memory
+    from benchmark_utils.tree_utils import init_memory_of_trees, select_memory
+
     import jax
     import jax.numpy as jnp
 
@@ -29,7 +33,7 @@ class Solver(StochasticJaxSolver):
         # Init variables
         self.inner_var = self.inner_var0.copy()
         self.outer_var = self.outer_var0.copy()
-        v = jnp.zeros_like(self.inner_var)
+        v = jax.tree_util.tree_map(jnp.zeros_like, self.inner_var)
 
         # Init lr scheduler
         step_sizes = jnp.array(
@@ -41,7 +45,7 @@ class Solver(StochasticJaxSolver):
 
         return dict(
             inner_var=self.inner_var, outer_var=self.outer_var, v=v,
-            memory_outer=jnp.zeros((2, *self.outer_var.shape)),
+            memory_outer=init_memory_of_trees(2, self.outer_var),
             state_lr=state_lr,
             state_inner_sampler=self.state_inner_sampler,
             state_outer_sampler=self.state_outer_sampler,
@@ -65,7 +69,9 @@ class Solver(StochasticJaxSolver):
                                         carry['outer_var'],
                                         start_inner)
             inner_var_old = carry['inner_var'].copy()
-            carry['inner_var'] -= inner_lr * grad_inner_var
+            carry['inner_var'] = update_sgd_fn(carry['inner_var'],
+                                               grad_inner_var,
+                                               inner_lr)
 
             # Step.2 - SGD step on the auxillary variable v
             start_inner2, *_, carry['state_inner_sampler'] = inner_sampler(
@@ -83,7 +89,12 @@ class Solver(StochasticJaxSolver):
                                           carry['outer_var'],
                                           start_outer)
             v_old = carry['v'].copy()
-            carry['v'] -= inner_lr * (hvp_fun(carry['v'])[0] - grad_outer_in)
+            carry['v'] = update_sgd_fn(
+                carry['v'],
+                tree_diff(hvp_fun(carry['v'])[0],
+                          grad_outer_in),
+                inner_lr
+            )
 
             # Step.3 - compute the implicit gradient estimates, for the old
             # and new variables
@@ -107,19 +118,34 @@ class Solver(StochasticJaxSolver):
                 lambda x: grad_inner(inner_var_old, x, start_inner3),
                 carry['memory_outer'][0]
             )
-            impl_grad -= cross_v_fun(carry['v'])[0]
-            impl_grad_old -= cross_v_fun_old(v_old)[0]
+            impl_grad = update_sgd_fn(impl_grad,
+                                      cross_v_fun(carry['v'])[0],
+                                      1)
+            impl_grad_old = update_sgd_fn(impl_grad_old,
+                                          cross_v_fun_old(v_old)[0],
+                                          1)
 
             # Step.4 - update direction with momentum
-            carry['memory_outer'] = carry['memory_outer'].at[1].set(
-                impl_grad
-                + (1-eta) * (carry['memory_outer'][1] - impl_grad_old)
+            carry['memory_outer'] = update_memory(
+                carry['memory_outer'], 1,
+                tree_add(
+                    impl_grad,
+                    tree_scalar_mult(
+                        (1-eta),
+                        tree_diff(select_memory(carry['memory_outer'], 1),
+                                  impl_grad_old)
+                    )
+                )
             )
 
             # Step.5 - update the outer variable
             carry['memory_outer'] = carry['memory_outer'].at[0].set(
                 carry['outer_var']
             )
-            carry['outer_var'] -= outer_lr * carry['memory_outer'][1]
+            carry['outer_var'] = update_sgd_fn(
+                carry['outer_var'],
+                select_memory(carry['memory_outer'], 1),
+                outer_lr
+            )
             return carry, _
         return fsla_one_iter

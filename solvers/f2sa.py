@@ -8,6 +8,7 @@ with safe_import_context() as import_ctx:
     from functools import partial
 
     from benchmark_utils.learning_rate_scheduler import update_lr
+    from benchmark_utils.tree_utils import update_sgd_fn, tree_diff
     from benchmark_utils.learning_rate_scheduler import init_lr_scheduler
 
 
@@ -105,11 +106,16 @@ class Solver(StochasticJaxSolver):
             grad_inner_star = grad_inner(
                 carry['inner_approx_star'], carry['outer_var'], start_inner2
             )
-            d_outer_var += carry['lmbda'] * (grad_inner_outer
-                                             - grad_inner_star)
+            d_outer_var = update_sgd_fn(
+                d_outer_var,
+                tree_diff(grad_inner_star, grad_inner_outer),
+                carry['lmbda']
+            )
 
             # Update inner variable with SGD.
-            carry['outer_var'] -= lr_outer * d_outer_var
+            carry['outer_var'] = update_sgd_fn(
+                carry['outer_var'], d_outer_var, lr_outer
+            )
             carry['lmbda'] += d_lmbda
 
             return carry, _
@@ -203,8 +209,10 @@ def inner_f2sa_jax(inner_var, inner_approx_star,  outer_var, lmbda,
         )
 
         # # Update the variables
-        inner_var -= lr_inner * d_inner_var
-        inner_approx_star -= lr_approx_star * d_inner_approx_star
+        inner_var = update_sgd_fn(inner_var, d_inner_var, lr_inner)
+        inner_approx_star = update_sgd_fn(
+            inner_approx_star, d_inner_approx_star, lr_approx_star
+        )
         return (inner_var, inner_approx_star, state_inner_sampler,
                 state_outer_sampler)
     (inner_var, inner_approx_star, state_inner_sampler,

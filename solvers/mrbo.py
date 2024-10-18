@@ -11,6 +11,9 @@ with safe_import_context() as import_ctx:
     from benchmark_utils.learning_rate_scheduler import update_lr
     from benchmark_utils.hessian_approximation import joint_shia_jax
     from benchmark_utils.learning_rate_scheduler import init_lr_scheduler
+    from benchmark_utils.tree_utils import update_memory, tree_scalar_mult
+    from benchmark_utils.tree_utils import update_sgd_fn, tree_add, tree_diff
+    from benchmark_utils.tree_utils import init_memory_of_trees, select_memory
 
 
 class Solver(StochasticJaxSolver):
@@ -35,8 +38,8 @@ class Solver(StochasticJaxSolver):
         self.inner_var = self.inner_var0.copy()
         self.outer_var = self.outer_var0.copy()
 
-        memory_inner = jnp.zeros((2, *self.inner_var.shape))
-        memory_outer = jnp.zeros((2, *self.outer_var.shape))
+        memory_inner = init_memory_of_trees(2, self.inner_var)
+        memory_outer = init_memory_of_trees(2, self.outer_var)
         step_sizes = jnp.array(  # (inner_ss, hia_lr, eta, outer_ss)
             [
                 self.step_size,
@@ -82,12 +85,20 @@ class Solver(StochasticJaxSolver):
             grad_inner_var_old, vjp_fun_old = jax.vjp(
                 lambda x: grad_inner_fun(carry['memory_inner'][0], x,
                                          start_inner),
-                carry['memory_outer'][0]
+                select_memory(carry['memory_outer'], 0)
             )
 
-            carry['memory_inner'] = carry['memory_inner'].at[1].set(
-                grad_inner_var
-                + (1-eta) * (carry['memory_inner'][1] - grad_inner_var_old)
+            carry['memory_inner'] = update_memory(
+                carry['memory_inner'], 1,
+                tree_add(
+                    grad_inner_var,
+                    tree_scalar_mult(
+                        1-eta,
+                        tree_diff(select_memory(carry['memory_inner'], 1),
+                                  grad_inner_var_old)
+                    )
+                )
+
             )
 
             # Step.2 - Compute implicit grad approximation with HIA
@@ -98,35 +109,50 @@ class Solver(StochasticJaxSolver):
                 carry['inner_var'], carry['outer_var'], start_outer
             )
             grad_outer_old, impl_grad_old = grad_outer_fun(
-                carry['memory_inner'][0], carry['memory_outer'][0], start_outer
+                select_memory(carry['memory_inner'], 0),
+                select_memory(carry['memory_outer'], 0),
+                start_outer
             )
 
             ihvp, ihvp_old, carry['state_inner_sampler'] = joint_shia(
                 carry['inner_var'], carry['outer_var'], grad_outer,
-                carry['memory_inner'][0], carry['memory_outer'][0],
+                select_memory(carry['memory_inner'], 0),
+                select_memory(carry['memory_outer'], 0),
                 grad_outer_old, carry['state_inner_sampler'], hia_lr
             )
-            impl_grad -= vjp_fun(ihvp)[0]
-            impl_grad_old -= vjp_fun_old(ihvp_old)[0]
+            impl_grad = update_sgd_fn(impl_grad, vjp_fun(ihvp)[0], 1)
+            impl_grad_old = update_sgd_fn(impl_grad_old,
+                                          vjp_fun_old(ihvp_old)[0], 1)
 
             # Step.3 - Update direction for x with momentum
-            carry['memory_outer'] = carry['memory_outer'].at[1].set(
-                eta * impl_grad
-                + (1-eta) * (carry['memory_outer'][1]
-                             + impl_grad - impl_grad_old)
+            carry['memory_outer'] = update_memory(
+                carry['memory_outer'], 1,
+                tree_add(
+                    impl_grad,
+                    tree_scalar_mult(1-eta, tree_diff(
+                        select_memory(carry['memory_outer'], 1),
+                        impl_grad_old
+                    ))
+                )
             )
 
             # Step.4 - Save the current variables
-            carry['memory_inner'] = carry['memory_inner'].at[0].set(
-                carry['inner_var']
-            )
-            carry['memory_outer'] = carry['memory_outer'].at[0].set(
-                carry['outer_var']
-            )
+            carry['memory_inner'] = update_memory(carry['memory_inner'], 0,
+                                                  carry['inner_var'])
+            carry['memory_outer'] = update_memory(carry['memory_outer'], 0,
+                                                  carry['outer_var'])
 
             # Step.5 - update the variables with the directions
-            carry['inner_var'] -= inner_lr * carry['memory_inner'][1]
-            carry['outer_var'] -= outer_lr * carry['memory_outer'][1]
+            carry['inner_var'] = update_sgd_fn(
+                carry['inner_var'],
+                select_memory(carry['memory_inner'], 1),
+                inner_lr
+            )
+            carry['outer_var'] = update_sgd_fn(
+                carry['outer_var'],
+                select_memory(carry['memory_outer'], 1),
+                outer_lr
+            )
 
             return carry, _
         return mrbo_one_iter
