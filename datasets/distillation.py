@@ -64,7 +64,7 @@ class Dataset(BaseDataset):
     parameters = {
         'random_state': [32],
         'reg': [2e-1],
-        'model': ['model', 'logreg']
+        'model': ['cnn', 'logreg']
     }
 
     def get_data(self):
@@ -228,7 +228,7 @@ class Dataset(BaseDataset):
 
         def init_var(key):
             inner_var = model.init(key, jnp.ones([1, 28, 28, 1]))['params']
-            outer_var = 1000 * jax.random.normal(key, (10, 28 * 28))
+            outer_var = jax.random.normal(key, (10, 28 * 28)) / (28 * 28)
             outer_var = outer_var.reshape((10, 28, 28, 1))
             return inner_var, outer_var
 
