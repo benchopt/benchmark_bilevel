@@ -31,6 +31,15 @@ def quadratic(inner_var, outer_var, hess_inner, hess_outer, cross,
     return res
 
 
+def batched_quadratic(inner_var, outer_var, hess_inner, hess_outer, cross,
+                      linear_inner, linear_outer):
+    batched_loss = jax.vmap(quadratic, in_axes=(None, None, 0, 0, 0, 0, 0))
+    return jnp.mean(
+        batched_loss(inner_var, outer_var, hess_inner, hess_outer,
+                     cross, linear_inner, linear_outer)
+    )
+
+
 def get_function(hess_inner, hess_outer, cross, linear_inner, linear_outer):
 
     @partial(jax.jit, static_argnames=('batch_size'))
