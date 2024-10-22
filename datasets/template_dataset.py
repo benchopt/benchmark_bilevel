@@ -69,9 +69,9 @@ class Dataset(BaseDataset):
     }
 
     def get_data(self):
-        """This method retrieves/simulated the data, defines the inner and
+        """This method retrieves/simulates the data, defines the inner and
         outer objectives and the metrics to evaluate the results. It is
-        mandatory for each dataset. he return arguments of this function are
+        mandatory for each dataset. The return arguments of this function are
         passed as keyword arguments to `Objective.set_data`.
 
         Returns
