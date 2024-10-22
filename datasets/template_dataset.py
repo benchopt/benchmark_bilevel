@@ -5,53 +5,46 @@ from benchopt import safe_import_context
 # - skipping import to speed up autocompletion in CLI.
 # - getting requirements info when all dependencies are not installed.
 with safe_import_context() as import_ctx:
-    import numpy as np
-
     import jax
     import jax.numpy as jnp
-    from functools import partial
+    from functools import partial  # useful for just-in-time compilation
 
-    from jaxopt import LBFGS
+    from jaxopt import LBFGS  # useful to define the value function
 
 
 def generate_matrices(dim_inner, dim_outer, key=jax.random.PRNGKey(0)):
     """Generates the different matrices of the inner and outer quadratic
     functions."""
-    keys = jax.random.split(key, 4)
+    keys = jax.random.split(key, 3)
     eig_inner = jnp.logpsace(-1, 0, dim_inner)
-    eig_outer = jnp.logpsace(-1, 0, dim_inner)
-    eig_cross = jnp.logpsace(-1, 0, min(dim_inner, dim_outer))
+    sing_cross = jnp.logpsace(-1, 0, min(dim_inner, dim_outer))
 
     # Matrix generation for the inner function
     # Generate a PSD matrix with eigenvalues `eig_inner`
-    hess_inner_inner = jax.random.normal(keys[0], (dim_inner, dim_inner))
-    U, _, _ = jnp.linalg.svd(hess_inner_inner)
-    hess_inner_inner = U @ jnp.diag(eig_inner) @ U.T
+    hess_inner = jax.random.normal(keys[0], (dim_inner, dim_inner))
+    U, _, _ = jnp.linalg.svd(hess_inner)
+    hess_inner = U @ jnp.diag(eig_inner) @ U.T
 
-    # Generate a PSD matrix with eigenvalues `eig_outer`
-    hess_outer_inner = jax.random.normal(keys[1], (dim_outer, dim_outer))
-    U, _, _ = jnp.linalg.svd(hess_outer_inner)
-    hess_outer_inner = U @ jnp.diag(eig_outer) @ U.T
-
-    # Generate a PSD matrix with eigenvalues `eig_outer`
-    cross_inner = jax.random.normal(keys[2], (dim_outer, dim_inner))
+    # Generate a matrix with singular values `sing_cross`
+    cross_inner = jax.random.normal(keys[1], (dim_outer, dim_inner))
     D = jnp.zeros((dim_outer, dim_inner))
     D = D.at[:min(dim_outer, dim_inner), :min(dim_outer, dim_inner)].set(
-        jnp.diag(eig_cross)
+        jnp.diag(sing_cross)
     )
     U, _, V = jnp.linalg.svd(cross_inner)
     cross_inner = U @ D @ V.T
 
-    hess_inner_outer = jax.random.normal(keys[3], (dim_inner, dim_inner))
-    U, _, _ = jnp.linalg.svd(hess_inner_outer)
-    hess_inner_outer = U @ jnp.diag(eig_inner) @ U.T
+    hess_outer = jax.random.normal(keys[2], (dim_inner, dim_inner))
+    U, _, _ = jnp.linalg.svd(hess_outer)
+    hess_outer = U @ jnp.diag(eig_inner) @ U.T
 
-    return hess_inner_inner, hess_outer_inner, cross_inner, hess_inner_outer
+    return hess_inner, cross_inner, hess_outer
 
 
-def quadratic(inner_var, outer_var, hess_inner, hess_outer, cross):
+def quadratic(inner_var, outer_var, hess_inner, cross):
+    """Defines a quadratic function for given hessian and cross
+    derivative matrices."""
     res = .5 * inner_var @ (hess_inner @ inner_var)
-    res += .5 * outer_var @ (hess_outer @ outer_var)
     res += outer_var @ cross @ inner_var
     return res
 
@@ -76,40 +69,93 @@ class Dataset(BaseDataset):
     }
 
     def get_data(self):
-        # The return arguments of this function are passed as keyword arguments
-        # to `Objective.set_data`. This defines the benchmark's
-        # API to pass data.
+        """This method retrieves/simulated the data, defines the inner and
+        outer objectives and the metrics to evaluate the results. It is
+        mandatory for each dataset. he return arguments of this function are
+        passed as keyword arguments to `Objective.set_data`.
 
-        hess_inner_inner, hess_outer_inner, cross, hess_inner_outer = (
+        Returns
+        -------
+        data: dict
+            A dictionary containing the keys `pb_inner`, `pb_outer`, `metrics`
+            and optionnally `init_var`.
+
+        The entries of the dictionary are:
+        - `pb_inner`: tuple
+            Contains the inner function, the number of inner samples, the
+            dimension of the inner variable and the full batch version of the
+            inner objective.
+
+        - `pb_outer`: tuple
+            Contains the outer function, the number of outer samples, the
+            dimension of the outer variable and the full batch version of the
+            outer objective.
+
+        - `metrics`: function
+            Function that computes the metrics of the problem.
+
+        - `init_var`: function, optional
+            Function that initializes the inner and outer variables.
+        """
+
+        hess_inner, cross, hess_outer = (
             generate_matrices(
                 self.dim_inner, self.dim_outer
             )
         )
 
+        # This decorator is used to jit the inner and the outer objective.
+        # static_argnames=('batch_size') means that the function is recompiled
+        # each time it is used with a new batch size.
         @partial(jax.jit, static_argnames=('batch_size'))
         def f_inner(inner_var, outer_var, start=0, batch_size=1):
-            return quadratic(inner_var, outer_var,
-                             hess_inner_inner, hess_outer_inner,
-                             cross)
+            """Defines the inner objective function. It should be a pure jax
+            function so that it can be jitted.
 
+            Parameters
+            ----------
+            inner_var: pytree
+                Inner variable.
+
+            outer_var: pytree
+                Outer variable.
+
+            start: int, default=0
+                For stochastic problems, index of the first sample of the
+                batch.
+
+            batch_size: int, default=1
+                For stochastic problems, size of the batch.
+
+            Returns
+            -------
+            float
+                Value of the inner objective function.
+            """
+            return quadratic(inner_var, outer_var,
+                             hess_inner, cross)
+
+        # This is similar to f_inner
         @partial(jax.jit, static_argnames=('batch_size'))
         def f_outer(inner_var, outer_var, start=0, batch_size=1):
-            return quadratic(inner_var, outer_var, hess_inner_outer,
-                             jnp.zeros_like(hess_outer_inner),
+            return quadratic(inner_var, outer_var, hess_outer,
                              jnp.zeros_like(cross))
 
-        f_inner_fb = partial(
-            f_inner, batch_size=X_train.shape[0], start=0
-        )
-        f_outer_fb = partial(
-            f_outer, batch_size=X_val.shape[0], start=0
-        )
+        # For stochastic problems, it is useful to define the full batch
+        # version of f_inner and f_outer, for instance to compute metrics
+        # or to be used in some solvers (e.g. SRBA). For non-stochastic
+        # problems, just define f_inner_fb = f_inner and f_outer_fb = f_outer.
+        f_inner_fb = f_inner
+        f_outer_fb = f_outer
 
         solver_inner = LBFGS(fun=f_inner_fb)
 
+        # The value function is useful for the metrics. Note that it is not
+        # mandatory to define it. In particular, for large scale problems,
+        # evaluating it can be cumbersome.
         def value_function(outer_var):
             inner_var_star = solver_inner.run(
-                jnp.zeros(X_train.shape[1]), outer_var
+                jnp.zeros(self.dim_inner), outer_var
             ).params
 
             return f_outer_fb(inner_var_star, outer_var), inner_var_star
@@ -129,8 +175,6 @@ class Dataset(BaseDataset):
                 value_func=float(value_fun),
                 value=float(jnp.linalg.norm(grad_value)**2),
                 inner_distance=float(jnp.linalg.norm(inner_star-inner_var)**2),
-                norm_outer_var=float(jnp.linalg.norm(outer_var)**2),
-                norm_regul=float(jnp.linalg.norm(np.exp(outer_var))**2),
             )
 
         def init_var(key):
@@ -151,12 +195,4 @@ class Dataset(BaseDataset):
             init_var=init_var,
         )
 
-        # The output should be a dict that contains the keys `pb_inner`,
-        # `pb_outer`, `metrics`, and optionnally `init_var`.
-        # `pb_inner`` is a tuple that contains the inner function, the number
-        # of inner samples, the dimension of the inner variable and the full
-        # batch version of the inner version.
-        # `pb_outer` in analogous.
-        # The key `metrics` contains the function `metrics`.
-        # The key `init_var` contains the function `init_var` when applicable.
         return data
