@@ -12,43 +12,6 @@ with safe_import_context() as import_ctx:
     from jaxopt import LBFGS  # useful to define the value function
 
 
-def generate_matrices(dim_inner, dim_outer, key=jax.random.PRNGKey(0)):
-    """Generates the different matrices of the inner and outer quadratic
-    functions."""
-    keys = jax.random.split(key, 3)
-    eig_inner = jnp.logpsace(-1, 0, dim_inner)
-    sing_cross = jnp.logpsace(-1, 0, min(dim_inner, dim_outer))
-
-    # Matrix generation for the inner function
-    # Generate a PSD matrix with eigenvalues `eig_inner`
-    hess_inner = jax.random.normal(keys[0], (dim_inner, dim_inner))
-    U, _, _ = jnp.linalg.svd(hess_inner)
-    hess_inner = U @ jnp.diag(eig_inner) @ U.T
-
-    # Generate a matrix with singular values `sing_cross`
-    cross_inner = jax.random.normal(keys[1], (dim_outer, dim_inner))
-    D = jnp.zeros((dim_outer, dim_inner))
-    D = D.at[:min(dim_outer, dim_inner), :min(dim_outer, dim_inner)].set(
-        jnp.diag(sing_cross)
-    )
-    U, _, V = jnp.linalg.svd(cross_inner)
-    cross_inner = U @ D @ V.T
-
-    hess_outer = jax.random.normal(keys[2], (dim_inner, dim_inner))
-    U, _, _ = jnp.linalg.svd(hess_outer)
-    hess_outer = U @ jnp.diag(eig_inner) @ U.T
-
-    return hess_inner, cross_inner, hess_outer
-
-
-def quadratic(inner_var, outer_var, hess_inner, cross):
-    """Defines a quadratic function for given hessian and cross
-    derivative matrices."""
-    res = .5 * inner_var @ (hess_inner @ inner_var)
-    res += outer_var @ cross @ inner_var
-    return res
-
-
 # All datasets must be named `Dataset` and inherit from `BaseDataset`
 class Dataset(BaseDataset):
     """How to add a new problem to the benchmark?
@@ -98,12 +61,6 @@ class Dataset(BaseDataset):
             Function that initializes the inner and outer variables.
         """
 
-        hess_inner, cross, hess_outer = (
-            generate_matrices(
-                self.dim_inner, self.dim_outer
-            )
-        )
-
         # This decorator is used to jit the inner and the outer objective.
         # static_argnames=('batch_size') means that the function is recompiled
         # each time it is used with a new batch size.
@@ -132,14 +89,12 @@ class Dataset(BaseDataset):
             float
                 Value of the inner objective function.
             """
-            return quadratic(inner_var, outer_var,
-                             hess_inner, cross)
+            return inner_var ** 2 + 2 * inner_var * outer_var
 
         # This is similar to f_inner
         @partial(jax.jit, static_argnames=('batch_size'))
         def f_outer(inner_var, outer_var, start=0, batch_size=1):
-            return quadratic(inner_var, outer_var, hess_outer,
-                             jnp.zeros_like(cross))
+            return inner_var ** 2
 
         # For stochastic problems, it is useful to define the full batch
         # version of f_inner and f_outer, for instance to compute metrics
