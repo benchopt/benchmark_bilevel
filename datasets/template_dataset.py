@@ -23,14 +23,6 @@ class Dataset(BaseDataset):
     # Name to select the dataset in the CLI and to display the results.
     name = "Template dataset"
 
-    # List of parameters to generate the datasets. The benchmark will consider
-    # the cross product for each key in the dictionary.
-    # Any parameters 'param' defined here is available as `self.param`.
-    parameters = {
-        'dim_inner': [10],
-        'dim_outer': [10],
-    }
-
     def get_data(self):
         """This method retrieves/simulates the data, defines the inner and
         outer objectives and the metrics to evaluate the results. It is
@@ -41,24 +33,22 @@ class Dataset(BaseDataset):
         -------
         data: dict
             A dictionary containing the keys `pb_inner`, `pb_outer`, `metrics`
-            and optionnally `init_var`.
+            and optionnally `init_var`. The entries of the dictionary are:
+                - `pb_inner`: tuple
+                    Contains the inner function, the number of inner samples, the
+                    dimension of the inner variable and the full batch version of the
+                    inner objective.
 
-        The entries of the dictionary are:
-        - `pb_inner`: tuple
-            Contains the inner function, the number of inner samples, the
-            dimension of the inner variable and the full batch version of the
-            inner objective.
+                - `pb_outer`: tuple
+                    Contains the outer function, the number of outer samples, the
+                    dimension of the outer variable and the full batch version of the
+                    outer objective.
 
-        - `pb_outer`: tuple
-            Contains the outer function, the number of outer samples, the
-            dimension of the outer variable and the full batch version of the
-            outer objective.
+                - `metrics`: function
+                    Function that computes the metrics of the problem.
 
-        - `metrics`: function
-            Function that computes the metrics of the problem.
-
-        - `init_var`: function, optional
-            Function that initializes the inner and outer variables.
+                - `init_var`: function, optional
+                    Function that initializes the inner and outer variables.
         """
 
         # This decorator is used to jit the inner and the outer objective.
@@ -89,7 +79,7 @@ class Dataset(BaseDataset):
             float
                 Value of the inner objective function.
             """
-            return inner_var ** 2 + 2 * inner_var * outer_var
+            return .5 * inner_var ** 2 + inner_var * outer_var
 
         # This is similar to f_inner
         @partial(jax.jit, static_argnames=('batch_size'))
@@ -103,16 +93,11 @@ class Dataset(BaseDataset):
         f_inner_fb = f_inner
         f_outer_fb = f_outer
 
-        solver_inner = LBFGS(fun=f_inner_fb)
-
         # The value function is useful for the metrics. Note that it is not
         # mandatory to define it. In particular, for large scale problems,
         # evaluating it can be cumbersome.
         def value_function(outer_var):
-            inner_var_star = solver_inner.run(
-                jnp.zeros(self.dim_inner), outer_var
-            ).params
-
+            inner_var_star = - outer_var
             return f_outer_fb(inner_var_star, outer_var), inner_var_star
 
         value_and_grad = jax.jit(
