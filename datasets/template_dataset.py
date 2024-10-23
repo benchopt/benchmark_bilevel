@@ -9,8 +9,6 @@ with safe_import_context() as import_ctx:
     import jax.numpy as jnp
     from functools import partial  # useful for just-in-time compilation
 
-    from jaxopt import LBFGS  # useful to define the value function
-
 
 # All datasets must be named `Dataset` and inherit from `BaseDataset`
 class Dataset(BaseDataset):
@@ -35,14 +33,14 @@ class Dataset(BaseDataset):
             A dictionary containing the keys `pb_inner`, `pb_outer`, `metrics`
             and optionnally `init_var`. The entries of the dictionary are:
                 - `pb_inner`: tuple
-                    Contains the inner function, the number of inner samples, the
-                    dimension of the inner variable and the full batch version of the
-                    inner objective.
+                    Contains the inner function, the number of inner samples,
+                    the dimension of the inner variable and the full batch
+                    version of the inner objective.
 
                 - `pb_outer`: tuple
-                    Contains the outer function, the number of outer samples, the
-                    dimension of the outer variable and the full batch version of the
-                    outer objective.
+                    Contains the outer function, the number of outer samples,
+                    the dimension of the outer variable and the full batch
+                    version of the outer objective.
 
                 - `metrics`: function
                     Function that computes the metrics of the problem.
@@ -69,10 +67,13 @@ class Dataset(BaseDataset):
 
             start: int, default=0
                 For stochastic problems, index of the first sample of the
-                batch.
+                batch. Note that for this specific instance, it is not used
+                since the problem is deterministic.
 
             batch_size: int, default=1
-                For stochastic problems, size of the batch.
+                For stochastic problems, size of the batch. Note that for this
+                specific instance, it is not used since the problem is
+                deterministic.
 
             Returns
             -------
