@@ -81,6 +81,12 @@ class Solver(StochasticJaxSolver):
         exponents = jnp.array(
             [.5, .5]
         )
+
+        # The step size scheduler provides step sizes that have the form
+        # `a / t**b`, where t is the iteration number, `a` is a constant
+        # that comes from the first argument of init_lr_scheduler and `b` is
+        # the exponent that comes from the second argument of
+        # init_lr_scheduler.
         state_lr = init_lr_scheduler(step_sizes, exponents)
         return dict(
             inner_var=self.inner_var, outer_var=self.outer_var, v=v,
