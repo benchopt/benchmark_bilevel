@@ -6,6 +6,8 @@ from benchopt import safe_import_context
 with safe_import_context() as import_ctx:
     # import your reusable functions here
     from benchmark_utils import constants
+
+    # step size scheduler
     from benchmark_utils.learning_rate_scheduler import update_lr
     from benchmark_utils.learning_rate_scheduler import init_lr_scheduler
 
@@ -17,14 +19,6 @@ with safe_import_context() as import_ctx:
 
 
 class Solver(BaseSolver):
-    """Gradient descent with JAXopt solvers.
-
-    M. Blondel, Q. Berthet, M. Cuturi, R. Frosting, S. Hoyer, F.
-    Llinares-Lopez, F. Pedregosa and J.-P. Vert. "Efficient and Modular
-    Implicit Differentiation". NeurIPS 2022"""
-    # Name to select the solver in the CLI and to display the results.
-    name = 'jaxopt_GD'
-
     """How to add a new  solver to the benchmark?
 
     This template solver is an adaptation of the solver from the benchopt
@@ -32,6 +26,8 @@ class Solver(BaseSolver):
     the bilevel setting. Other explanations can be found in
     https://benchopt.github.io/tutorials/add_solver.html.
     """
+    # Name to select the solver in the CLI and to display the results.
+    name = 'Template solver'
 
     # List of packages needed to run the solver.
     requirements = ["pip:jaxopt"]
@@ -73,7 +69,7 @@ class Solver(BaseSolver):
         # The value function is defined for this specific solver, but it is
         # not mandatory in general.
         def value_fun(inner_var, outer_var):
-            """Solver used to solve the inner problem.
+            """Value function for the bilevel optimization problem.
 
             The output of this function is differentiable w.r.t. the
             outer_variable. The Jacobian is computed using implicit
@@ -82,6 +78,8 @@ class Solver(BaseSolver):
             inner_var = inner_solver.run(inner_var, outer_var).params
             return self.f_outer(inner_var, outer_var), inner_var
 
+        # The value function and its gradient are jitted by JAX for fast oracle
+        # computations.
         self.value_grad = jax.jit(jax.value_and_grad(
             value_fun, argnums=1, has_aux=True
         ))
@@ -107,13 +105,29 @@ class Solver(BaseSolver):
             [self.step_size_outer]
         )
         exponents = jnp.zeros(1)
+        # The step size scheduler provides step sizes that have the form
+        # `a / t**b`, where t is the iteration number, `a` is a constant
+        # that comes from the first argument of init_lr_scheduler and `b` is
+        # the exponent that comes from the second argument of
+        # init_lr_scheduler.
         state_lr = init_lr_scheduler(step_sizes, exponents)
 
+        # The function `callback` calls `Objective.get_result` to check if the
+        # stopping criterion is met. More informations on the callback
+        # asmpling strategy can be found here:
+        # https://benchopt.github.io/user_guide/performance_curves.html#using-a
+        # -callback
         while callback():
+            # update_lr provides a step_size and a new state of the scheduler.
             outer_lr, state_lr = update_lr(state_lr)
+
+            # Compute the value and the gradient of the value function. Also
+            # provide the inner solution.
             (_, self.inner_var), implicit_grad = self.value_grad(
                 self.inner_var, self.outer_var
             )
+
+            # Update the outer variable by a gradient step.
             self.outer_var -= outer_lr * implicit_grad
 
     def get_result(self):
