@@ -25,9 +25,10 @@ class Solver(StochasticJaxSolver):
     """How to add a new stochastic solver to the benchmark?
 
     Stochastic solvers are Solver classes that inherit from the
-    `StochasticJaxSolver` class. They should implement the `init` and the
+    `StochasticJaxSolver` class which aims at making easy the JIT compilation
+    of the code. Stochastic solvers should implement the `init` and the
     `get_step_methods` and the class variable `parameters`. One epoch of
-    StochasticJaxSolver corresponds to `eval_freq` outer iterations of the
+    `StochasticJaxSolver` corresponds to `eval_freq` outer iterations of the
     solver. The epochs of these solvers are jitted by JAX to get fast
     stochastic iterations.
 
@@ -110,22 +111,35 @@ class Solver(StochasticJaxSolver):
             start_inner, *_, carry['state_inner_sampler'] = inner_sampler(
                 carry['state_inner_sampler']
             )
+
+            # The gradient of the inner function w.r.t. the inner variable
+            # and a function that takes as input a vector v and returns
+            # the product between the Hessian of the inner function w.r.t.
             grad_inner_var, vjp_train = jax.vjp(
                 lambda z, x: grad_inner(z, x, start_inner), carry['inner_var'],
                 carry['outer_var']
             )
+
+            # Product between the Hessian of the inner function w.r.t. the
+            # inner variable and the vector v and product between the cross
+            # derivatives matrix and the vector v.
             hvp, cross_v = vjp_train(carry['v'])
 
             start_outer, *_, carry['state_outer_sampler'] = outer_sampler(
                 carry['state_outer_sampler']
             )
+
+            # Gradient of the outer function
             grad_in_outer, grad_out_outer = grad_outer(
                 carry['inner_var'], carry['outer_var'], start_outer
             )
 
             # Step.2 - update inner variable with SGD.
+            # Gradient step for the inner variable step
             carry['inner_var'] -= inner_step_size * grad_inner_var
+            # Gradient step for the linear system variable
             carry['v'] -= inner_step_size * (hvp + grad_in_outer)
+            # Approximate gradient step for the outer variable
             carry['outer_var'] -= outer_step_size * (cross_v + grad_out_outer)
 
             return carry, _
