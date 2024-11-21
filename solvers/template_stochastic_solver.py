@@ -78,7 +78,7 @@ class Solver(StochasticJaxSolver):
         value of the linear system variable `v`, the initial state of the
         lr scheduler, and the initial state of the samplers.
         """
-    
+
         # Init variables
         self.inner_var = self.inner_var0.copy()
         self.outer_var = self.outer_var0.copy()
@@ -106,7 +106,26 @@ class Solver(StochasticJaxSolver):
         )
 
     def get_step(self, inner_sampler, outer_sampler):
+        """Returns a function that compute one iteration of the stochastic
+        algorithm.
 
+        Parameters
+        ----------
+        inner_sampler: callable
+            Function that returns the initial index of a batch of samples for
+            the inner function and the update state of the sampler.
+
+        outer_sampler: callable
+            Function that returns the initial index of a batch of samples for
+            the outer function and the update state of the sampler.
+
+        Returns
+        -------
+        soba_one_iter: callable
+            Function that computes one iteration of the SOBA algorithm. It
+            takes as input the carry dictionary and an unused argument and
+            returns the updated carry and the unused argument.
+        """
         grad_inner = jax.grad(self.f_inner, argnums=0)
         grad_outer = jax.grad(self.f_outer, argnums=(0, 1))
 
