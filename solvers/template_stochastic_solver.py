@@ -70,6 +70,15 @@ class Solver(StochasticJaxSolver):
     }
 
     def init(self):
+        """
+        Initializes the stochastic solver.
+        It returns a dictionary which is the initial state of the `carry`
+        dictionary in the `get_step` method. It contains at least `inner_var`
+        and `outer_var`. In this specific case, it also contains the initial
+        value of the linear system variable `v`, the initial state of the
+        lr scheduler, and the initial state of the samplers.
+        """
+    
         # Init variables
         self.inner_var = self.inner_var0.copy()
         self.outer_var = self.outer_var0.copy()
@@ -108,13 +117,15 @@ class Solver(StochasticJaxSolver):
             )
 
             # Step.1 - get all gradients and compute the implicit gradient.
+
+            # First index for the samples of the inner function
             start_inner, *_, carry['state_inner_sampler'] = inner_sampler(
                 carry['state_inner_sampler']
             )
 
             # The gradient of the inner function w.r.t. the inner variable
             # and a function that takes as input a vector v and returns
-            # the product between the Hessian of the inner function w.r.t.
+            # the different Hessian-vector products with v. (c.f. l.128)
             grad_inner_var, vjp_train = jax.vjp(
                 lambda z, x: grad_inner(z, x, start_inner), carry['inner_var'],
                 carry['outer_var']
@@ -125,6 +136,7 @@ class Solver(StochasticJaxSolver):
             # derivatives matrix and the vector v.
             hvp, cross_v = vjp_train(carry['v'])
 
+            # First index for the samples of the outer function
             start_outer, *_, carry['state_outer_sampler'] = outer_sampler(
                 carry['state_outer_sampler']
             )
