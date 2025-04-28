@@ -166,7 +166,7 @@ class Solver(StochasticJaxSolver):
                 carry['d_v'] = hvp_fb - grad_in_outer_fb
                 
 
-            # Step.3 - update inner variable with direction
+            # Step.3 - update variable with direction
             carry['inner_var'] -= inner_lr * carry['d_inner']
             carry['v'] -= assis_lr * carry['d_v']
             carry['outer_var'] -= outer_lr * carry['d_outer']

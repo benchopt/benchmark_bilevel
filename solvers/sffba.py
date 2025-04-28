@@ -138,7 +138,7 @@ class Solver(StochasticJaxSolver):
 
 
 
-            # Step.4 - update inner variable 
+            # Step.4 - update variable 
             carry['inner_var'] -= inner_lr * carry['d_inner']
             carry['v'] -= assis_lr * carry['d_v']
             carry['outer_var'] -= outer_lr * carry['d_outer']
