@@ -42,7 +42,7 @@ class Solver(StochasticJaxSolver):
         step_sizes = jnp.array(
             [self.inner_size, self.inner_size / self.outer_ratio, self.inner_size / self.assis_ratio]
         )
-        # MSEBA works with constant stepsizes
+        # SPABA works with constant stepsizes
         exponents = jnp.zeros_like(step_sizes)
         state_lr = init_lr_scheduler(step_sizes, exponents)
         
