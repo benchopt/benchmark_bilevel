@@ -12,6 +12,10 @@ with safe_import_context() as import_ctx:
 
 class Solver(StochasticJaxSolver):
     name = 'SFFBA'
+    """Stochastic Full gradient Free Bilevel Algorithm (SFFBA).
+    Tianshu Chu, Dachuan Xu, Wei Yao, Chengming Yu, Jin Zhang "A Provably Convergent 
+    Plug-and-Play Framework for Stochastic Bilevel Optimization".
+    arXiv:2505.01258"""
 
     # any parameter defined here is accessible as a class attribute
     parameters = {
@@ -86,7 +90,8 @@ class Solver(StochasticJaxSolver):
 
             # previous gradient
             grad_inner_var_old, vjp_train_old = jax.vjp(
-                lambda z, x: grad_inner(z, x, start_inner), carry['inner_var_old'],
+                lambda z, x: grad_inner(z, x, start_inner),
+                carry['inner_var_old'],
                 carry['outer_var_old']
             )
             hvp_old, cross_v_old = vjp_train_old(carry['v_old'])
@@ -106,7 +111,8 @@ class Solver(StochasticJaxSolver):
 
             # this gradient
             grad_inner_var, vjp_train = jax.vjp(
-                lambda z, x: grad_inner(z, x, start_inner), carry['inner_var'],
+                lambda z, x: grad_inner(z, x, start_inner), 
+                carry['inner_var'],
                 carry['outer_var']
             )
             hvp, cross_v = vjp_train(carry['v'])
@@ -131,14 +137,11 @@ class Solver(StochasticJaxSolver):
                 memory, updates
             )
             # Step.3 - update the direction
-
             carry['d_inner'] = (1 - step_lr) * (carry['d_inner'] - grad_inner_var_old) + (1 + step_lr) * grad_inner_var  + step_lr * (memory['inner_grad'][-1] )
             carry['d_outer'] = (1 - step_lr) * (carry['d_outer'] - grad_out_outer_old - cross_v_old) + (1 + step_lr) * (grad_out_outer + cross_v)  + step_lr * (memory['cross_v'][-1] + memory['grad_out_outer'][-1])
             carry['d_v'] = (1 - step_lr) * (carry['d_v'] - grad_in_outer_old - hvp_old) + (1 + step_lr) * (grad_in_outer + hvp)  + step_lr * (memory['hvp'][-1] + memory['grad_in_outer'][-1])
 
-
-
-            # Step.4 - update variable 
+            # Step.4 - update inner variable 
             carry['inner_var'] -= inner_lr * carry['d_inner']
             carry['v'] -= assis_lr * carry['d_v']
             carry['outer_var'] -= outer_lr * carry['d_outer']
