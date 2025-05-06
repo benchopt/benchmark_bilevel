@@ -16,9 +16,10 @@ solver:
   - SOBA[batch_size=64,eval_freq=512,framework=none,outer_ratio=0.0001,step_size=1.0,random_state=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],framework=none]
   - TTSA[batch_size=64,eval_freq=512,framework=none,n_hia_steps=10,outer_ratio=1e-05,step_size=0.1,random_state=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],framework=none]
   - BSA[batch_size=64,eval_freq=512,framework=none,n_hia_steps=10,n_inner_steps=10,outer_ratio=1e-05,step_size=0.1,random_state=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],framework=none]
-  - SFFBA[batch_size=64,eval_freq=96,inner_size=0.01,assis_ratio=1.0,outer_ratio=1e-05,step_size=0.01,random_state=[1]]
-  - MSEBA[batch_size=64,eval_freq=96,inner_size=0.01,assis_ratio=1.0,outer_ratio=1e-05,step_size=0.01,random_state=[1]]
-  - SPABA[batch_size=64,eval_freq=96,inner_size=0.5,assis_ratio=1.0,outer_ratio=0.0001,random_state=[1]]
+  - SFFBA[batch_size=64,eval_freq=96,inner_size=0.01,assis_ratio=1.0,outer_ratio=1e-05,step_size=0.01,random_state=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]]
+  - MSEBA[batch_size=64,eval_freq=96,inner_size=0.015,assis_ratio=1.0,outer_ratio=1e-05,step_size=0.01,random_state=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]]
+  - SPABA[batch_size=64,eval_freq=96,inner_size=0.015,assis_ratio=1.0,outer_ratio=1e-05,random_state=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]]
+
 n-repetitions: 1
 max-runs: 64000
 timeout: 900
