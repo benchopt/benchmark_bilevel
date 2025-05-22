@@ -106,7 +106,7 @@ class Solver(StochasticJaxSolver):
         )
 
     def get_step(self, inner_sampler, outer_sampler):
-        """Returns a function that compute one iteration of the stochastic
+        """Returns a function that computes one iteration of the stochastic
         algorithm.
 
         Parameters
