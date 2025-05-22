@@ -76,7 +76,7 @@ class Solver(StochasticJaxSolver):
         dictionary in the `get_step` method. It contains at least `inner_var`
         and `outer_var`. In this specific case, it also contains the initial
         value of the linear system variable `v`, the initial state of the
-        lr scheduler, and the initial state of the samplers.
+        learning rate scheduler, and the initial state of the samplers.
         """
 
         # Init variables
