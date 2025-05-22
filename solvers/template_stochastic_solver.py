@@ -150,9 +150,12 @@ class Solver(StochasticJaxSolver):
                 carry['outer_var']
             )
 
-            # Product between the Hessian of the inner function w.r.t. the
-            # inner variable and the vector v and product between the cross
-            # derivatives matrix and the vector v.
+            # Hessian-vector products (HVP) with v "by block". In the first
+            # element, the HVP is done with the block of the Hessian that
+            # contains the second order derivatives w.r.t. the inner variable.
+            # In the second element, the HVP is done with the block of the
+            # Hessian that contains the crossed derivatives of the inner
+            # function.
             hvp, cross_v = vjp_train(carry['v'])
 
             # First index for the samples of the outer function
@@ -166,7 +169,7 @@ class Solver(StochasticJaxSolver):
             )
 
             # Step.2 - update inner variable with SGD.
-            # Gradient step for the inner variable step
+            # Gradient step for the inner variable
             carry['inner_var'] -= inner_step_size * grad_inner_var
             # Gradient step for the linear system variable
             carry['v'] -= inner_step_size * (hvp + grad_in_outer)
