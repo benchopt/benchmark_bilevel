@@ -7,8 +7,9 @@ with safe_import_context() as import_ctx:
     import jax.numpy as jnp
     from functools import partial
 
-    from benchmark_utils.learning_rate_scheduler import update_lr
     from benchmark_utils.hessian_approximation import hia_jax
+    from benchmark_utils.learning_rate_scheduler import update_lr
+    from benchmark_utils.tree_utils import update_sgd_fn, tree_diff
     from benchmark_utils.learning_rate_scheduler import init_lr_scheduler
 
 
@@ -74,7 +75,9 @@ class Solver(StochasticJaxSolver):
             )
 
             # Step.2 - Update the inner variable
-            carry['inner_var'] -= inner_lr * grad_inner_var
+            carry['inner_var'] = update_sgd_fn(carry['inner_var'],
+                                               grad_inner_var,
+                                               inner_lr)
 
             # Step.3 - Compute implicit grad approximation with HIA
             start_outer, *_, carry['state_outer_sampler'] = outer_sampler(
@@ -95,10 +98,11 @@ class Solver(StochasticJaxSolver):
                 carry['outer_var']
             )
             implicit_grad = vjp_fun(v)[0]
-            grad_outer_var = grad_out - implicit_grad
+            grad_outer_var = tree_diff(grad_out, implicit_grad)
 
             # Step.4 - update the outer variables
-            carry['outer_var'] -= outer_lr * grad_outer_var
-
+            carry['outer_var'] = update_sgd_fn(
+                carry['outer_var'], grad_outer_var, outer_lr
+            )
             return carry, _
         return ttsa_one_iter

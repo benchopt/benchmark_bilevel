@@ -13,6 +13,9 @@ with safe_import_context() as import_ctx:
     from benchmark_utils.learning_rate_scheduler import update_lr
     from benchmark_utils.learning_rate_scheduler import init_lr_scheduler
 
+    from benchmark_utils.tree_utils import update_sgd_fn, tree_inner_product
+    from benchmark_utils.tree_utils import tree_scalar_mult, tree_add
+
 
 class Solver(BaseSolver):
     """Bilevel Optimization Made Easy (BOME).
@@ -93,8 +96,12 @@ class Solver(BaseSolver):
             )[1]
 
             # Compute phi and lmbda
-            squared_norm_grad_q = jnp.linalg.norm(grad_q_inner_var)**2
-            squared_norm_grad_q += jnp.linalg.norm(grad_q_outer_var)**2
+            squared_norm_grad_q = tree_inner_product(
+                grad_q_inner_var, grad_q_inner_var
+            )
+            squared_norm_grad_q += tree_inner_product(
+                grad_q_outer_var, grad_q_outer_var
+            )
             if self.choice_phi == 'grad_norm':
                 phi = squared_norm_grad_q
             else:
@@ -103,17 +110,27 @@ class Solver(BaseSolver):
                         - self.f_inner(inner_var_star, self.outer_var)
                 )
             phi *= self.eta
-            dot_grad = jnp.dot(grad_outer_inner_var, grad_q_inner_var)
-            dot_grad += jnp.dot(grad_outer_outer_var, grad_q_outer_var)
+            dot_grad = tree_inner_product(grad_outer_inner_var,
+                                          grad_q_inner_var)
+            dot_grad += tree_inner_product(grad_outer_outer_var,
+                                           grad_q_outer_var)
             lmbda = jnp.maximum(phi - dot_grad, 0) / squared_norm_grad_q
 
             # Compute the update direction of the inner and outer variables
-            d_inner = grad_outer_inner_var + lmbda * grad_q_inner_var
-            d_outer = grad_outer_outer_var + lmbda * grad_q_outer_var
+            d_inner = tree_add(
+                grad_outer_inner_var, tree_scalar_mult(lmbda, grad_q_inner_var)
+            )
+            d_outer = tree_add(
+                grad_outer_outer_var, tree_scalar_mult(lmbda, grad_q_outer_var)
+            )
 
             # Update inner and outer variables
-            self.inner_var -= lr_inner * d_inner
-            self.outer_var -= lr_outer * d_outer
+            self.inner_var = update_sgd_fn(
+                self.inner_var, d_inner, lr_inner
+            )
+            self.outer_var = update_sgd_fn(
+                self.outer_var, d_outer, lr_outer
+            )
 
     def get_result(self):
         return dict(inner_var=self.inner_var, outer_var=self.outer_var)
